@@ -23,7 +23,8 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                                q_ions, r_ions, w_ions,
                                sigma_1, sigma_2,
                                results_path,
-                               enable_plots = True, plot_at = 500):
+                               enable_plots = True, enable_csvs = True,
+                               plot_at = 500):
     """
     Particle solver for the expanding beam that uses the improved asymmetrical Euler method for particles
     and the MOLT field solvers.
@@ -183,49 +184,106 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
     t_n = 0.0
     steps = 0
 
-    rho_path = results_path+"rho-plot/"
-    J_path = results_path+"J-plot/"
-    A1_path = results_path+"A1-plot/"
-    A2_path = results_path+"A2-plot/"
-    psi_path = results_path+"psi-plot/"
-    gauge_path = results_path+"gauge-plot/"
-    gauss_path = results_path+"gauss-plot/"
-    E_path = results_path+"E-plot/"
-    B_path = results_path+"B-plot/"
+    csv_path = results_path + "csv_files/"
+    figures_path = results_path + "figures/"
+
+    rho_plot_path = figures_path+"rho-plot/"
+    J_plot_path = figures_path+"J-plot/"
+    A1_plot_path = figures_path+"A1-plot/"
+    A2_plot_path = figures_path+"A2-plot/"
+    psi_plot_path = figures_path+"phi-plot/"
+    gauge_plot_path = figures_path+"gauge-plot/"
+    gauss_plot_path = figures_path+"gauss-plot/"
+    E_plot_path = figures_path+"E-plot/"
+    B_plot_path = figures_path+"B-plot/"
+
+    electron_csv_path = csv_path+"electron-csv/"
+    rho_csv_path = csv_path+"rho-csv/"
+    J1_csv_path = csv_path+"J1-csv/"
+    J2_csv_path = csv_path+"J2-csv/"
+    A1_csv_path = csv_path+"A1-csv/"
+    A2_csv_path = csv_path+"A2-csv/"
+    psi_csv_path = csv_path+"phi-csv/"
+    gauge_csv_path = csv_path+"gauge-csv/"
+    gauss_csv_path = csv_path+"gauss-csv/"
+    E1_csv_path = csv_path+"E1-csv/"
+    E2_csv_path = csv_path+"E2-csv/"
+    B3_csv_path = csv_path+"B3-csv/"
 
     if (enable_plots):
-        if(not os.path.exists(rho_path)):
-            os.makedirs(rho_path)
+        if(not os.path.exists(rho_plot_path)):
+            os.makedirs(rho_plot_path)
     
-        if(not os.path.exists(J_path)):
-            os.makedirs(J_path)
+        if(not os.path.exists(J_plot_path)):
+            os.makedirs(J_plot_path)
 
-        if(not os.path.exists(A1_path)):
-            os.makedirs(A1_path)
+        if(not os.path.exists(A1_plot_path)):
+            os.makedirs(A1_plot_path)
 
-        if(not os.path.exists(A2_path)):
-            os.makedirs(A2_path)
+        if(not os.path.exists(A2_plot_path)):
+            os.makedirs(A2_plot_path)
     
-        if(not os.path.exists(psi_path)):
-            os.makedirs(psi_path)
+        if(not os.path.exists(psi_plot_path)):
+            os.makedirs(psi_plot_path)
 
-        if(not os.path.exists(gauge_path)):
-            os.makedirs(gauge_path)
-            os.makedirs(gauge_path+"/surface")
-            os.makedirs(gauge_path+"/slice")
+        if(not os.path.exists(gauge_plot_path)):
+            os.makedirs(gauge_plot_path)
+            os.makedirs(gauge_plot_path+"/surface")
+            os.makedirs(gauge_plot_path+"/slice")
 
-        if(not os.path.exists(gauss_path)):
-            os.makedirs(gauss_path)
-            os.makedirs(gauss_path+"/surface")
-            os.makedirs(gauss_path+"/slice")
+        if(not os.path.exists(gauss_plot_path)):
+            os.makedirs(gauss_plot_path)
+            os.makedirs(gauss_plot_path+"/surface")
+            os.makedirs(gauss_plot_path+"/slice")
 
-        if(not os.path.exists(E_path)):
-            os.makedirs(E_path)
+        if(not os.path.exists(E_plot_path)):
+            os.makedirs(E_plot_path)
     
-        if(not os.path.exists(B_path)):
-            os.makedirs(B_path)
+        if(not os.path.exists(B_plot_path)):
+            os.makedirs(B_plot_path)
+    
+    if (enable_csvs):
+
+        if(not os.path.exists(electron_csv_path)):
+            os.makedirs(electron_csv_path)
+
+        if(not os.path.exists(rho_csv_path)):
+            os.makedirs(rho_csv_path)
+    
+        if(not os.path.exists(J1_csv_path)):
+            os.makedirs(J1_csv_path)
+    
+        if(not os.path.exists(J2_csv_path)):
+            os.makedirs(J2_csv_path)
+
+        if(not os.path.exists(A1_csv_path)):
+            os.makedirs(A1_csv_path)
+
+        if(not os.path.exists(A2_csv_path)):
+            os.makedirs(A2_csv_path)
+    
+        if(not os.path.exists(psi_csv_path)):
+            os.makedirs(psi_csv_path)
+
+        if(not os.path.exists(gauge_csv_path)):
+            os.makedirs(gauge_csv_path)
+
+        if(not os.path.exists(gauss_csv_path)):
+            os.makedirs(gauss_csv_path)
+
+        if(not os.path.exists(E1_csv_path)):
+            os.makedirs(E1_csv_path)
+
+        if(not os.path.exists(E2_csv_path)):
+            os.makedirs(E2_csv_path)
+    
+        if(not os.path.exists(B3_csv_path)):
+            os.makedirs(B3_csv_path)
+
 
     N_elec_hist = np.zeros([N_steps])
+    csv = ".csv"
+    jpg = ".jpg"
 
 
     while(steps < N_steps):
@@ -425,9 +483,30 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
         var_v2 = np.var(v2_elec_new)
         v_elec_var_history.append( 0.5*(var_v1 + var_v2) )
         
+        if enable_csvs and (steps % plot_at == 0 or steps + 1 == N_steps):
+            
+            # step_pad = "{:0>6}".format(steps)
+            step_pad = str(steps).zfill(6)
+
+            particle_information = np.column_stack([x1_elec_old, x2_elec_old, v1_elec_old, v2_elec_old])
+
+            np.savetxt(electron_csv_path+"electron"+step_pad+csv, particle_information, delimiter=",")
+            np.savetxt(rho_csv_path+"rho"+step_pad+csv, rho_mesh, delimiter=",")
+            np.savetxt(J1_csv_path + "J1_"+step_pad+csv, J_mesh[0,:,:], delimiter=",")
+            np.savetxt(J2_csv_path + "J2_"+step_pad+csv, J_mesh[1,:,:], delimiter=",")
+            np.savetxt(A1_csv_path + "A1_"+step_pad+csv, A1[-1,:,:], delimiter=",")
+            np.savetxt(A2_csv_path + "A2_"+step_pad+csv, A2[-1,:,:], delimiter=",")
+            np.savetxt(psi_csv_path + "phi_"+step_pad+csv, psi[-1,:,:], delimiter=",")
+            np.savetxt(gauge_csv_path + "gauge_"+step_pad+csv,gauge_residual, delimiter=",")
+            np.savetxt(gauss_csv_path + "gauss_"+step_pad+csv,gauss_law_residual, delimiter=",")
+            np.savetxt(E1_csv_path + "E1_"+step_pad+csv, E1, delimiter=",")
+            np.savetxt(E2_csv_path + "E2_"+step_pad+csv, E2, delimiter=",")
+            np.savetxt(B3_csv_path + "B3_"+step_pad+csv, B3, delimiter=",")
+
         if enable_plots:
 
-            step_pad = "{:0>5}".format(steps)
+            # step_pad = "{:0>6}".format(steps)
+            step_pad = str(steps).zfill(6)
             
             # Should also plot things at the final step as well
             if steps % plot_at == 0 or steps + 1 == N_steps:
@@ -469,7 +548,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.yaxis.offsetText.set(size=32)
                 
                 plt.tight_layout(w_pad=4)
-                plt.savefig(rho_path+"rho_"+str(step_pad)+".jpg", bbox_inches="tight")                
+                plt.savefig(rho_plot_path+"rho_"+str(step_pad)+jpg, bbox_inches="tight")                
                 plt.close(fig="all")
 
                 # Plot of the current densities: J1 and J2
@@ -503,7 +582,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.yaxis.offsetText.set(size=32)
                 
                 plt.tight_layout()
-                plt.savefig(J_path+"J_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(J_plot_path+"J_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
                 
                 # Plot of A1, ddx_A1, ddy_A1
@@ -550,7 +629,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.yaxis.offsetText.set(size=32)
                 
                 plt.tight_layout()
-                plt.savefig(A1_path+"A1_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(A1_plot_path+"A1_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
                 
                 # Plot of A2, ddx_A2, ddy_A2
@@ -597,7 +676,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.yaxis.offsetText.set(size=32)
 
                 plt.tight_layout()
-                plt.savefig(A2_path+"A2_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(A2_plot_path+"A2_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
                 
                 # 3D Plot of psi, ddx_psi, and ddy_psi                 
@@ -612,7 +691,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 # ax.yaxis.offsetText.set_fontsize(32)
                 ax.set_xlim((x[0],x[-1]))
                 ax.set_ylim((y[0],y[-1]))
-                ax.set_title( r"$\psi$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
+                ax.set_title( r"$\phi$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
                 fig.colorbar(surf, shrink=0.8, ax=ax, pad=0.1)
 
                 ax = fig.add_subplot(1,3,2, projection='3d')
@@ -625,7 +704,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 # ax.yaxis.offsetText.set_fontsize(32)
                 ax.set_xlim((x[0],x[-1]))
                 ax.set_ylim((y[0],y[-1]))
-                ax.set_title( r"$\partial_{x} \psi$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
+                ax.set_title( r"$\partial_{x} \phi$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
                 fig.colorbar(surf, shrink=0.8, ax=ax, pad=0.1)
 
                 ax = fig.add_subplot(1,3,3, projection='3d')
@@ -639,11 +718,11 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 ax.set_xlim((x[0],x[-1]))
                 ax.set_ylim((y[0],y[-1]))
 
-                ax.set_title( r"$\partial_{y} \psi$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
+                ax.set_title( r"$\partial_{y} \phi$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
                 fig.colorbar(surf, shrink=0.8, ax=ax, pad=0.1)
 
                 plt.tight_layout()
-                plt.savefig(psi_path+"psi_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(psi_plot_path+"phi_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
                 # Plot of psi, ddx_psi, and ddy_psi
                 # fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(28,8), sharex=False, sharey=True)
@@ -691,7 +770,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 # cbar.ax.yaxis.offsetText.set(size=32)
                 
                 # plt.tight_layout()
-                # plt.savefig(psi_path+"psi_"+str(step_pad)+".jpg", bbox_inches="tight")
+                # plt.savefig(psi_path+"psi_"+str(step_pad)+jpg, bbox_inches="tight")
                 
 
                 plt.figure(figsize=(10,8))
@@ -707,7 +786,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 ax.grid(ls="--")
                 ax.set_xlim((x[0],x[-1])) 
                                
-                plt.savefig(gauge_path+"slice/"+"gauge_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(gauge_plot_path+"slice/"+"gauge_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")   
                     
                 fig = plt.figure(figsize=(12,10))
@@ -740,7 +819,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.tick_params(labelsize=32)
                 cbar.ax.yaxis.offsetText.set(size=32)
                 
-                plt.savefig(gauge_path+"surface/"+"gauge_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(gauge_plot_path+"surface/"+"gauge_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
         
                 plt.figure(figsize=(10,8))
@@ -756,7 +835,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 ax.grid(ls="--")
                 ax.set_xlim((x[0],x[-1])) 
                                
-                plt.savefig(gauss_path+"slice/"+"gauss_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(gauss_plot_path+"slice/"+"gauss_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
 
                 fig = plt.figure(figsize=(12,10))
@@ -789,7 +868,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.tick_params(labelsize=32)
                 cbar.ax.yaxis.offsetText.set(size=32)
                 
-                plt.savefig(gauss_path+"surface/"+"gauss_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(gauss_plot_path+"surface/"+"gauss_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
 
                 
@@ -824,7 +903,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.yaxis.offsetText.set(size=32)
                 
                 plt.tight_layout()
-                plt.savefig(E_path+"E_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(E_plot_path+"E_"+str(step_pad)+jpg, bbox_inches="tight")
                 plt.close(fig="all")
 
                 # Plot of B3 for comparison
@@ -848,7 +927,7 @@ def asym_euler_particle_solver(x1_ions_in, x2_ions_in,
                 cbar.ax.tick_params(labelsize=32)
                 cbar.ax.yaxis.offsetText.set(size=32)
                 
-                plt.savefig(B_path+"B3_"+str(step_pad)+".jpg", bbox_inches="tight")
+                plt.savefig(B_plot_path+"B3_"+str(step_pad)+jpg, bbox_inches="tight")
                 
                 # Close the figures
                 plt.close(fig="all")
