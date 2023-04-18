@@ -1,0 +1,10 @@
+*.pyc
+*.nbc
+*.csv
+*.out
+*.gif
+*.mp4
+*.avi
+*.nbi
+*.jpg
+*.slurm
