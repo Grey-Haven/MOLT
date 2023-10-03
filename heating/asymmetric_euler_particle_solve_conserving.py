@@ -801,6 +801,152 @@ def asym_euler_particle_heating_solver(x1_ions_in, x2_ions_in,
                                                x, y, dx, dy, q_elec, r_elec, dt)
         
         #---------------------------------------------------------------------
+        # 6.5. Iterating to increase accuracy
+        #---------------------------------------------------------------------
+
+        #---------------------------------------------------------------------
+        # 1. Advance electron positions by dt using v^{n}
+        #---------------------------------------------------------------------
+         
+        advance_particle_positions_2D(x1_elec_new, x2_elec_new,
+                                      x1_elec_old, x2_elec_old,
+                                      v1_elec_old, v2_elec_old, dt)
+        
+        # Apply the particle boundary conditions
+        # Need to include the shift function here
+        periodic_shift(x1_elec_new, x[0], L_x)
+        periodic_shift(x2_elec_new, y[0], L_y)
+
+        #---------------------------------------------------------------------
+        # 2. Compute the electron current density used for updating A
+        #---------------------------------------------------------------------
+
+        # Clear the contents of J prior to the mapping
+        # This is done here b/c the J function does not reset the current
+        # We do this so that it can be applied to any number of species
+        
+        J_mesh[:,:,:] = 0.0
+        
+        # Map for electrons (ions are stationary)
+        # Can try using the starred velocities here if we want
+        map_J_to_mesh_2D2V(J_mesh[:,:,:], x, y, dx, dy,
+                           x1_elec_new, x2_elec_new, 
+                           v1_elec_old, v2_elec_old,
+                           q_elec, cell_volumes, w_elec)
+        
+
+        # Need to enforce periodicity for the current on the mesh
+        enforce_periodicity(J_mesh[0,:,:])
+        enforce_periodicity(J_mesh[1,:,:])
+
+        assert all(J_mesh[0,0,:] == J_mesh[0,-1,:])
+        assert all(J_mesh[0,:,0] == J_mesh[0,:,-1])
+
+        assert all(J_mesh[1,0,:] == J_mesh[1,-1,:])
+        assert all(J_mesh[1,:,0] == J_mesh[1,:,-1])
+        
+        
+        # Compute components of div(J) using finite-differences
+        compute_ddx_FD(ddx_J1, J_mesh[0,:,:], dx)
+        compute_ddy_FD(ddy_J2, J_mesh[1,:,:], dy)
+        
+        #---------------------------------------------------------------------
+        # 4. Using the new positions, map charge to the mesh to get rho^{n+1}
+        #---------------------------------------------------------------------
+        
+        # Clear the contents of rho at time level n+1
+        # prior to the mapping
+        # This is done here b/c the function does not reset the current
+        # We do this so that it can be applied to any number of species
+        # rho_ions[:,:] = 0.0
+        # rho_elec[:,:] = 0.0
+
+        # Ions
+        # map_rho_to_mesh_2D(rho_ions[:,:], x, y, dx, dy,
+        #                    x1_ions, x2_ions,
+        #                    q_ions, cell_volumes, w_ions)
+        
+        # Electrons
+        # map_rho_to_mesh_2D(rho_elec[:,:], x, y, dx, dy,
+        #                    x1_elec_new, x2_elec_new,
+        #                    q_elec, cell_volumes, w_elec)
+
+        map_rho_to_mesh_from_J_2D(rho_elec, J_mesh, dx, dy, dt)
+
+        # Need to enforce periodicity for the charge on the mesh
+        # enforce_periodicity(rho_ions[:,:])
+        # enforce_periodicity(rho_elec[:,:])
+
+        # Compute the total charge density
+        rho_mesh[:,:] = rho_ions[:,:] + rho_elec[:,:]
+    
+        assert all(rho_mesh[0,:] == rho_mesh[-1,:])
+        assert all(rho_mesh[:,0] == rho_mesh[:,-1])
+        
+        #---------------------------------------------------------------------
+        # 5. Advance the psi and its derivatives by dt using BDF-1 
+        #---------------------------------------------------------------------
+        
+        psi_src[:,:] = (1/sigma_1)*rho_mesh[:,:]
+        
+        # Charge density is at the new time level from step (3)
+        # which is consistent with the BDF scheme
+        BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src,
+                                  x, y, t_n, dx, dy, dt, kappa, beta_BDF)
+        
+        # Wait to shuffle until the end, but we could do that here
+        
+        #---------------------------------------------------------------------
+        # 5. Advance the A1 and A2 and their derivatives by dt using BDF-1
+        #---------------------------------------------------------------------
+        
+        A1_src[:,:] = sigma_2*J_mesh[0,:,:]
+        A2_src[:,:] = sigma_2*J_mesh[1,:,:]
+        
+        
+        # Number of particles of a species s
+        N_s = x1_elec_new.size
+            
+        for i in range(N_s):
+            
+            # First, we need to map the fields from the mesh to the particle
+            # using the gather function based on the new particle coordinates.
+
+            # Scalar potential data
+            ddx_psi_p = gather_2D(ddx_psi, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            ddy_psi_p = gather_2D(ddy_psi, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            
+            # Vector potential data
+            
+            # A1
+            A1_p = gather_2D(A1_src, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            ddx_A1_p = gather_2D(ddx_A1, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            ddy_A1_p = gather_2D(ddy_A1, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            
+            # A2
+            A2_p = gather_2D(A2_src, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            ddx_A2_p = gather_2D(ddx_A2, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            ddy_A2_p = gather_2D(ddy_A2, x1_elec_new[i], x2_elec_new[i], x, y, dx, dy)
+            
+            # A3 is zero for this problem (so are its derivatives)
+            
+            # Compute the momentum rhs terms using a Taylor approximation of v^{n+1}
+            # that retains the linear terms
+            v1_s_star = v1_elec_new[i]
+            v2_s_star = v2_elec_new[i]
+            rhs1 = -q_elec*ddx_psi_p + q_elec*( ddx_A1_p*v1_s_star + ddx_A2_p*v2_s_star )
+            rhs2 = -q_elec*ddy_psi_p + q_elec*( ddy_A1_p*v1_s_star + ddy_A2_p*v2_s_star )
+            
+            # Compute the new momentum
+            P1_elec_new[i] = P1_elec_old[i] + dt*rhs1
+            P2_elec_new[i] = P2_elec_old[i] + dt*rhs2
+            
+            # Compute the new velocity using the updated momentum
+            v1_elec_new[i] = (1/r_s)*(P1_elec_new[i] - q_elec*A1_p)
+            v2_elec_new[i] = (1/r_s)*(P2_elec_new[i] - q_elec*A2_p)
+        
+        
+        #---------------------------------------------------------------------
         # 7. Compute the errors in the Lorenz gauge and Gauss' law
         #---------------------------------------------------------------------
         
