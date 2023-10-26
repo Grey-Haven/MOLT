@@ -9,6 +9,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
                                        q_ions, q_elec, ...
                                        r_ions, r_elec, ...
                                        w_ions, w_elec, ...
+                                       sigma_1,sigma_2, ...
                                        results_path, ...
                                        enable_plots, ...
                                        plot_at)
@@ -161,7 +162,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
     % Current time of the simulation and step counter
     t_n = 0.0;
-    steps = 0;
+    steps = 1;
 
     csv_path = fullfile(results_path, "csv_files");
     figures_path = fullfile(results_path, "figures");
@@ -233,6 +234,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     % cbar = plt.colorbar(im, ax=axes[0])
     % cbar.ax.tick_params(labelsize=32)
     % cbar.ax.yaxis.offsetText.set(size=32)
+    
+    v_elec_var_history = zeros(N_steps, 1);
     
     while(steps < N_steps)
 
@@ -334,8 +337,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % 5. Advance the A1 and A2 and their derivatives by dt using BDF-1
         %---------------------------------------------------------------------
         
-        A1_src(:,:) = sigma_2*J_mesh(0,:,:);
-        A2_src(:,:) = sigma_2*J_mesh(1,:,:);
+        A1_src(:,:) = sigma_2*J_mesh(1,:,:);
+        A2_src(:,:) = sigma_2*J_mesh(2,:,:);
         
         % A1 uses J1
         BDF1_combined_per_advance(A1, ddx_A1, ddy_A1, A1_src(:,:), ...
@@ -361,8 +364,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
                                                v1_elec_old, v2_elec_old, ...
                                                v1_elec_nm1, v2_elec_nm1, ...
                                                ddx_psi, ddy_psi, ...
-                                               A1(end), ddx_A1, ddy_A1, ...
-                                               A2(end), ddx_A2, ddy_A2, ...
+                                               squeeze(A1(end,:,:)), ddx_A1, ddy_A1, ...
+                                               squeeze(A2(end,:,:)), ddx_A2, ddy_A2, ...
                                                x, y, dx, dy, q_elec, r_elec, dt);
         
         %---------------------------------------------------------------------
@@ -376,7 +379,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:) + ddy_A2(:,:);
         
         gauge_error(steps) = get_L_2_error(gauge_residual(:,:), ...
-                                           zeros_like(gauge_residual(:,:)), ...
+                                           zeros(size(gauge_residual(:,:))), ...
                                            dx*dy);
         
         % Compute the ddt_A with backwards finite-differences
@@ -397,11 +400,11 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
         
         gauss_law_error(steps) = get_L_2_error(gauss_law_residual(:,:), ...
-                                               zeros_like(gauss_law_residual(:,:)), ...
+                                               zeros(size(gauss_law_residual(:,:))), ...
                                                dx*dy);
         
         % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
-        sum_gauss_law_residual(steps) = sum(gauss_law_residual(:,:));
+        sum_gauss_law_residual(steps) = sum(sum(gauss_law_residual(:,:)));
         
         %---------------------------------------------------------------------
         % 8. Prepare for the next time step by shuffling the time history data
@@ -432,15 +435,15 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % extra factor of two outside of this function
         var_v1 = var(v1_elec_new);
         var_v2 = var(v2_elec_new);
-        v_elec_var_history.append( 0.5*(var_v1 + var_v2) );
+        v_elec_var_history(steps) = ( 0.5*(var_v1 + var_v2) );
 
         % Step is now complete
         steps = steps + 1;
         t_n = t_n + dt;
         
         % Stop the timer
-        solver_end_time = time.time();
+%         solver_end_time = time.time();
         
-        total_time = solver_end_time - solver_start_time;
+%         total_time = solver_end_time - solver_start_time;
     end
 end

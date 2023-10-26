@@ -33,7 +33,7 @@ y = linspace(a_y, b_y, N_y);
 % dt = 5*dx/kappa
 dt = dx/(sqrt(2)*kappa);
 T_final = 10;
-N_steps = int64(T_final/dt);
+N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
 
@@ -166,7 +166,7 @@ if debug
 
     disp("----------------------------------------------")
 
-    disp("Non-dimensional quantities:\n");
+    disp("Non-dimensional quantities:");
     disp(" Domain length in x [non-dimensional]: " + L_x);
     disp(" Domain length in y [non-dimensional]: " + L_y);
     disp(" v_ave_mag/c: " + V*v_ave_mag/c); % v_injection is scaled by V

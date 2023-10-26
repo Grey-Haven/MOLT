@@ -1,11 +1,12 @@
 clear;
-% addpath(genpath([fileparts(pwd)]));
+addpath(genpath([fileparts(pwd)]));
+addpath(genpath([fileparts(pwd), '/utility_functions']));
 % addpath(genpath([fileparts(pwd), '/common']));
 % addpath(genpath([fileparts(pwd), '/basic_boris']));
 
 rng(2);
 
-mesh_independent_variable_setup
+mesh_independent_variable_setup;
 
 grid_refinement = [16];
 for g = grid_refinement
@@ -26,6 +27,7 @@ asym_euler_particle_heating_solver(x1_ions, x2_ions, ...
                                    q_ions, q_elec, ...
                                    r_ions, r_elec, ...
                                    w_ions, w_elec, ...
+                                   sigma_1, sigma_2, ...
                                    results_path, ...
                                    enable_plots, ...
-                                   plot_at)
+                                   plot_at);
