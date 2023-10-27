@@ -1,4 +1,4 @@
-function [] = get_L_y_inverse_per(inverse, operand, x, y, dx, dy, dt, c, beta)
+function inverse = get_L_y_inverse_per(operand, x, y, dx, dy, dt, c, beta)
     
     N_x = length(x);
     N_y = length(y);
@@ -51,6 +51,8 @@ function [] = get_L_y_inverse_per(inverse, operand, x, y, dx, dy, dt, c, beta)
         % Sweep the y boundary data into the operator
         apply_A_and_B(rite_moving_op(i,:), y, alpha, A_y, B_y);
     end
+
+    inverse = zeros(N_x, N_y);
 
     % Transfer contents to the inverse array
     for i = 1:N_x

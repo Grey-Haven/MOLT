@@ -41,7 +41,7 @@ v1_drift = kappa/100;
 v2_drift = 0;
 
 % Number of particles for each species
-N_p = int64(2.5e5);
+N_p = 2.5e5;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Domain Parameters

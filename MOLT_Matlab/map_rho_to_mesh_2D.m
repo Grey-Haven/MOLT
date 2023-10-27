@@ -1,6 +1,6 @@
-function [] = map_rho_to_mesh_2D(rho_mesh, x, y, dx, dy, ...
-                                 x1, x2, ...
-                                 q_s, cell_volumes, w_s)
+function rho_mesh = map_rho_to_mesh_2D(Nx, Ny, x, y, dx, dy, ...
+                                       x1, x2, ...
+                                       q_s, cell_volumes, w_s)
     %%%%%%%%%
     % Computes the charge density on the mesh using 
     % the standard single level spline maps.
@@ -15,7 +15,7 @@ function [] = map_rho_to_mesh_2D(rho_mesh, x, y, dx, dy, ...
         
     % Scatter particle charge data to the mesh
     for i = 1:N_part
-        scatter_2D(rho_mesh(:,:), x1(i), x2(i), x, y, dx, dy, weight);
+        rho_mesh = scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight);
     end
         
     % End of particle loop

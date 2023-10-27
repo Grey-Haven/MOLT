@@ -1,4 +1,4 @@
-function [] = scatter_2D(F_mesh, x1_p, x2_p, x, y, dx, dy, weight)
+function F_mesh = scatter_2D(Nx, Ny, x1_p, x2_p, x, y, dx, dy, weight)
     %%%%%%%%
     % Scatters a single particle with coordinates (x1_p, x2_p) onto 
     % uniform mesh points with an area rule.
@@ -16,12 +16,11 @@ function [] = scatter_2D(F_mesh, x1_p, x2_p, x, y, dx, dy, weight)
 
     % Weight the particle info to the mesh
 %     disp(x_idx + " " + y_idx)
-    try
-        F_mesh(x_idx, y_idx)     = F_mesh(x_idx, y_idx)     + weight*(1 - f_x)*(1 - f_y);
-        F_mesh(x_idx, y_idx+1)   = F_mesh(x_idx, y_idx+1)   + weight*(1 - f_x)*f_y;
-        F_mesh(x_idx+1, y_idx)   = F_mesh(x_idx+1, y_idx)   + weight*f_x*(1 - f_y);
-        F_mesh(x_idx+1, y_idx+1) = F_mesh(x_idx+1, y_idx+1) + weight*f_x*f_y;
-    catch ex
-        disp(ex);
-    end
+
+    F_mesh = zeros(Nx,Ny);
+
+    F_mesh(x_idx, y_idx)     = F_mesh(x_idx, y_idx)     + weight*(1 - f_x)*(1 - f_y);
+    F_mesh(x_idx, y_idx+1)   = F_mesh(x_idx, y_idx+1)   + weight*(1 - f_x)*f_y;
+    F_mesh(x_idx+1, y_idx)   = F_mesh(x_idx+1, y_idx)   + weight*f_x*(1 - f_y);
+    F_mesh(x_idx+1, y_idx+1) = F_mesh(x_idx+1, y_idx+1) + weight*f_x*f_y;
 end

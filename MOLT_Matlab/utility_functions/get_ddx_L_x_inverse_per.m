@@ -1,4 +1,4 @@
-function [] = get_ddx_L_x_inverse_per(ddx, operand, x, y, dx, dy, dt, c, beta)
+function ddx = get_ddx_L_x_inverse_per(operand, x, y, dx, dy, dt, c, beta)
     
     N_x = length(x);
     N_y = length(y);
@@ -27,6 +27,8 @@ function [] = get_ddx_L_x_inverse_per(ddx, operand, x, y, dx, dy, dt, c, beta)
         periodic_extension(operand_ext(:,j+2));
     end
     
+    ddx = zeros(N_x, N_y);
+
     %==========================================================================
     % Invert the 1-D Helmholtz operator in the x-direction
     %==========================================================================

@@ -1,4 +1,4 @@
-function [] = enforce_periodicity(F_mesh)
+function F_mesh_update = enforce_periodicity(F_mesh)
     %%%%%%%%%%%%%%%%%%%%%%%%%%
     % Enforces periodicity in the mesh quantity.
     %
@@ -39,5 +39,5 @@ function [] = enforce_periodicity(F_mesh)
     for i = 1:N_x
         F_mesh(i,end) = F_mesh(i,1);
     end
-    
+    F_mesh_update = F_mesh(:,:);
 end

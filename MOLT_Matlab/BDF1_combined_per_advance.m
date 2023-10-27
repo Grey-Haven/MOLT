@@ -1,5 +1,4 @@
-function [] = BDF1_combined_per_advance(u, dudx, dudy, src_data, ...
-                                        x, y, t_n, dx, dy, dt, c, beta_BDF)
+function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Performs the derivative and field advance function for a 2-D scalar field.
     % The function assumes we are working with a scalar field,
@@ -8,16 +7,16 @@ function [] = BDF1_combined_per_advance(u, dudx, dudy, src_data, ...
     % Shuffles for time stepping are performed later, outside of this utility.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    BDF1_ddx_advance_per(dudx, u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF)
+    dudx = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
-    BDF1_ddy_advance_per(dudy, u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF)
+    dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
-    BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF)
+    u(3,:,:) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
 end
 
-function [] = BDF1_ddx_advance_per(ddx, v, src_data, x, y, t, ...
-                                   dx, dy, dt, c, beta)
+function ddx = BDF1_ddx_advance_per(v, src_data, x, y, t, ...
+                                    dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculates the ddx of the solution to the wave equation using the first-order BDF method. 
     % This function accepts the mesh data v and src_data.
@@ -48,16 +47,16 @@ function [] = BDF1_ddx_advance_per(ddx, v, src_data, x, y, t, ...
         end
     end
     % Invert the y operator and apply to R, storing in tmp
-    get_L_y_inverse_per(tmp, R, x, y, dx, dy, dt, c, beta)
+    tmp = get_L_y_inverse_per(R, x, y, dx, dy, dt, c, beta);
     
     % Invert the x operator and apply to tmp, then store in the derivative array
-    get_ddx_L_x_inverse_per(ddx, tmp, x, y, dx, dy, dt, c, beta)
+    ddx = get_ddx_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta);
     
     % Shuffle is performed outside this function
 end
 
-function [] = BDF1_ddy_advance_per(ddy, v, src_data, x, y, t, ...
-                                   dx, dy, dt, c, beta)
+function ddy = BDF1_ddy_advance_per(v, src_data, x, y, t, ...
+                                  dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculates the ddy of the solution to the wave equation using the first-order BDF method. 
     % This function accepts the mesh data v and src_fcn.
@@ -87,17 +86,17 @@ function [] = BDF1_ddy_advance_per(ddy, v, src_data, x, y, t, ...
     end
             
     % Invert the y operator and apply to R, storing in tmp
-    get_ddy_L_y_inverse_per(tmp, R, x, y, dx, dy, dt, c, beta)
+    tmp = get_ddy_L_y_inverse_per(R, x, y, dx, dy, dt, c, beta);
     
     % Invert the x operator and apply to tmp, then store in the derivative array
-    get_L_x_inverse_per(ddy, tmp, x, y, dx, dy, dt, c, beta)
+    ddy = get_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta);
     
     % Shuffle is performed outside this function
     
 end
 
-function [] = BDF1_advance_per(v, src_data, x, y, t, ...
-                               dx, dy, dt, c, beta)
+function u = BDF1_advance_per(v, src_data, x, y, t, ...
+                              dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculates a solution to the wave equation using the first-order BDF method. 
     % This function accepts the mesh data v and src_data.
@@ -129,10 +128,10 @@ function [] = BDF1_advance_per(v, src_data, x, y, t, ...
     end
 
     % Invert the y operator and apply to R, storing in tmp
-    get_L_y_inverse_per(tmp, R, x, y, dx, dy, dt, c, beta);
+    tmp = get_L_y_inverse_per(R, x, y, dx, dy, dt, c, beta);
     
     % Invert the x operator and apply to tmp, then store in the new time level
-    get_L_x_inverse_per(v(3,:,:), tmp, x, y, dx, dy, dt, c, beta);
+    u = get_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta);
     
     % Shuffle is performed outside this function
     

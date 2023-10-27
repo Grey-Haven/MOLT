@@ -192,17 +192,17 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     end
 
     % Ions
-    map_rho_to_mesh_2D(rho_ions(:,:), x, y, dx, dy, ...
-                       x1_ions, x2_ions, ...
-                       q_ions, cell_volumes, w_ions);
+    rho_ions = map_rho_to_mesh_2D(N_x, N_y, x, y, dx, dy, ...
+                                  x1_ions, x2_ions, ...
+                                  q_ions, cell_volumes, w_ions);
 
     % Electrons
-    map_rho_to_mesh_2D(rho_elec(:,:), x, y, dx, dy, ...
-                       x1_elec_new, x2_elec_new, ...
-                       q_elec, cell_volumes, w_elec);
+    rho_elec = map_rho_to_mesh_2D(N_x, N_y, x, y, dx, dy, ...
+                                  x1_elec_new, x2_elec_new, ...
+                                  q_elec, cell_volumes, w_elec);
     % Need to enforce periodicity for the charge on the mesh
-    enforce_periodicity(rho_ions(:,:))
-    enforce_periodicity(rho_elec(:,:))
+    rho_ions = enforce_periodicity(rho_ions(:,:));
+    rho_elec = enforce_periodicity(rho_elec(:,:));
 
     rho_mesh = rho_ions + rho_elec;
     % fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(22,8), sharex=False, sharey=True)
@@ -243,14 +243,14 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % 1. Advance electron positions by dt using v^{n}
         %---------------------------------------------------------------------
          
-        advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
-                                      x1_elec_old, x2_elec_old, ...
-                                      v1_elec_old, v2_elec_old, dt);
+        [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
+                                                                   x1_elec_old, x2_elec_old, ...
+                                                                   v1_elec_old, v2_elec_old, dt);
         
         % Apply the particle boundary conditions
         % Need to include the shift function here
-        periodic_shift(x1_elec_new, x(1), L_x);
-        periodic_shift(x2_elec_new, y(1), L_y);
+        x1_elec_new = periodic_shift(x1_elec_new, x(1), L_x);
+        x2_elec_new = periodic_shift(x2_elec_new, y(1), L_y);
 
         %---------------------------------------------------------------------
         % 2. Compute the electron current density used for updating A
@@ -264,15 +264,15 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         % Map for electrons (ions are stationary)
         % Can try using the starred velocities here if we want
-        map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
-                           x1_elec_new, x2_elec_new, ...
-                           v1_elec_old, v2_elec_old, ...
-                           q_elec, cell_volumes, w_elec);
+        J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
+                                    x1_elec_new, x2_elec_new, ...
+                                    v1_elec_old, v2_elec_old, ...
+                                    q_elec, cell_volumes, w_elec);
         
 
         % Need to enforce periodicity for the current on the mesh
-        enforce_periodicity(J_mesh(1,:,:));
-        enforce_periodicity(J_mesh(2,:,:));
+        J_mesh(1,:,:) = enforce_periodicity(squeeze(J_mesh(1,:,:)));
+        J_mesh(2,:,:) = enforce_periodicity(squeeze(J_mesh(2,:,:)));
 
         assert(all(J_mesh(1,1,:) == J_mesh(1,end,:)));
         assert(all(J_mesh(1,:,1) == J_mesh(1,:,end)));
@@ -308,11 +308,11 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         %                    x1_elec_new, x2_elec_new,
         %                    q_elec, cell_volumes, w_elec)
 
-        map_rho_to_mesh_from_J_2D_WENO_Periodic(rho_elec, J_mesh, dx, dy, dt);
+        rho_elec = map_rho_to_mesh_from_J_2D_WENO_Periodic(N_x, N_y, J_mesh, dx, dy, dt);
 
         % Need to enforce periodicity for the charge on the mesh
-        enforce_periodicity(rho_ions(:,:));
-        enforce_periodicity(rho_elec(:,:));
+        rho_ions = enforce_periodicity(rho_ions(:,:));
+        rho_elec = enforce_periodicity(rho_elec(:,:));
 
         % Compute the total charge density
         rho_mesh(:,:) = rho_ions(:,:) + rho_elec(:,:);
@@ -328,7 +328,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         % Charge density is at the new time level from step (3)
         % which is consistent with the BDF scheme
-        BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src, ...
+        psi, ddx_psi, ddy_psi = BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src(:,:), ...
                                   x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
         % Wait to shuffle until the end, but we could do that here
@@ -341,11 +341,11 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         A2_src(:,:) = sigma_2*J_mesh(2,:,:);
         
         % A1 uses J1
-        BDF1_combined_per_advance(A1, ddx_A1, ddy_A1, A1_src(:,:), ...
+        A1, ddx_A1, ddy_A1 = BDF1_combined_per_advance(A1, ddx_A1, ddy_A1, A1_src(:,:), ...
                                   x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
         % A2 uses J2
-        BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
+        A2, ddx_A2, ddy_A2 = BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
                                   x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
         % Wait to shuffle until the end, but we could do that here

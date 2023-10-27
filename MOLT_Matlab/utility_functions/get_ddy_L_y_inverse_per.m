@@ -1,4 +1,4 @@
-function [] = get_ddy_L_y_inverse_per(ddy, operand, x, y, dx, dy, dt, c, beta)
+function ddy = get_ddy_L_y_inverse_per(operand, x, y, dx, dy, dt, c, beta)
     
     N_x = length(x);
     N_y = length(y);
@@ -24,7 +24,9 @@ function [] = get_ddy_L_y_inverse_per(ddy, operand, x, y, dx, dy, dt, c, beta)
     for i = 1:N_x
         periodic_extension(operand_ext(i+2,:));
     end
-    
+
+    ddy = zeros(N_x,N_y);
+
     %==========================================================================
     % Invert the 1-D Helmholtz operator in the y-direction
     %==========================================================================

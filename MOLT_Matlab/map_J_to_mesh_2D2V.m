@@ -1,6 +1,6 @@
-function [] = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
-                       x1, x2, v1, v2, ...
-                       q_s, cell_volumes, w_s)
+function J_mesh = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
+                                     x1, x2, v1, v2, ...
+                                     q_s, cell_volumes, w_s)
     %%%%%%%%%%%%%%%%%%%%%
     % Computes the current density for the field solvers using velocity information
     % in the 2D-2V setting.
@@ -13,8 +13,11 @@ function [] = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
     
     weight = w_s*q_s;
     
-    J1_mesh = squeeze(J_mesh(1,:,:));
-    J2_mesh = squeeze(J_mesh(2,:,:));
+    Nx = size(J_mesh(1,:,:),2);
+    Ny = size(J_mesh(1,:,:),3);
+    
+    J1_mesh = zeros(Nx,Ny);
+    J2_mesh = zeros(Nx,Ny);
 
     % Scatter current to the mesh
     for i = 1:N_part
@@ -22,9 +25,9 @@ function [] = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
         weight1 = weight*v1(i);
         weight2 = weight*v2(i);
         
-        scatter_2D(J1_mesh, x1(i), x2(i), x, y, dx, dy, weight1); % J_x
-        scatter_2D(J2_mesh, x1(i), x2(i), x, y, dx, dy, weight2); % J_y
-       
+        J1_mesh = J1_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight1); % J_x
+        J2_mesh = J2_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight2); % J_y
+    end
     % End of particle loop
     
     % Divide by the cell volumes to compute the number density
@@ -36,5 +39,4 @@ function [] = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
     J_mesh(2,:,:) = J2_mesh(:,:) ./ cell_volumes(:,:);
     
     % BCs are not periodic
-    end
 end

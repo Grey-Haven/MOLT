@@ -1,4 +1,4 @@
-function [] = map_rho_to_mesh_from_J_2D_WENO_Periodic(rho_mesh, J_mesh, dx, dy, dt)
+function rho_mesh = map_rho_to_mesh_from_J_2D_WENO_Periodic(Nx, Ny, J_mesh, dx, dy, dt)
     %%%%%%%%%%%%%%%%%%
     % Computes the charge density on the mesh using 
     % the standard single level spline maps.
@@ -13,8 +13,7 @@ function [] = map_rho_to_mesh_from_J_2D_WENO_Periodic(rho_mesh, J_mesh, dx, dy, 
     
     sum_J = 0;
 
-    Nx = size(rho_mesh, 1);
-    Ny = size(rho_mesh, 1);
+    rho_mesh = zeros(Nx,Ny);
 
     % Scatter particle charge data to the mesh
     for i_idx = 1:Nx
@@ -67,7 +66,7 @@ function [] = map_rho_to_mesh_from_J_2D_WENO_Periodic(rho_mesh, J_mesh, dx, dy, 
             sum_J = sum_J + J1_flux_r - J1_flux_l + J2_flux_u - J2_flux_d;
         end
     end
-    disp(sum_J)
+%     disp(sum_J)
 
     rho_mesh(:,end) = rho_mesh(:,1);
     rho_mesh(end,:) = rho_mesh(1,:);
