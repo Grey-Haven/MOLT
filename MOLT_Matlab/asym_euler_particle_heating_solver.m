@@ -205,35 +205,6 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     rho_elec = enforce_periodicity(rho_elec(:,:));
 
     rho_mesh = rho_ions + rho_elec;
-    % fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(22,8), sharex=False, sharey=True)
-    
-    % im = axes[0].pcolormesh(X, Y, psi[-1,:,:], cmap = 'viridis', shading='auto')
-    % axes[0].set_xlabel(r"$x$", fontsize=32)
-    % axes[0].set_ylabel(r"$y$", fontsize=32)
-    % axes[0].tick_params(axis='x', labelsize=32, pad=10)
-    % axes[0].tick_params(axis='y', labelsize=32, pad=10)
-    % axes[0].xaxis.offsetText.set_fontsize(32)
-    % axes[0].yaxis.offsetText.set_fontsize(32)
-    % axes[0].set_xlim((x[0],x[-1]))
-    % axes[0].set_ylim((y[0],y[-1]))
-    % axes[0].set_title( r"$\psi$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
-    % cbar = plt.colorbar(im, ax=axes[0])
-    % cbar.ax.tick_params(labelsize=32)
-    % cbar.ax.yaxis.offsetText.set(size=32)
-
-    % im = axes[1].pcolormesh(X, Y, rho_mesh(:,:), cmap = 'viridis', shading='auto')
-    % axes[1].set_xlabel(r"$x$", fontsize=32)
-    % axes[1].set_ylabel(r"$y$", fontsize=32)
-    % axes[1].tick_params(axis='x', labelsize=32, pad=10)
-    % axes[1].tick_params(axis='y', labelsize=32, pad=10)
-    % axes[1].xaxis.offsetText.set_fontsize(32)
-    % axes[1].yaxis.offsetText.set_fontsize(32)
-    % axes[1].set_xlim((x[0],x[-1]))
-    % axes[1].set_ylim((y[0],y[-1]))
-    % axes[1].set_title( r"$\rho$ at $t = $ " + "{:.4e}".format(t_n+dt), fontsize=28 )
-    % cbar = plt.colorbar(im, ax=axes[0])
-    % cbar.ax.tick_params(labelsize=32)
-    % cbar.ax.yaxis.offsetText.set(size=32)
     
     v_elec_var_history = zeros(N_steps, 1);
     
@@ -328,8 +299,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         % Charge density is at the new time level from step (3)
         % which is consistent with the BDF scheme
-        psi, ddx_psi, ddy_psi = BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src(:,:), ...
-                                  x, y, t_n, dx, dy, dt, kappa, beta_BDF);
+        [psi, ddx_psi, ddy_psi] = BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src(:,:), ...
+                                                            x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
         % Wait to shuffle until the end, but we could do that here
         
@@ -341,12 +312,12 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         A2_src(:,:) = sigma_2*J_mesh(2,:,:);
         
         % A1 uses J1
-        A1, ddx_A1, ddy_A1 = BDF1_combined_per_advance(A1, ddx_A1, ddy_A1, A1_src(:,:), ...
-                                  x, y, t_n, dx, dy, dt, kappa, beta_BDF);
+        [A1, ddx_A1, ddy_A1] = BDF1_combined_per_advance(A1, ddx_A1, ddy_A1, A1_src(:,:), ...
+                                                         x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
         % A2 uses J2
-        A2, ddx_A2, ddy_A2 = BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
-                                  x, y, t_n, dx, dy, dt, kappa, beta_BDF);
+        [A2, ddx_A2, ddy_A2] = BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
+                                                         x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
         % Wait to shuffle until the end, but we could do that here
         
@@ -445,5 +416,42 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
 %         solver_end_time = time.time();
         
 %         total_time = solver_end_time - solver_start_time;
+
+        if (mod(steps, plot_at) == 0)
+            subplot(2,2,1);
+            scatter(x1_elec_new, x2_elec_new, 5, 'filled');
+            xlabel("x");
+            ylabel("y");
+            title("Electron Locations");
+            xlim([x(1),x(end)]);
+            ylim([y(1),y(end)]);
+
+            subplot(2,2,2);
+            surf(x,y,rho_mesh);
+            xlabel("x");
+            ylabel("y");
+            title("$\rho$",'Interpreter','latex');
+            xlim([x(1),x(end)]);
+            ylim([y(1),y(end)]);
+
+            subplot(2,2,3);
+            surf(x,y,squeeze(psi(3,:,:)));
+            xlabel("x");
+            ylabel("y");
+            title("$\psi$",'Interpreter','latex');
+            xlim([x(1),x(end)]);
+            ylim([y(1),y(end)]);
+
+            subplot(2,2,4);
+            surf(x,y,gauge_residual);
+            xlabel("x");
+            ylabel("y");
+            title("Gauge Error");
+            xlim([x(1),x(end)]);
+            ylim([y(1),y(end)]);
+
+            drawnow;
+        end
+
     end
 end

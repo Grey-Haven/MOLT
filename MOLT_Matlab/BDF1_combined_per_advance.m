@@ -129,10 +129,10 @@ function u = BDF1_advance_per(v, src_data, x, y, t, ...
 
     % Invert the y operator and apply to R, storing in tmp
     tmp = get_L_y_inverse_per(R, x, y, dx, dy, dt, c, beta);
-    
+
     % Invert the x operator and apply to tmp, then store in the new time level
     u = get_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta);
-    
+
     % Shuffle is performed outside this function
     
 end

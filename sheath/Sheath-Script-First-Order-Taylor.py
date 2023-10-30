@@ -14,8 +14,8 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import seaborn as sns
 
 # Add the path for the modules to the search path
-sys.path.append(r'./Common/')
-sys.path.append(r'./Functions/')
+sys.path.append(r'../Common/')
+sys.path.append(r'../Functions/')
 
 # Use LaTeX in the plots
 plt.rc('text', usetex=True)
@@ -180,7 +180,8 @@ for g in grid_refinement:
     # BEGIN Code Parameters
     ##############################
     debug = False
-    save_results = True # do we save the figures created?
+    save_results = False # do we save the figures created?
+    save_csvs = True
     results_path = "results/" + tag + "/" # where do we save them?
     write_stride = 100 # save results every n timesteps
     ##############################
@@ -316,7 +317,7 @@ for g in grid_refinement:
                                                             q_ions, r_ions, w_ions,
                                                             sigma_1, sigma_2,
                                                             results_path,
-                                                            save_results, write_stride)
+                                                            save_results, save_csvs, write_stride)
 
 # (x1_ions_in, x2_ions_in,
 # P1_ions_in, P2_ions_in,

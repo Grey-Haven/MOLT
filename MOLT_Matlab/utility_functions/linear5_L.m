@@ -1,10 +1,11 @@
-function [] = linear5_L(J_L, v_ext, gamma, dx)
+function J_L = linear5_L(N, v_ext, gamma, dx)
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Compute the fifth order approximation to the 
     % left convolution integral using a six point global stencil
     % and linear weights.
     %%%%%%%%%%%%%%%%%%%%%%%%%
 
+    J_L = zeros(1,N);
 
     % We need gamma*dx here, so we adjust the value of gamma
     gam = gamma*dx;

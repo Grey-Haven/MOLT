@@ -1,4 +1,4 @@
-function [] = fast_convolution(I_L, I_R, alpha, dx)
+function [I_L,I_R] = fast_convolution(I_L, I_R, alpha, dx)
 
     N = length(I_L);
     

@@ -12,10 +12,12 @@ function rho_mesh = map_rho_to_mesh_2D(Nx, Ny, x, y, dx, dy, ...
     N_part = length(x1);
     
     weight = w_s*q_s;
+
+    rho_mesh = zeros(Nx,Ny);
         
     % Scatter particle charge data to the mesh
     for i = 1:N_part
-        rho_mesh = scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight);
+        rho_mesh = rho_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight);
     end
         
     % End of particle loop

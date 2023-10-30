@@ -32,11 +32,13 @@ function inverse = get_L_x_inverse_per(operand, x, y, dx, dy, dt, c, beta)
 
         % Get the local integrals
         % Note that function names are reversed, as we use the old convention
-        linear5_L(rite_moving_op(:,j), operand_ext(:,j+2), alpha, dx);
-        linear5_R(left_moving_op(:,j), operand_ext(:,j+2), alpha, dx);
+        Nr = length(rite_moving_op(:,j));
+        Nl = length(left_moving_op(:,j));
+        rite_moving_op(:,j) = linear5_L(Nr, operand_ext(:,j+2), alpha, dx);
+        left_moving_op(:,j) = linear5_R(Nl, operand_ext(:,j+2), alpha, dx);
 
         % FC step
-        fast_convolution(rite_moving_op(:,j), left_moving_op(:,j), alpha, dx);
+        [rite_moving_op(:,j), left_moving_op(:,j)] = fast_convolution(rite_moving_op(:,j), left_moving_op(:,j), alpha, dx);
 
         % Combine the integrals into the right-moving operator
         % This gives the convolution integral

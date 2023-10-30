@@ -1,9 +1,12 @@
-function [] = linear5_R(J_R, v_ext, gamma, dx)
+function J_R = linear5_R(N, v_ext, gamma, dx)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Compute the fifth order approximation to the 
     % right convolution integral using a six point global stencil
     % and linear weights.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    J_R = zeros(1,N);
+
     % We need gamma*dx here, so we adjust the value of gamma
     gam = gamma*dx;
     

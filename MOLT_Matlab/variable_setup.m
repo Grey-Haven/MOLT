@@ -131,7 +131,7 @@ P2_elec = v2_elec*r_elec;
 % Compute the normalized particle weights
 % L_x and L_y are the non-dimensional domain lengths
 w_ions = (L_x*L_y)/N_p;
-w_elec = (L_x*L_y)/N_p;
+w_elec = .1*(L_x*L_y)/N_p;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters
