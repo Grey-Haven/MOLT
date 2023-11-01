@@ -148,6 +148,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     rho_mesh = zeros(N_x,N_y);
 
     u_avg_mesh = zeros(2,N_x,N_y);
+    u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old);
     
     % We track three time levels of J (n, n+1)
     % Note, we don't need J3 for this model 
@@ -234,8 +235,9 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % We do this so that it can be applied to any number of species
         
         J_mesh(:,:,:) = 0.0;
-        
+        u_prev = u_avg_mesh(:,:,:);
         u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old);
+        u_star = 2*u_avg_mesh - u_prev;
 
         % Map for electrons (ions are stationary)
         % Can try using the starred velocities here if we want
@@ -277,13 +279,13 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % map_rho_to_mesh_2D(rho_ions(:,:), x, y, dx, dy,
         %                    x1_ions, x2_ions,
         %                    q_ions, cell_volumes, w_ions)
-        
+
         % Electrons
         % map_rho_to_mesh_2D(rho_elec(:,:), x, y, dx, dy,
         %                    x1_elec_new, x2_elec_new,
         %                    q_elec, cell_volumes, w_elec)
 
-        rho_elec = map_rho_to_mesh_2D_u_ave(x, y, dt, u_avg_mesh, rho_mesh);
+        rho_elec = map_rho_to_mesh_2D_u_ave(x, y, dt, u_star, rho_elec);
         % rho_elec = map_rho_to_mesh_from_J_2D_WENO_Periodic(N_x, N_y, J_mesh, dx, dy, dt);
 
         % Need to enforce periodicity for the charge on the mesh
@@ -426,7 +428,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
 %         total_time = solver_end_time - solver_start_time;
 
-        if (mod(steps, 1) == 0)
+        if (mod(steps, plot_at) == 0)
             subplot(2,2,1);
             scatter(x1_elec_new, x2_elec_new, 5, 'filled');
             xlabel("x");

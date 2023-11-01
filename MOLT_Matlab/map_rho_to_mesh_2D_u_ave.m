@@ -9,7 +9,7 @@ function rho_mesh = map_rho_to_mesh_2D_u_ave(x, y, dt, u_mesh, rho_mesh)
     rho_mesh_n = rho_mesh(:,:);
     rho_mesh_k = zeros(size(rho_mesh));
 
-    alpha = max(max(rho_mesh));
+    alpha = max(max(abs(rho_mesh)));
 
     flux = @(w)  alpha*w;
     dflux = @(w) alpha;
@@ -140,7 +140,8 @@ function rho_mesh = map_rho_to_mesh_2D_u_ave(x, y, dt, u_mesh, rho_mesh)
                 rho_flux_n_d = weno_flux_splitting(rho_vals_n_d.*u_vals_d,flux,dflux);
                 rho_flux_n_u = weno_flux_splitting(rho_vals_n_u.*u_vals_u,flux,dflux);
     
-                rho_mesh_k(i,j) = rho_mesh_n(i,j) + dt*(1/dx * 1/2*(rho_flux_r - rho_flux_l + rho_flux_n_r - rho_flux_n_l) + 1/dy * 1/2*(rho_flux_u - rho_flux_d + rho_flux_n_u - rho_flux_n_d));
+                rho_mesh_k(i,j) = rho_mesh_n(i,j) - dt/dx * 1/2*(rho_flux_r - rho_flux_l + rho_flux_n_r - rho_flux_n_l) ...
+                                                  - dt/dy * 1/2*(rho_flux_u - rho_flux_d + rho_flux_n_u - rho_flux_n_d);
     
             end
         end
