@@ -145,11 +145,11 @@ function rho_mesh = map_rho_to_mesh_2D_u_ave(x, y, dt, u_mesh, rho_mesh)
             end
         end
         % diff = sqrt(sum(sum((rho_mesh - rho_mesh_k).^2)));
-        diff = norm(foo - bar);
+        diff = norm(rho_mesh - rho_mesh_k);
         if diff < TOL
             break;
         end
         rho_mesh = rho_mesh_k(:,:);
     end
-    
+    disp(k + " " + diff);
 end

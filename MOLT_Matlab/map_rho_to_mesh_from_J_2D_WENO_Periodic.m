@@ -18,23 +18,23 @@ function rho_mesh = map_rho_to_mesh_from_J_2D_WENO_Periodic(Nx, Ny, J_mesh, dx, 
     % Scatter particle charge data to the mesh
     for i_idx = 1:Nx
 
-        immm = mod(i_idx - 4, (Nx-1)) + 1;
-        imm  = mod(i_idx - 3, (Nx-1)) + 1;
-        im   = mod(i_idx - 2, (Nx-1)) + 1;
-        i    = mod(i_idx - 1, (Nx-1)) + 1;
-        ip   = mod(i_idx + 0, (Nx-1)) + 1;
-        ipp  = mod(i_idx + 1, (Nx-1)) + 1;
-        ippp = mod(i_idx + 2, (Nx-1)) + 1;
+        immm = mod(i_idx - 3 - 1, (Nx-1)) + 1;
+        imm  = mod(i_idx - 2 - 1, (Nx-1)) + 1;
+        im   = mod(i_idx - 1 - 1, (Nx-1)) + 1;
+        i    = mod(i_idx - 0 - 1, (Nx-1)) + 1;
+        ip   = mod(i_idx + 1 - 1, (Nx-1)) + 1;
+        ipp  = mod(i_idx + 2 - 1, (Nx-1)) + 1;
+        ippp = mod(i_idx + 3 - 1, (Nx-1)) + 1;
 
         for j_idx = 1:Ny
 
-            jmmm = mod(j_idx - 4, (Ny-1)) + 1;
-            jmm  = mod(j_idx - 3, (Ny-1)) + 1;
-            jm   = mod(j_idx - 2, (Ny-1)) + 1;
-            j    = mod(j_idx - 1, (Ny-1)) + 1;
-            jp   = mod(j_idx + 0, (Ny-1)) + 1;
-            jpp  = mod(j_idx + 1, (Ny-1)) + 1;
-            jppp  = mod(j_idx + 2, (Ny-1)) + 1;
+            jmmm = mod(j_idx - 3 - 1, (Ny-1)) + 1;
+            jmm  = mod(j_idx - 2 - 1, (Ny-1)) + 1;
+            jm   = mod(j_idx - 1 - 1, (Ny-1)) + 1;
+            j    = mod(j_idx - 0 - 1, (Ny-1)) + 1;
+            jp   = mod(j_idx + 1 - 1, (Ny-1)) + 1;
+            jpp  = mod(j_idx + 2 - 1, (Ny-1)) + 1;
+            jppp = mod(j_idx + 3 - 1, (Ny-1)) + 1;
 
             J1_vals_l = [J_mesh(1,immm,j), J_mesh(1,imm,j), J_mesh(1,im,j), J_mesh(1,i,j), J_mesh(1,ip,j), J_mesh(1,ipp,j)];
             J1_vals_r = [J_mesh(1,imm,j), J_mesh(1,im,j), J_mesh(1,i,j), J_mesh(1,ip,j), J_mesh(1,ipp,j), J_mesh(1,ippp,j)];

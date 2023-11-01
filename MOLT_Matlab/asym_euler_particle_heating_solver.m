@@ -24,7 +24,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     % we use this to compute the temperature outside the solver
     % This variance is an average of the variance in each direction
     v_elec_var_history = [];
-    
+
     % Grid dimensions
     N_x = length(x);
     N_y = length(y);
@@ -146,6 +146,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     rho_ions = zeros(N_x,N_y);
     rho_elec = zeros(N_x,N_y);
     rho_mesh = zeros(N_x,N_y);
+
+    u_avg_mesh = zeros(2,N_x,N_y);
     
     % We track three time levels of J (n, n+1)
     % Note, we don't need J3 for this model 
@@ -233,6 +235,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         J_mesh(:,:,:) = 0.0;
         
+        u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old);
+
         % Map for electrons (ions are stationary)
         % Can try using the starred velocities here if we want
         J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
@@ -266,8 +270,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % prior to the mapping
         % This is done here b/c the function does not reset the current
         % We do this so that it can be applied to any number of species
-        rho_ions(:,:) = 0.0;
-        rho_elec(:,:) = 0.0;
+        % rho_ions(:,:) = 0.0;
+        % rho_elec(:,:) = 0.0;
 
         % Ions
         % map_rho_to_mesh_2D(rho_ions(:,:), x, y, dx, dy,
@@ -279,14 +283,19 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         %                    x1_elec_new, x2_elec_new,
         %                    q_elec, cell_volumes, w_elec)
 
-        rho_elec = map_rho_to_mesh_from_J_2D_WENO_Periodic(N_x, N_y, J_mesh, dx, dy, dt);
+        rho_elec = map_rho_to_mesh_2D_u_ave(x, y, dt, u_avg_mesh, rho_mesh);
+        % rho_elec = map_rho_to_mesh_from_J_2D_WENO_Periodic(N_x, N_y, J_mesh, dx, dy, dt);
 
         % Need to enforce periodicity for the charge on the mesh
-        rho_ions = enforce_periodicity(rho_ions(:,:));
+        % rho_ions = enforce_periodicity(rho_ions(:,:));
         rho_elec = enforce_periodicity(rho_elec(:,:));
 
         % Compute the total charge density
         rho_mesh(:,:) = rho_ions(:,:) + rho_elec(:,:);
+
+        if ~all(rho_mesh(1,:) == rho_mesh(end,:))
+            disp('foo');
+        end
     
         assert(all(rho_mesh(1,:) == rho_mesh(end,:)));
         assert(all(rho_mesh(:,1) == rho_mesh(:,end)));
@@ -399,7 +408,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         P1_elec_old(:) = P1_elec_new(:);
         P2_elec_old(:) = P2_elec_new(:);
         
-        % Measure the variance of the electron velocity distribution
+        % % Measure the variance of the electron velocity distribution
         % and store for later use
         %
         % Note that we average the variance here so we don't need an
@@ -417,7 +426,7 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
 %         total_time = solver_end_time - solver_start_time;
 
-        if (mod(steps, plot_at) == 0)
+        if (mod(steps, 1) == 0)
             subplot(2,2,1);
             scatter(x1_elec_new, x2_elec_new, 5, 'filled');
             xlabel("x");
