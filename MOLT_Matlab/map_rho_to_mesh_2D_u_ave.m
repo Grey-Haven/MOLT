@@ -65,8 +65,8 @@ function rho_mesh = map_rho_to_mesh_2D_u_ave(x, y, dt, u_mesh, rho_mesh)
     % Iterate
     %%%%%%%%%%%%%%%%
 
-    MAX_ITER = 10;
-    TOL = 1e-4;
+    MAX_ITER = 100;
+    TOL = 1e-10;
 
     for k = 1:MAX_ITER
 
@@ -152,5 +152,5 @@ function rho_mesh = map_rho_to_mesh_2D_u_ave(x, y, dt, u_mesh, rho_mesh)
         end
         rho_mesh = rho_mesh_k(:,:);
     end
-    disp(k + " " + diff);
+%     disp(k + " " + diff);
 end

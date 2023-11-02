@@ -147,8 +147,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     rho_elec = zeros(N_x,N_y);
     rho_mesh = zeros(N_x,N_y);
 
-    u_avg_mesh = zeros(2,N_x,N_y);
-    u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old);
+%     u_avg_mesh = zeros(2,N_x,N_y);
+%     u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old);
     
     % We track three time levels of J (n, n+1)
     % Note, we don't need J3 for this model 
@@ -195,12 +195,12 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     end
 
     % Ions
-    rho_ions = map_rho_to_mesh_2D(N_x, N_y, x, y, dx, dy, ...
+    rho_ions = map_rho_to_mesh_2D(x, y, dx, dy, ...
                                   x1_ions, x2_ions, ...
                                   q_ions, cell_volumes, w_ions);
 
     % Electrons
-    rho_elec = map_rho_to_mesh_2D(N_x, N_y, x, y, dx, dy, ...
+    rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, ...
                                   x1_elec_new, x2_elec_new, ...
                                   q_elec, cell_volumes, w_elec);
     % Need to enforce periodicity for the charge on the mesh
@@ -225,44 +225,6 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % Need to include the shift function here
         x1_elec_new = periodic_shift(x1_elec_new, x(1), L_x);
         x2_elec_new = periodic_shift(x2_elec_new, y(1), L_y);
-
-        %---------------------------------------------------------------------
-        % 2. Compute the electron current density used for updating A
-        %---------------------------------------------------------------------
-
-        % Clear the contents of J prior to the mapping
-        % This is done here b/c the J function does not reset the current
-        % We do this so that it can be applied to any number of species
-        
-        J_mesh(:,:,:) = 0.0;
-        u_prev = u_avg_mesh(:,:,:);
-        u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old);
-        u_star = 2*u_avg_mesh - u_prev;
-
-        % Map for electrons (ions are stationary)
-        % Can try using the starred velocities here if we want
-        J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
-                                    x1_elec_new, x2_elec_new, ...
-                                    v1_elec_old, v2_elec_old, ...
-                                    q_elec, cell_volumes, w_elec);
-        
-
-        % Need to enforce periodicity for the current on the mesh
-        J_mesh(1,:,:) = enforce_periodicity(squeeze(J_mesh(1,:,:)));
-        J_mesh(2,:,:) = enforce_periodicity(squeeze(J_mesh(2,:,:)));
-
-        assert(all(J_mesh(1,1,:) == J_mesh(1,end,:)));
-        assert(all(J_mesh(1,:,1) == J_mesh(1,:,end)));
-
-        assert(all(J_mesh(2,1,:) == J_mesh(2,end,:)));
-        assert(all(J_mesh(2,:,1) == J_mesh(2,:,end)));
-        
-        J1_mesh = squeeze(J_mesh(1,:,:));
-        J2_mesh = squeeze(J_mesh(2,:,:));
-        
-        % Compute components of div(J) using finite-differences
-        compute_ddx_FD(ddx_J1, J1_mesh(:,:), dx);
-        compute_ddy_FD(ddy_J2, J2_mesh(:,:), dy);
         
         %---------------------------------------------------------------------
         % 4. Using the new positions, map charge to the mesh to get rho^{n+1}
@@ -284,8 +246,13 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % map_rho_to_mesh_2D(rho_elec(:,:), x, y, dx, dy,
         %                    x1_elec_new, x2_elec_new,
         %                    q_elec, cell_volumes, w_elec)
+%         rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, x1_elec_new, x2_elec_new, ...
+%                                       q_elec, cell_volumes, w_elec);
 
-        rho_elec = map_rho_to_mesh_2D_u_ave(x, y, dt, u_star, rho_elec);
+        u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old, v1_elec_new, v2_elec_new);
+%         u_star = 2*u_avg_mesh - u_prev;
+
+        rho_elec = map_rho_to_mesh_2D_u_ave(x, y, dt, u_avg_mesh, rho_elec);
         % rho_elec = map_rho_to_mesh_from_J_2D_WENO_Periodic(N_x, N_y, J_mesh, dx, dy, dt);
 
         % Need to enforce periodicity for the charge on the mesh
@@ -294,13 +261,49 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
 
         % Compute the total charge density
         rho_mesh(:,:) = rho_ions(:,:) + rho_elec(:,:);
-
-        if ~all(rho_mesh(1,:) == rho_mesh(end,:))
-            disp('foo');
-        end
     
         assert(all(rho_mesh(1,:) == rho_mesh(end,:)));
         assert(all(rho_mesh(:,1) == rho_mesh(:,end)));
+
+        %---------------------------------------------------------------------
+        % 2. Compute the electron current density used for updating A
+        %---------------------------------------------------------------------
+
+        % Clear the contents of J prior to the mapping
+        % This is done here b/c the J function does not reset the current
+        % We do this so that it can be applied to any number of species
+        
+        J_mesh(:,:,:) = 0.0;
+
+        % Map for electrons (ions are stationary)
+        % Can try using the starred velocities here if we want
+%         J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
+%                                     x1_elec_new, x2_elec_new, ...
+%                                     v1_elec_old, v2_elec_old, ...
+%                                     q_elec, cell_volumes, w_elec);
+        
+        J_mesh(1,:,:) = squeeze(u_avg_mesh(1,:,:)) .* rho_elec(:,:);
+        J_mesh(2,:,:) = squeeze(u_avg_mesh(2,:,:)) .* rho_elec(:,:);
+
+        % Need to enforce periodicity for the current on the mesh
+        J_mesh(1,:,:) = enforce_periodicity(squeeze(J_mesh(1,:,:)));
+        J_mesh(2,:,:) = enforce_periodicity(squeeze(J_mesh(2,:,:)));
+
+        assert(all(J_mesh(1,1,:) == J_mesh(1,end,:)));
+        assert(all(J_mesh(1,:,1) == J_mesh(1,:,end)));
+
+        assert(all(J_mesh(2,1,:) == J_mesh(2,end,:)));
+        assert(all(J_mesh(2,:,1) == J_mesh(2,:,end)));
+        
+        J1_mesh = squeeze(J_mesh(1,:,:));
+        J2_mesh = squeeze(J_mesh(2,:,:));
+        
+%         disp(sum(sum(J1_mesh)) + sum(sum(J2_mesh)));
+        disp(sum(sum(rho_elec)));
+        
+        % Compute components of div(J) using finite-differences
+        ddx_J1 = compute_ddx_FD(J1_mesh(:,:), dx);
+        ddy_J2 = compute_ddy_FD(J2_mesh(:,:), dy);
         
         %---------------------------------------------------------------------
         % 5. Advance the psi and its derivatives by dt using BDF-1 
@@ -339,9 +342,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % Fields are taken implicitly and we use the "lagged" velocity
         %
         % This will give us new momenta and velocities for the next step
-        improved_asym_euler_momentum_push_2D2P(P1_elec_new, P2_elec_new, ...
-                                               v1_elec_new, v2_elec_new, ...
-                                               x1_elec_new, x2_elec_new, ...
+        [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
+        improved_asym_euler_momentum_push_2D2P(x1_elec_new, x2_elec_new, ...
                                                P1_elec_old, P2_elec_old, ...
                                                v1_elec_old, v2_elec_old, ...
                                                v1_elec_nm1, v2_elec_nm1, ...
@@ -376,8 +378,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         % Compute Gauss' law div(E) - rho to check the involution
         % We'll just use finite-differences here
-        compute_ddx_FD(ddx_E1, E1, dx);
-        compute_ddy_FD(ddy_E2, E2, dy);
+        ddx_E1 = compute_ddx_FD(E1, dx);
+        ddy_E2 = compute_ddy_FD(E2, dy);
         
         gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
         
@@ -393,9 +395,9 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         %---------------------------------------------------------------------
         
         % Shuffle the time history of the fields
-        shuffle_steps(psi);
-        shuffle_steps(A1);
-        shuffle_steps(A2);
+        psi = shuffle_steps(psi);
+        A1 = shuffle_steps(A1);
+        A2 = shuffle_steps(A2);
         
         % Shuffle the time history of the particle data
         v1_elec_nm1(:) = v1_elec_old(:);
@@ -461,6 +463,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
             xlim([x(1),x(end)]);
             ylim([y(1),y(end)]);
 
+            sgtitle("Convergence method, t = " + t_n);
+            
             drawnow;
         end
 

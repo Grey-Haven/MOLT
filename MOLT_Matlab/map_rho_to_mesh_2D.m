@@ -1,5 +1,4 @@
-function rho_mesh = map_rho_to_mesh_2D(Nx, Ny, x, y, dx, dy, ...
-                                       x1, x2, ...
+function rho_mesh = map_rho_to_mesh_2D(x, y, dx, dy, x1, x2, ...
                                        q_s, cell_volumes, w_s)
     %%%%%%%%%
     % Computes the charge density on the mesh using 
@@ -7,6 +6,9 @@ function rho_mesh = map_rho_to_mesh_2D(Nx, Ny, x, y, dx, dy, ...
     %
     % Assumes a single species is present
     %%%%%%%%%
+    
+    Nx = length(x);
+    Ny = length(y);
     
     % Number of simulation particles
     N_part = length(x1);

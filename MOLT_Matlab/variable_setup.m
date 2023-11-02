@@ -37,8 +37,8 @@ N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
 
-% v1_drift = kappa/1000;
-v1_drift = 0;
+v1_drift = kappa/100;
+% v1_drift = 0;
 v2_drift = 0;
 
 % Number of particles for each species
@@ -90,7 +90,7 @@ y_0 = (a_y + b_y) / 2;
 sig_x = .1*(b_x - a_x);
 sig_y = .1*(b_y - a_y);
 
-particle_positions_elec = .1*sig_x*randn(N_p/4,2) + x_0;
+particle_positions_elec = sig_x*randn(N_p,2) + x_0;
 particle_positions_ions = sig_y*randn(N_p,2) + x_0;
 
 x1_elec = particle_positions_elec(:,1);
@@ -132,7 +132,7 @@ P2_elec = v2_elec*r_elec;
 % Compute the normalized particle weights
 % L_x and L_y are the non-dimensional domain lengths
 w_ions = (L_x*L_y)/N_p;
-w_elec = .01*(L_x*L_y)/N_p;
+w_elec = (L_x*L_y)/N_p;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters

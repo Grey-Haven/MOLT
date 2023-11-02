@@ -1,4 +1,4 @@
-function [] = shuffle_steps(u)
+function u = shuffle_steps(u)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Performs the data swap required prior to advancing to the next time step.
     %

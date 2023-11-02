@@ -1,10 +1,12 @@
-function [] = compute_ddy_FD(dudy, u, dy)
+function dudy = compute_ddy_FD(u, dy)
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Computes an y derivative via finite differences
     %%%%%%%%%%%%%%%%%%%%%%%%%
     
     N_x = size(u,1);
     N_y = size(u,2);
+    
+    dudy = zeros(size(u));
     
     % Left boundary (forward diff)
     for i = 1:N_x

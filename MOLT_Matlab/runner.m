@@ -11,7 +11,7 @@ mesh_independent_variable_setup;
 grid_refinement = [16];
 
 enable_plots = true;
-plot_at = 25;
+plot_at = 1;
 
 for g = grid_refinement
     variable_setup;

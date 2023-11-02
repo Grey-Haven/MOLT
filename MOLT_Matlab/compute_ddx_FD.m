@@ -1,10 +1,12 @@
-function [] = compute_ddx_FD(dudx, u, dx)
+function dudx = compute_ddx_FD(u, dx)
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Computes an x derivative via finite differences
     %%%%%%%%%%%%%%%%%%%%%%%%%
     
     N_x = size(u,1);
     N_y = size(u,2);
+
+    dudx = zeros(size(u));
 
     % Left boundary (forward diff)
     for j = 1:N_y
