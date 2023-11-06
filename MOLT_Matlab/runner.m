@@ -1,4 +1,5 @@
 clear;
+close all;
 addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 % addpath(genpath([fileparts(pwd), '/common']));
@@ -8,7 +9,7 @@ rng(2);
 
 mesh_independent_variable_setup;
 
-grid_refinement = [16];
+grid_refinement = [8];
 
 enable_plots = true;
 plot_at = 1;

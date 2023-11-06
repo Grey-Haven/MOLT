@@ -297,6 +297,9 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         J1_mesh = squeeze(J_mesh(1,:,:));
         J2_mesh = squeeze(J_mesh(2,:,:));
+
+        J1_mesh = ifft(fft(ifft(fft(J1_mesh,N_x,2),N_x,2),N_y,1),N_y,1);
+        J2_mesh = ifft(fft(ifft(fft(J2_mesh,N_x,2),N_x,2),N_y,1),N_y,1);
         
 %         disp(sum(sum(J1_mesh)) + sum(sum(J2_mesh)));
         disp(sum(sum(rho_elec)));
