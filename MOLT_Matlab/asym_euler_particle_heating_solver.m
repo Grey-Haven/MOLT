@@ -32,6 +32,9 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     % Domain lengths
     L_x = x(end) - x(1);
     L_y = y(end) - y(1);
+
+    % kx = 2*pi/L_x*[0:N_x/2-1, 0, -N_x/2+1:-1];
+    % ky = 2*pi/L_y*[0:N_y/2-1, 0, -N_y/2+1:-1];
     
     % Compute the step size
     dt = T_final/N_steps;
@@ -155,8 +158,22 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     % Since ions are stationary J_mesh := J_elec
     J_mesh = zeros(2,N_x,N_y); % Idx order: comp., grid indices
     
-    ddx_J1 = zeros(N_x,N_y);
-    ddy_J2 = zeros(N_x,N_y);
+    J1_mesh_FFTx = zeros(N_x-1,N_y-1);
+    J2_mesh_FFTy = zeros(N_x-1,N_y-1);
+
+    Jx_deriv_star = zeros(N_x,N_y);
+    Jy_deriv_star = zeros(N_x,N_y);
+
+    J1_clean = zeros(N_x,N_y);
+    J2_clean = zeros(N_x,N_y);
+    J1_deriv_clean = zeros(N_x,N_y);
+    J2_deriv_clean = zeros(N_x,N_y);
+
+    kx = 2*pi/(L_x)*[0:(N_x-1)/2-1, 0, -(N_x-1)/2+1:-1];
+    ky = 2*pi/(L_y)*[0:(N_y-1)/2-1, 0, -(N_y-1)/2+1:-1];
+
+    % ddx_J1 = zeros(N_x,N_y);
+    % ddy_J2 = zeros(N_x,N_y);
     
     % Compute the cell volumes required in the particle to mesh mapping
     % The domain is periodic here, so the first and last cells here are
@@ -208,8 +225,18 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
     rho_elec = enforce_periodicity(rho_elec(:,:));
 
     rho_mesh = rho_ions + rho_elec;
+
+    % Clean the mesh out
+    rho_mesh(1:end-1,1:end-1) = ifft(fft(ifft(fft(rho_mesh,N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
+    rho_mesh(1,:) = rho_mesh(end,:);
+    rho_mesh(:,1) = rho_mesh(:,end);
     
     v_elec_var_history = zeros(N_steps, 1);
+
+    rho_hist = zeros(N_steps,1);
+    rho_hist(steps) = sum(sum(rho_elec));
+
+    u_prev = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old, v1_elec_new, v2_elec_new);
     
     while(steps < N_steps)
 
@@ -241,29 +268,30 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % map_rho_to_mesh_2D(rho_ions(:,:), x, y, dx, dy,
         %                    x1_ions, x2_ions,
         %                    q_ions, cell_volumes, w_ions)
+        
 
         % Electrons
         % map_rho_to_mesh_2D(rho_elec(:,:), x, y, dx, dy,
         %                    x1_elec_new, x2_elec_new,
         %                    q_elec, cell_volumes, w_elec)
-%         rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, x1_elec_new, x2_elec_new, ...
-%                                       q_elec, cell_volumes, w_elec);
+        rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, x1_elec_new, x2_elec_new, ...
+                                      q_elec, cell_volumes, w_elec);
 
-        u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old, v1_elec_new, v2_elec_new);
-%         u_star = 2*u_avg_mesh - u_prev;
+        % u_avg_mesh = map_v_avg_to_mesh(x, y, dx, dy, x1_elec_new, x2_elec_new, v1_elec_old, v2_elec_old, v1_elec_new, v2_elec_new);
+        % u_star = 2*u_avg_mesh - u_prev;
 
-        rho_elec = map_rho_to_mesh_2D_u_ave(x, y, dt, u_avg_mesh, rho_elec);
+        % rho_elec = map_rho_to_mesh_2D_u_ave(x, y, dt, u_avg_mesh, rho_elec);
         % rho_elec = map_rho_to_mesh_from_J_2D_WENO_Periodic(N_x, N_y, J_mesh, dx, dy, dt);
 
         % Need to enforce periodicity for the charge on the mesh
-        % rho_ions = enforce_periodicity(rho_ions(:,:));
+        rho_ions = enforce_periodicity(rho_ions(:,:));
         rho_elec = enforce_periodicity(rho_elec(:,:));
 
         % Compute the total charge density
         rho_mesh(:,:) = rho_ions(:,:) + rho_elec(:,:);
     
-        assert(all(rho_mesh(1,:) == rho_mesh(end,:)));
-        assert(all(rho_mesh(:,1) == rho_mesh(:,end)));
+        % assert(all(rho_mesh(1,:) == rho_mesh(end,:)));
+        % assert(all(rho_mesh(:,1) == rho_mesh(:,end)));
 
         %---------------------------------------------------------------------
         % 2. Compute the electron current density used for updating A
@@ -277,13 +305,13 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
 
         % Map for electrons (ions are stationary)
         % Can try using the starred velocities here if we want
-%         J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
-%                                     x1_elec_new, x2_elec_new, ...
-%                                     v1_elec_old, v2_elec_old, ...
-%                                     q_elec, cell_volumes, w_elec);
+        J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
+                                    x1_elec_new, x2_elec_new, ...
+                                    v1_elec_old, v2_elec_old, ...
+                                    q_elec, cell_volumes, w_elec);
         
-        J_mesh(1,:,:) = squeeze(u_avg_mesh(1,:,:)) .* rho_elec(:,:);
-        J_mesh(2,:,:) = squeeze(u_avg_mesh(2,:,:)) .* rho_elec(:,:);
+        % J_mesh(1,:,:) = squeeze(u_avg_mesh(1,:,:)) .* rho_elec(:,:);
+        % J_mesh(2,:,:) = squeeze(u_avg_mesh(2,:,:)) .* rho_elec(:,:);
 
         % Need to enforce periodicity for the current on the mesh
         J_mesh(1,:,:) = enforce_periodicity(squeeze(J_mesh(1,:,:)));
@@ -297,17 +325,82 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         J1_mesh = squeeze(J_mesh(1,:,:));
         J2_mesh = squeeze(J_mesh(2,:,:));
-
-        J1_mesh = ifft(fft(ifft(fft(J1_mesh,N_x,2),N_x,2),N_y,1),N_y,1);
-        J2_mesh = ifft(fft(ifft(fft(J2_mesh,N_x,2),N_x,2),N_y,1),N_y,1);
         
 %         disp(sum(sum(J1_mesh)) + sum(sum(J2_mesh)));
-        disp(sum(sum(rho_elec)));
+        % disp(sum(sum(rho_elec)));
+        rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
         
         % Compute components of div(J) using finite-differences
         ddx_J1 = compute_ddx_FD(J1_mesh(:,:), dx);
         ddy_J2 = compute_ddy_FD(J2_mesh(:,:), dy);
+
+
+        J1_mesh_FFTx(:,:) = fft(J1_mesh(1:end-1,1:end-1),N_x-1,1);
+        J2_mesh_FFTy(:,:) = fft(J2_mesh(1:end-1,1:end-1),N_y-1,2);
+
+
+        J1_clean(1:end-1,1:end-1) = ifft(fft(ifft(fft(J1_mesh,N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
+        J2_clean(1:end-1,1:end-1) = ifft(fft(ifft(fft(J2_mesh,N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
+        J1_clean(end,:) = J1_clean(1,:);
+        J1_clean(:,end) = J1_clean(:,1);
+        J2_clean(end,:) = J2_clean(1,:);
+        J2_clean(:,end) = J2_clean(:,1);
+
+        J1_clean_FFTx = fft(J1_clean(1:end-1,1:end-1),N_x-1,1);
+        J2_clean_FFTy = fft(J2_clean(1:end-1,1:end-1),N_y-1,2);
+
+        J1_deriv_clean(1:end-1,1:end-1) = ifft(sqrt(-1)*kx'.*J1_clean_FFTx,N_x-1,1);
+        J2_deriv_clean(1:end-1,1:end-1) = ifft(sqrt(-1)*ky .*J2_clean_FFTy,N_y-1,2);
+        J1_deriv_clean(end,:) = J1_deriv_clean(1,:);
+        J1_deriv_clean(:,end) = J1_deriv_clean(:,1);
+        J2_deriv_clean(end,:) = J2_deriv_clean(1,:);
+        J2_deriv_clean(:,end) = J2_deriv_clean(:,1);
+
+        Gamma = -1/((N_x-1)*(N_y-1))*sum(sum(J1_deriv_clean(1:end-1,1:end-1) + J2_deriv_clean(1:end-1,1:end-1)));
+
+        F1 = .5*Gamma*x'.*ones(N_x,N_y);
+        F2 = .5*Gamma*y .*ones(N_x,N_y);
+
+        J1_star = J1_clean + F1;
+        J2_star = J1_clean + F2;
+
+        J1_star_FFTx = fft(J1_star(1:end-1,1:end-1),N_x-1,1);
+        J2_star_FFTy = fft(J2_star(1:end-1,1:end-1),N_y-1,2);
+
+        J1_star_deriv = ifft(sqrt(-1)*kx'.*J1_star_FFTx,N_x-1,1);
+        J2_star_deriv = ifft(sqrt(-1)*ky .*J2_star_FFTy,N_y-1,2);
+
+        J1_deriv_clean(1:end-1,1:end-1) = J1_star_deriv;
+        J2_deriv_clean(1:end-1,1:end-1) = J2_star_deriv;
+        J1_deriv_clean(end,:) = J1_deriv_clean(1,:);
+        J1_deriv_clean(:,end) = J1_deriv_clean(:,1);
+        J2_deriv_clean(end,:) = J2_deriv_clean(1,:);
+        J2_deriv_clean(:,end) = J2_deriv_clean(:,1);
         
+        % rho_mesh = rho_mesh - dt*(J1_deriv_clean + J2_deriv_clean);
+
+        % rho_n = rho_elec(:,:);
+        % rho_elec = rho_elec - dt*(J1_deriv_clean + J2_deriv_clean);
+        % 
+        % u1 = squeeze(u_star(1,:,:));
+        % u2 = squeeze(u_star(2,:,:));
+        % 
+        % J1 = rho_mesh.*u1;
+        % J2 = rho_mesh.*u2;
+        % 
+        % rho_fft_deriv_x = ifft(sqrt(-1)*kx'.*fft(rho_mesh(1:end-1,1:end-1),N_x-1,1),N_x-1,1);
+        % rho_fft_deriv_y = ifft(sqrt(-1)*ky .*fft(rho_mesh(1:end-1,1:end-1),N_y-1,2),N_y-1,2);
+        % div_rho = sum(sum(rho_fft_deriv_x + rho_fft_deriv_y)); % Scalar
+        % 
+        % u1_fft_deriv_x = ifft(sqrt(-1)*kx'.*fft(u1(1:end-1,1:end-1),N_x-1,1),N_x-1,1);
+        % u2_fft_deriv_y = ifft(sqrt(-1)*ky .*fft(u2(1:end-1,1:end-1),N_y-1,2),N_y-1,2);
+        % div_u = u1_fft_deriv_x + u2_fft_deriv_y;
+        % 
+        % rho_root = @(rho_guess) rho_implicit(rho_guess,rho_n,u_star,dt,kx,ky);
+        % 
+        % rho_elec_next = fsolve(rho_root,rho_elec);
+        % rho_elec = rho_elec_next;
+        % rho_mesh = rho_ions + rho_elec;
         %---------------------------------------------------------------------
         % 5. Advance the psi and its derivatives by dt using BDF-1 
         %---------------------------------------------------------------------
@@ -325,9 +418,10 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         % 5. Advance the A1 and A2 and their derivatives by dt using BDF-1
         %---------------------------------------------------------------------
         
-        A1_src(:,:) = sigma_2*J_mesh(1,:,:);
-        A2_src(:,:) = sigma_2*J_mesh(2,:,:);
-        
+        % A1_src(:,:) = sigma_2*J_mesh(1,:,:);
+        % A2_src(:,:) = sigma_2*J_mesh(2,:,:);
+        A1_src(:,:) = sigma_2*J1_star;
+        A2_src(:,:) = sigma_2*J2_star;
         % A1 uses J1
         [A1, ddx_A1, ddy_A1] = BDF1_combined_per_advance(A1, ddx_A1, ddy_A1, A1_src(:,:), ...
                                                          x, y, t_n, dx, dy, dt, kappa, beta_BDF);
@@ -414,6 +508,8 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         
         P1_elec_old(:) = P1_elec_new(:);
         P2_elec_old(:) = P2_elec_new(:);
+
+        % u_prev(:,:) = u_star(:,:);
         
         % % Measure the variance of the electron velocity distribution
         % and store for later use
@@ -423,10 +519,6 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
         var_v1 = var(v1_elec_new);
         var_v2 = var(v2_elec_new);
         v_elec_var_history(steps) = ( 0.5*(var_v1 + var_v2) );
-
-        % Step is now complete
-        steps = steps + 1;
-        t_n = t_n + dt;
         
         % Stop the timer
 %         solver_end_time = time.time();
@@ -450,13 +542,19 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
             xlim([x(1),x(end)]);
             ylim([y(1),y(end)]);
 
+            % subplot(2,2,3);
+            % surf(x,y,squeeze(psi(3,:,:)));
+            % xlabel("x");
+            % ylabel("y");
+            % title("$\psi$",'Interpreter','latex');
+            % xlim([x(1),x(end)]);
+            % ylim([y(1),y(end)]);
+
             subplot(2,2,3);
-            surf(x,y,squeeze(psi(3,:,:)));
-            xlabel("x");
-            ylabel("y");
-            title("$\psi$",'Interpreter','latex');
-            xlim([x(1),x(end)]);
-            ylim([y(1),y(end)]);
+            plot(0:dt:(steps-1)*dt,rho_hist(1:steps));
+            xlabel("t");
+            ylabel("$\sum_{i,j}\rho_{i,j}$",'Interpreter','latex');
+            title("Total Charge Over Time");
 
             subplot(2,2,4);
             surf(x,y,gauge_residual);
@@ -466,10 +564,47 @@ function [total_time, gauge_error, gauss_law_error, sum_gauss_law_residual, v_el
             xlim([x(1),x(end)]);
             ylim([y(1),y(end)]);
 
-            sgtitle("Convergence method, t = " + t_n);
+            sgtitle("Vanilla method, t = " + t_n);
             
             drawnow;
         end
 
+        % Step is now complete
+        steps = steps + 1;
+        t_n = t_n + dt;
+
     end
+end
+
+function r = rho_implicit(rho_guess,rho_n,u,dt,kx,ky)
+
+    u1 = squeeze(u(1,:,:));
+    u2 = squeeze(u(2,:,:));
+
+    Nx = size(rho_guess,1)-1;
+    Ny = size(rho_guess,1)-1;
+
+    % rho_fft_deriv_x = ifft(sqrt(-1)*kx'.*fft(rho_guess(1:end-1,1:end-1),Nx,1),Nx,1);
+    % rho_fft_deriv_y = ifft(sqrt(-1)*ky .*fft(rho_guess(1:end-1,1:end-1),Ny,2),Ny,2);
+    % div_rho = sum(sum(rho_fft_deriv_x + rho_fft_deriv_y)); % Scalar
+    % 
+    % u1_fft_deriv_x = ifft(sqrt(-1)*kx'.*fft(u1(1:end-1,1:end-1),Nx,1),Nx,1);
+    % u2_fft_deriv_y = ifft(sqrt(-1)*ky .*fft(u2(1:end-1,1:end-1),Ny,2),Ny,2);
+    % div_u = u1_fft_deriv_x + u2_fft_deriv_y; % "Vector" (array)
+    % 
+    % r = (1 + dt*div_u).*rho_guess + dt*div_rho*u - rho_n;
+
+    J1 = rho_guess.*u1;
+    J2 = rho_guess.*u2;
+
+    J1_fft_deriv_x = ifft(sqrt(-1)*kx'.*fft(J1(1:end-1,1:end-1),Nx,1),Nx,1);
+    J2_fft_deriv_y = ifft(sqrt(-1)*ky .*fft(J2(1:end-1,1:end-1),Ny,2),Ny,2);
+
+    div_J = zeros(Nx+1,Ny+1);
+    div_J(1:end-1,1:end-1) = J1_fft_deriv_x + J2_fft_deriv_y;
+    div_J(end,:) = div_J(1,:);
+    div_J(:,end) = div_J(:,1);
+
+    r = rho_guess - rho_n + dt*div_J;
+
 end
