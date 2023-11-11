@@ -22,7 +22,7 @@ function ddy = get_ddy_L_y_inverse_per(operand, x, y, dx, dy, dt, c, beta)
     end
     
     for i = 1:N_x
-        periodic_extension(operand_ext(i+2,:));
+        operand_ext(i+2,:) = periodic_extension(operand_ext(i+2,:));
     end
 
     ddy = zeros(N_x,N_y);

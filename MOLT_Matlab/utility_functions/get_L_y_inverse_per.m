@@ -24,7 +24,7 @@ function inverse = get_L_y_inverse_per(operand, x, y, dx, dy, dt, c, beta)
     % Extend the data for the integrand along y
     % Corners are not needed
     for i = 1:N_x
-        periodic_extension(operand_ext(i+2,:));
+        operand_ext(i+2,:) = periodic_extension(operand_ext(i+2,:));
     end
             
     % Invert the y operator and apply to the operand
@@ -51,7 +51,7 @@ function inverse = get_L_y_inverse_per(operand, x, y, dx, dy, dt, c, beta)
         B_y = I_a/(1-mu_y);
         
         % Sweep the y boundary data into the operator
-        apply_A_and_B(rite_moving_op(i,:), y, alpha, A_y, B_y);
+        rite_moving_op(i,:) = apply_A_and_B(rite_moving_op(i,:), y, alpha, A_y, B_y);
     end
 
     inverse = zeros(N_x, N_y);

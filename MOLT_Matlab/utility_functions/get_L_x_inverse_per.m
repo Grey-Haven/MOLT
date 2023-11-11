@@ -24,7 +24,7 @@ function inverse = get_L_x_inverse_per(operand, x, y, dx, dy, dt, c, beta)
     % Extend the data for the operand along x
     % Corners are not needed
     for j = 1:N_y
-        periodic_extension(operand_ext(:,j+2))
+        operand_ext(:,j+2) = periodic_extension(operand_ext(:,j+2));
     end
 
     % Invert the x operator and apply to the operand
@@ -51,7 +51,7 @@ function inverse = get_L_x_inverse_per(operand, x, y, dx, dy, dt, c, beta)
         B_x = I_a/(1-mu_x);
 
         % Sweep the x boundary data into the operator
-        apply_A_and_B(rite_moving_op(:,j), x, alpha, A_x, B_x);
+        rite_moving_op(:,j) = apply_A_and_B(rite_moving_op(:,j), x, alpha, A_x, B_x);
     end
 
     inverse = zeros(N_x,N_y);
