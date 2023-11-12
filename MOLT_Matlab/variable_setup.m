@@ -13,8 +13,10 @@ disp(tag);
 % BEGIN Domain Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-L_x = 32.0;
-L_y = 32.0;
+% L_x = 32.0;
+% L_y = 32.0;
+L_x = 1.0;
+L_y = 1.0;
 
 a_x = -L_x/2;
 b_x = L_x/2;
@@ -39,7 +41,7 @@ v_ave_mag = 1;
 
 v1_drift = kappa/100;
 % v1_drift = 0;
-v2_drift = 0;
+v2_drift = kappa/100;
 
 % Number of particles for each species
 N_p = 2.5e5;
@@ -87,8 +89,8 @@ xy_max = [b_x, b_y];
 x_0 = (a_x + b_x) / 2;
 y_0 = (a_y + b_y) / 2;
 
-sig_x = .1*(b_x - a_x);
-sig_y = .1*(b_y - a_y);
+sig_x = .05*(b_x - a_x);
+sig_y = .05*(b_y - a_y);
 
 particle_positions_elec = sig_x*randn(N_p,2) + x_0;
 particle_positions_ions = sig_y*randn(N_p,2) + x_0;
