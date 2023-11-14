@@ -8,10 +8,10 @@ function u = shuffle_steps(u)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Identify the number of time levels
-    num_levels = size(u,1);
+    num_levels = size(u,3);
     
     % Transfer the time history starting from the oldest available data
     for level = 1:num_levels-1
-        u(level,:,:) = u(level + 1,:,:);
+        u(:,:,level) = u(:,:,level + 1);
     end
 end

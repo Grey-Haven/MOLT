@@ -14,13 +14,10 @@ function F_mesh = scatter_2D(Nx, Ny, x1_p, x2_p, x, y, dx, dy, weight)
     f_x = (x1_p - x(x_idx))/dx;
     f_y = (x2_p - y(y_idx))/dy;
 
-    % Weight the particle info to the mesh
-%     disp(x_idx + " " + y_idx)
+    F_mesh = zeros(Ny,Nx);
 
-    F_mesh = zeros(Nx,Ny);
-
-    F_mesh(x_idx, y_idx)     = F_mesh(x_idx, y_idx)     + weight*(1 - f_x)*(1 - f_y);
-    F_mesh(x_idx, y_idx+1)   = F_mesh(x_idx, y_idx+1)   + weight*(1 - f_x)*f_y;
-    F_mesh(x_idx+1, y_idx)   = F_mesh(x_idx+1, y_idx)   + weight*f_x*(1 - f_y);
-    F_mesh(x_idx+1, y_idx+1) = F_mesh(x_idx+1, y_idx+1) + weight*f_x*f_y;
+    F_mesh(y_idx,     x_idx) = F_mesh(y_idx,     x_idx) + weight*(1 - f_y)*(1 - f_x);
+    F_mesh(y_idx,   x_idx+1) = F_mesh(y_idx,   x_idx+1) + weight*(1 - f_y)*f_x;
+    F_mesh(y_idx+1,   x_idx) = F_mesh(y_idx+1,   x_idx) + weight*f_y*(1 - f_x);
+    F_mesh(y_idx+1, x_idx+1) = F_mesh(y_idx+1, x_idx+1) + weight*f_y*f_x;
 end

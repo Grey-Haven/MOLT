@@ -15,12 +15,14 @@ function rho_mesh = map_rho_to_mesh_2D(x, y, dx, dy, x1, x2, ...
     
     weight = w_s*q_s;
 
-    rho_mesh = zeros(Nx,Ny);
+%     rho_mesh = zeros(Ny,Nx);
         
     % Scatter particle charge data to the mesh
-    for i = 1:N_part
-        rho_mesh = rho_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight);
-    end
+%     for i = 1:N_part
+%         rho_mesh = rho_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x', y', dx, dy, weight);
+%     end
+
+    rho_mesh = scatter_2D_vectorized(Nx, Ny, x1(:), x2(:), x', y', dx, dy, weight);
         
     % End of particle loop
     

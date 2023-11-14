@@ -11,7 +11,7 @@ function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y
     
     dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
-    u(3,:,:) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    u(:,:,3) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
 end
 
@@ -32,18 +32,18 @@ function ddx = BDF1_ddx_advance_per(v, src_data, x, y, t, ...
     alpha = beta/(c*dt);
     
     % Variables for the integrands
-    R   = zeros(N_x, N_y); % time history
-    tmp = zeros(N_x, N_y); % tmp storage for the inverse
+    R   = zeros(N_y, N_x); % time history
+    tmp = zeros(N_y, N_x); % tmp storage for the inverse
     
     for i = 1:N_x
         for j = 1:N_y
     
             % Time history (v doesn't include the extension region)
             % There are three time levels here
-            R(i,j) = 2*v(2,i,j) - v(1,i,j);
+            R(j,i) = 2*v(j,i,2) - v(j,i,1);
 
             % Contribution from the source term (at t_{n+1})
-            R(i,j) = R(i,j) + ( 1/(alpha^2) )*src_data(i,j);
+            R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);
         end
     end
     % Invert the y operator and apply to R, storing in tmp
@@ -70,18 +70,18 @@ function ddy = BDF1_ddy_advance_per(v, src_data, x, y, t, ...
     alpha = beta/(c*dt);
     
     % Variables for the integrands
-    R   = zeros(N_x, N_y); % time history
-    tmp = zeros(N_x, N_y); % tmp storage for the inverse
+    R   = zeros(N_y, N_x); % time history
+    tmp = zeros(N_y, N_x); % tmp storage for the inverse
     
     for i = 1:N_x
         for j = 1:N_y
     
             % Time history (v doesn't include the extension region)
             % There are three time levels here
-            R(i,j) = 2*v(2,i,j) - v(1,i,j);
+            R(j,i) = 2*v(j,i,2) - v(j,i,1);
 
             % Contribution from the source term (at t_{n+1})
-            R(i,j) = R(i,j) + ( 1/(alpha^2) )*src_data(i,j);
+            R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);
         end
     end
             
@@ -112,18 +112,18 @@ function u = BDF1_advance_per(v, src_data, x, y, t, ...
     alpha = beta/(c*dt);
     
     % Variables for the integrands
-    R   = zeros(N_x, N_y); % time history
-    tmp = zeros(N_x, N_y); % tmp storage for the inverse
+    R   = zeros(N_y, N_x); % time history
+    tmp = zeros(N_y, N_x); % tmp storage for the inverse
     
     for i = 1:N_x
         for j = 1:N_y
     
             % Time history (v doesn't include the extension region)
             % There are three time levels here
-            R(i,j) = 2*v(2,i,j) - v(1,i,j);
+            R(j,i) = 2*v(j,i,2) - v(j,i,1);
 
             % Contribution from the source term (at t_{n+1})
-            R(i,j) = R(i,j) + ( 1/(alpha^2) )*src_data(i,j);
+            R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);
         end
     end
 

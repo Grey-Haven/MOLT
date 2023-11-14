@@ -9,10 +9,10 @@ rng(2);
 
 mesh_independent_variable_setup;
 
-grid_refinement = [8];
+grid_refinement = [32];
 
 enable_plots = true;
-plot_at = 1;
+plot_at = 25;
 
 for g = grid_refinement
     variable_setup;

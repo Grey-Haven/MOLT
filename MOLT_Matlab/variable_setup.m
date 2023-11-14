@@ -34,7 +34,7 @@ y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
 dt = dx/(sqrt(2)*kappa);
-T_final = 10;
+T_final = .05;
 N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
@@ -45,6 +45,7 @@ v2_drift = kappa/100;
 
 % Number of particles for each species
 N_p = 2.5e5;
+% N_p = 50;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Domain Parameters
