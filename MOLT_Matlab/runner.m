@@ -1,5 +1,5 @@
 clear;
-close all;
+% close all;
 addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 % addpath(genpath([fileparts(pwd), '/common']));
@@ -18,6 +18,7 @@ for g = grid_refinement
     variable_setup;
     results_path = fullfile("results","conserving",tag);
 
+    [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_history, A1, A2, psi, rho_mesh, x1_elec_new, x2_elec_new] = ...
     asym_euler_particle_heating_solver(x1_ions, x2_ions, ...
                                        P1_ions, P2_ions, ...
                                        v1_ions, v2_ions, ...

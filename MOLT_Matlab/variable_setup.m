@@ -34,7 +34,7 @@ y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
 dt = dx/(sqrt(2)*kappa);
-T_final = .05;
+T_final = .2;
 N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
@@ -44,8 +44,8 @@ v1_drift = kappa/100;
 v2_drift = kappa/100;
 
 % Number of particles for each species
-N_p = 2.5e5;
-% N_p = 50;
+N_p = 2.5e3;
+% N_p = 10;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Domain Parameters
@@ -90,11 +90,14 @@ xy_max = [b_x, b_y];
 x_0 = (a_x + b_x) / 2;
 y_0 = (a_y + b_y) / 2;
 
+x_offset = (b_x - a_x)/4;
+y_offset = (b_y - a_y)/4;
+
 sig_x = .05*(b_x - a_x);
 sig_y = .05*(b_y - a_y);
 
-particle_positions_elec = sig_x*randn(N_p,2) + x_0;
-particle_positions_ions = sig_y*randn(N_p,2) + x_0;
+particle_positions_elec = sig_x*randn(N_p,2) + [x_0, y_0] + [x_offset, y_offset];
+particle_positions_ions = sig_y*randn(N_p,2) + [x_0, y_0];
 
 x1_elec = particle_positions_elec(:,1);
 x2_elec = particle_positions_elec(:,2);
