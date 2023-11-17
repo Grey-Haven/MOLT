@@ -42,9 +42,6 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
     % Domain lengths
     L_x = x(end) - x(1);
     L_y = y(end) - y(1);
-
-    % kx = 2*pi/L_x*[0:N_x/2-1, 0, -N_x/2+1:-1];
-    % ky = 2*pi/L_y*[0:N_y/2-1, 0, -N_y/2+1:-1];
     
     % Compute the step size
     dt = T_final/N_steps;
@@ -235,6 +232,8 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
     % Need to enforce periodicity for the charge on the mesh
     rho_ions = enforce_periodicity(rho_ions(:,:));
     rho_elec = enforce_periodicity(rho_elec(:,:));
+    
+    rho_mesh = rho_ions + rho_elec;
 
     % Clean the mesh out
     % rho_elec(1:end-1,1:end-1) = ifft(fft(ifft(fft(rho_elec(1:end-1,1:end-1),N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
@@ -288,10 +287,10 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         % map_rho_to_mesh_2D(rho_elec(:,:), x, y, dx, dy,
         %                    x1_elec_new, x2_elec_new,
         %                    q_elec, cell_volumes, w_elec)
-        rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, x1_elec_new, x2_elec_new, ...
-                                      q_elec, cell_volumes, w_elec);
-
-        rho_elec = enforce_periodicity(rho_elec);
+%         rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, x1_elec_new, x2_elec_new, ...
+%                                       q_elec, cell_volumes, w_elec);
+% 
+%         rho_elec = enforce_periodicity(rho_elec);
 
         % rho_elec(1:end-1,1:end-1,1) = ifft(ifft(fft(fft(rho_elec(1:end-1,1:end-1,1),N_x-1,1),N_y-1,2),N_x-1,1),N_y-1,2);
         % rho_elec(end,:) = rho_elec(1,:);
@@ -323,7 +322,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         % rho_elec = enforce_periodicity(rho_elec(:,:));
 
         % Compute the total charge density
-        rho_mesh(:,:) = rho_ions(:,:) + rho_elec(:,:);
+%         rho_mesh(:,:) = rho_ions(:,:) + rho_elec(:,:);
     
         % assert(all(rho_mesh(1,:) == rho_mesh(end,:)));
         % assert(all(rho_mesh(:,1) == rho_mesh(:,end)));
@@ -370,49 +369,49 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         % ddy_J2 = compute_ddy_FD(J2_mesh(:,:), dy);
 
 
-        % J1_mesh_FFTx(:,:) = fft(J1_mesh(1:end-1,1:end-1),N_x-1,1);
-        % J2_mesh_FFTy(:,:) = fft(J2_mesh(1:end-1,1:end-1),N_y-1,2);
-        % 
-        % 
-        % J1_clean(1:end-1,1:end-1) = ifft(fft(ifft(fft(J1_mesh,N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
-        % J2_clean(1:end-1,1:end-1) = ifft(fft(ifft(fft(J2_mesh,N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
-        % J1_clean(end,:) = J1_clean(1,:);
-        % J1_clean(:,end) = J1_clean(:,1);
-        % J2_clean(end,:) = J2_clean(1,:);
-        % J2_clean(:,end) = J2_clean(:,1);
-        % 
-        % J1_clean_FFTx = fft(J1_clean(1:end-1,1:end-1),N_x-1,1);
-        % J2_clean_FFTy = fft(J2_clean(1:end-1,1:end-1),N_y-1,2);
-        % 
-        % J1_deriv_clean(1:end-1,1:end-1) = ifft(sqrt(-1)*kx'.*J1_clean_FFTx,N_x-1,1);
-        % J2_deriv_clean(1:end-1,1:end-1) = ifft(sqrt(-1)*ky .*J2_clean_FFTy,N_y-1,2);
-        % J1_deriv_clean(end,:) = J1_deriv_clean(1,:);
-        % J1_deriv_clean(:,end) = J1_deriv_clean(:,1);
-        % J2_deriv_clean(end,:) = J2_deriv_clean(1,:);
-        % J2_deriv_clean(:,end) = J2_deriv_clean(:,1);
-        % 
-        % Gamma = -1/((N_x-1)*(N_y-1))*sum(sum(J1_deriv_clean(1:end-1,1:end-1) + J2_deriv_clean(1:end-1,1:end-1)));
-        % 
-        % F1 = .5*Gamma*x'.*ones(N_y,N_x);
-        % F2 = .5*Gamma*y .*ones(N_y,N_x);
-        % 
-        % J1_star = J1_clean + F1;
-        % J2_star = J1_clean + F2;
-        % 
-        % J1_star_FFTx = fft(J1_star(1:end-1,1:end-1),N_x-1,1);
-        % J2_star_FFTy = fft(J2_star(1:end-1,1:end-1),N_y-1,2);
-        % 
-        % J1_star_deriv = ifft(sqrt(-1)*kx'.*J1_star_FFTx,N_x-1,1);
-        % J2_star_deriv = ifft(sqrt(-1)*ky .*J2_star_FFTy,N_y-1,2);
-        % 
-        % J1_deriv_clean(1:end-1,1:end-1) = J1_star_deriv;
-        % J2_deriv_clean(1:end-1,1:end-1) = J2_star_deriv;
-        % J1_deriv_clean(end,:) = J1_deriv_clean(1,:);
-        % J1_deriv_clean(:,end) = J1_deriv_clean(:,1);
-        % J2_deriv_clean(end,:) = J2_deriv_clean(1,:);
-        % J2_deriv_clean(:,end) = J2_deriv_clean(:,1);
-        % 
-        % % rho_mesh = rho_mesh - dt*(J1_deriv_clean + J2_deriv_clean);
+        J1_mesh_FFTx(:,:) = fft(J1_mesh(1:end-1,1:end-1),N_x-1,1);
+        J2_mesh_FFTy(:,:) = fft(J2_mesh(1:end-1,1:end-1),N_y-1,2);
+        
+        
+        J1_clean(1:end-1,1:end-1) = ifft(fft(ifft(fft(J1_mesh,N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
+        J2_clean(1:end-1,1:end-1) = ifft(fft(ifft(fft(J2_mesh,N_x-1,1),N_x-1,1),N_y-1,2),N_y-1,2);
+        J1_clean(end,:) = J1_clean(1,:);
+        J1_clean(:,end) = J1_clean(:,1);
+        J2_clean(end,:) = J2_clean(1,:);
+        J2_clean(:,end) = J2_clean(:,1);
+        
+        J1_clean_FFTx = fft(J1_clean(1:end-1,1:end-1),N_x-1,1);
+        J2_clean_FFTy = fft(J2_clean(1:end-1,1:end-1),N_y-1,2);
+        
+        J1_deriv_clean(1:end-1,1:end-1) = ifft(sqrt(-1)*kx'.*J1_clean_FFTx,N_x-1,1);
+        J2_deriv_clean(1:end-1,1:end-1) = ifft(sqrt(-1)*ky .*J2_clean_FFTy,N_y-1,2);
+        J1_deriv_clean(end,:) = J1_deriv_clean(1,:);
+        J1_deriv_clean(:,end) = J1_deriv_clean(:,1);
+        J2_deriv_clean(end,:) = J2_deriv_clean(1,:);
+        J2_deriv_clean(:,end) = J2_deriv_clean(:,1);
+        
+        Gamma = -1/((N_x-1)*(N_y-1))*sum(sum(J1_deriv_clean(1:end-1,1:end-1) + J2_deriv_clean(1:end-1,1:end-1)));
+        
+        F1 = .5*Gamma*x'.*ones(N_y,N_x);
+        F2 = .5*Gamma*y .*ones(N_y,N_x);
+        
+        J1_star = J1_clean + F1;
+        J2_star = J1_clean + F2;
+        
+        J1_star_FFTx = fft(J1_star(1:end-1,1:end-1),N_x-1,1);
+        J2_star_FFTy = fft(J2_star(1:end-1,1:end-1),N_y-1,2);
+        
+        J1_star_deriv = ifft(sqrt(-1)*kx'.*J1_star_FFTx,N_x-1,1);
+        J2_star_deriv = ifft(sqrt(-1)*ky .*J2_star_FFTy,N_y-1,2);
+        
+        J1_deriv_clean(1:end-1,1:end-1) = J1_star_deriv;
+        J2_deriv_clean(1:end-1,1:end-1) = J2_star_deriv;
+        J1_deriv_clean(end,:) = J1_deriv_clean(1,:);
+        J1_deriv_clean(:,end) = J1_deriv_clean(:,1);
+        J2_deriv_clean(end,:) = J2_deriv_clean(1,:);
+        J2_deriv_clean(:,end) = J2_deriv_clean(:,1);
+        
+        rho_mesh = rho_mesh - dt*(J1_deriv_clean + J2_deriv_clean);
         % 
         % rho_n = rho_elec(:,:);
         % opts = optimoptions('fsolve', 'TolFun', 1E-10, 'TolX', 1E-10, 'Display', 'Off');
@@ -484,6 +483,8 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         [A2, ddx_A2, ddy_A2] = BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
                                                          x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
+        clean_splitting_error;
+                                                     
         assert(all(abs(A1(1,:,3) - A1(end,:,3)) < 10*eps));
         assert(all(abs(A1(:,1,3) - A1(:,end,3)) < 10*eps));
         assert(all(abs(ddx_A1(1,:) - ddx_A1(end,:)) < 10*eps));
@@ -631,7 +632,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
             xlim([x(1),x(end)]);
             ylim([y(1),y(end)]);
 
-            sgtitle("Vanilla method, t = " + t_n);
+            sgtitle("Non-iterative FFT method, t = " + t_n);
             
             drawnow;
 
@@ -650,7 +651,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
     plot(0:dt:(N_steps-1)*dt, gauge_error);
     xlabel("t");
     ylabel("Gauge Error");
-    title("Vanilla Gauge Error over Time");
+    title("Non-iterative FFT Gauge Error over Time");
 end
 
 function r = rho_implicit(rho_guess,rho_n,u,dt,kx,ky)
