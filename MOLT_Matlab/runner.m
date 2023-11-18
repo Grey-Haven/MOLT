@@ -1,9 +1,8 @@
 clear;
-% close all;
+close all;
 addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
-% addpath(genpath([fileparts(pwd), '/common']));
-% addpath(genpath([fileparts(pwd), '/basic_boris']));
+addpath(genpath([fileparts(pwd), '/rho_updaters']));
 
 rng(2);
 
