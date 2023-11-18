@@ -30,6 +30,13 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
     vidName = "moving_electron_bulk" + ".mp4";
     vidObj = VideoWriter(vidPath + vidName, 'MPEG-4');
     open(vidObj);
+
+    figure;
+    x0=200;
+    y0=100;
+    width = 1200;
+    height = 1200;
+    set(gcf,'position',[x0,y0,width,height])
     
     
     % Make a list for tracking the electron velocity history
@@ -241,12 +248,16 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
 
     rho_hist = zeros(N_steps,1);
     rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
+
+%     J_rho_update_type_vanilla = 'J_rho_update_vanilla';
+%     J_rho_update_type_fft = 'J_rho_update_fft';
+%     J_rho_update_fft_iterative = 'J_rho_update_fft_iterative'
+%     eval(J_rho_update_type_fft);
     
     while(steps < N_steps)
-
-%         ramp_velocity = @(time) kappa/100*exp(-((time - .05)^2)/.00025);
-%         v1_elec_old = v1_elec_old + ramp_velocity(t_n);
-%         v2_elec_old = v2_elec_old + ramp_velocity(t_n);
+        
+        v1_elec_old = ramp(t_n,kappa)*v1_elec_old; % + ramp_velocity(t_n);
+        v2_elec_old = ramp(t_n,kappa)*v2_elec_old; % + ramp_velocity(t_n);
 
         %---------------------------------------------------------------------
         % 1. Advance electron positions by dt using v^{n}
@@ -268,8 +279,8 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         %---------------------------------------------------------------------
 
 %         J_rho_update_vanilla;
-%         J_rho_update_fft;
-        J_rho_update_fft_iterative;
+        J_rho_update_fft;
+%         J_rho_update_fft_iterative;
         %---------------------------------------------------------------------
         % 5. Advance the psi and its derivatives by dt using BDF-1 
         %---------------------------------------------------------------------
@@ -304,7 +315,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         [A2, ddx_A2, ddy_A2] = BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
                                                          x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
-        clean_splitting_error;
+%         clean_splitting_error;
                                                      
         assert(all(abs(A1(1,:,3) - A1(end,:,3)) < 10*eps));
         assert(all(abs(A1(:,1,3) - A1(:,end,3)) < 10*eps));
@@ -411,7 +422,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         
         rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
-        if (mod(steps, plot_at) == 0)
+        if (mod(steps-1, plot_at) == 0)
             subplot(2,2,1);
             scatter(x1_elec_new, x2_elec_new, 5, 'filled');
             xlabel("x");
@@ -458,7 +469,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
             xlim([x(1),x(end)]);
             ylim([y(1),y(end)]);
 
-            sgtitle("Vanilla method, t = " + t_n);
+            sgtitle("FFT method, t = " + t_n);
             
             drawnow;
 
@@ -477,5 +488,13 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
     plot(0:dt:(N_steps-2)*dt, gauge_error(1:end-1));
     xlabel("t");
     ylabel("Gauge Error");
-    title("Vanilla Gauge Error over Time");
+    title("FFT Gauge Error over Time");
+end
+
+function r = ramp(t,kappa)
+%     r = kappa/100*exp(-((time - .05)^2)/.00025);
+    r = 1;
+    if t < .1
+        r = sin((2*pi*t)/.01);
+    end
 end
