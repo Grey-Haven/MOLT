@@ -34,18 +34,19 @@ y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
 dt = dx/(sqrt(2)*kappa);
-T_final = .2;
+T_final = .5;
 N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
 
-v1_drift = kappa/100;
-% v1_drift = 0;
-v2_drift = kappa/100;
+% v1_drift = kappa/100;
+v1_drift = 0;
+% v2_drift = kappa/100;
+v2_drift = 0;
 
 % Number of particles for each species
-N_p = 2.5e3;
-% N_p = 10;
+% N_p = 2.5e5;
+N_p = 1000;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Domain Parameters
@@ -96,11 +97,14 @@ y_offset = (b_y - a_y)/4;
 sig_x = .05*(b_x - a_x);
 sig_y = .05*(b_y - a_y);
 
-particle_positions_elec = sig_x*randn(N_p,2) + [x_0, y_0] + [x_offset, y_offset];
+particle_positions_elec = sig_x*randn(N_p,2) + [x_0, y_0]; %+ [x_offset, y_offset];
 particle_positions_ions = sig_y*randn(N_p,2) + [x_0, y_0];
 
-x1_elec = particle_positions_elec(:,1);
-x2_elec = particle_positions_elec(:,2);
+% x1_elec = particle_positions_elec(:,1);
+% x2_elec = particle_positions_elec(:,2);
+
+x1_elec = particle_positions_ions(:,1);
+x2_elec = particle_positions_ions(:,2);
 
 x1_ions = particle_positions_ions(:,1);
 x2_ions = particle_positions_ions(:,2);
@@ -137,8 +141,8 @@ P2_elec = v2_elec*r_elec;
 
 % Compute the normalized particle weights
 % L_x and L_y are the non-dimensional domain lengths
-w_ions = (L_x*L_y)/N_p;
-w_elec = (L_x*L_y)/N_p;
+w_ions = 10*(L_x*L_y)/N_p;
+w_elec = 10*(L_x*L_y)/N_p;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters

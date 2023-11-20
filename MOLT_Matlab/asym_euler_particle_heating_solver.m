@@ -12,6 +12,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
                                        sigma_1,sigma_2, ...
                                        results_path, ...
                                        enable_plots, ...
+                                       write_csvs, ...
                                        plot_at)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Particle solver for the 2D-2P heating test that uses the asymmetrical Euler method for particles
@@ -24,7 +25,9 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
     tag = (length(x)-1) + "x" + (length(y)-1);
     filePath = matlab.desktop.editor.getActiveFilename;
     projectRoot = fileparts(filePath);
-    vidPath = projectRoot + "\results\conserving\" + tag + "\";
+    resultsPath = projectRoot + "\results";
+    vidPath = resultsPath + "\conserving\" + tag + "\";
+    csvPath = resultsPath + "\conserving\" + tag + "\" + "csv_files\";
     disp(vidPath);
 %     vidName = "potentials" + ".mp4";
     vidName = "moving_electron_bulk" + ".mp4";
@@ -200,34 +203,6 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         
     % Current time of the simulation and step counter
     t_n = 0.0;
-    steps = 1;
-
-    csv_path = fullfile(results_path, "csv_files");
-    figures_path = fullfile(results_path, "figures");
-
-    rho_plot_path = fullfile(figures_path,"rho-plot");
-    J_plot_path = fullfile(figures_path,"J-plot");
-    A1_plot_path = fullfile(figures_path,"A1-plot");
-    A2_plot_path = fullfile(figures_path,"A2-plot");
-    psi_plot_path = fullfile(figures_path,"phi-plot");
-    gauge_slice_plot_path = fullfile(figures_path,"gauge-plot","slice");
-    gauge_surface_plot_path = fullfile(figures_path,"gauge-plot","surface");
-    gauss_slice_plot_path = fullfile(figures_path,"gauss-plot","slice");
-    gauss_surface_plot_path = fullfile(figures_path,"gauss-plot","surface");
-    E_plot_path = fullfile(figures_path,"E-plot");
-    B_plot_path = fullfile(figures_path,"B-plot");
-
-    if enable_plots
-
-        results_paths = [rho_plot_path, J_plot_path, A1_plot_path, A2_plot_path, ...
-                        psi_plot_path, gauge_slice_plot_path, gauge_surface_plot_path, ...
-                        gauss_slice_plot_path, gauss_surface_plot_path, E_plot_path, B_plot_path];
-        for path = results_paths
-            if ~exist(path)
-                mkdir(path)
-            end
-        end
-    end
 
     % Ions
     rho_ions = map_rho_to_mesh_2D(x, y, dx, dy, ...
@@ -243,16 +218,31 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
     rho_elec = enforce_periodicity(rho_elec(:,:));
     
     rho_mesh = rho_ions + rho_elec;
+
+    % Current
+    J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
+                            x1_elec_new, x2_elec_new, ...
+                            v1_elec_old, v2_elec_old, ...
+                            q_elec, cell_volumes, w_elec);
+
+    % Need to enforce periodicity for the current on the mesh
+    J_mesh(:,:,1) = enforce_periodicity(J_mesh(:,:,1));
+    J_mesh(:,:,2) = enforce_periodicity(J_mesh(:,:,2));
+    
+    J1_mesh = J_mesh(:,:,1);
+    J2_mesh = J_mesh(:,:,2);
     
     v_elec_var_history = zeros(N_steps, 1);
 
     rho_hist = zeros(N_steps,1);
-    rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
-%     J_rho_update_type_vanilla = 'J_rho_update_vanilla';
-%     J_rho_update_type_fft = 'J_rho_update_fft';
-%     J_rho_update_fft_iterative = 'J_rho_update_fft_iterative'
-%     eval(J_rho_update_type_fft);
+    steps = 0;
+    if (write_csvs)
+        save_csvs;
+    end
+    create_plots;
+
+    rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
     
     while(steps < N_steps)
         
@@ -278,9 +268,10 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         %    Compute also the charge density used for updating psi
         %---------------------------------------------------------------------
 
-%         J_rho_update_vanilla;
-        J_rho_update_fft;
+        J_rho_update_vanilla;
+%         J_rho_update_fft;
 %         J_rho_update_fft_iterative;
+
         %---------------------------------------------------------------------
         % 5. Advance the psi and its derivatives by dt using BDF-1 
         %---------------------------------------------------------------------
@@ -291,13 +282,6 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         % which is consistent with the BDF scheme
         [psi, ddx_psi, ddy_psi] = BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src(:,:), ...
                                                             x, y, t_n, dx, dy, dt, kappa, beta_BDF);
-        assert(all(abs(psi(1,:,3) - psi(end,:,3)) < 10*eps));
-        assert(all(abs(psi(:,1,3) - psi(:,end,3)) < 10*eps));
-        assert(all(abs(ddx_psi(1,:) - ddx_psi(end,:)) < 10*eps));
-        assert(all(abs(ddx_psi(:,1) - ddx_psi(:,end)) < 10*eps));
-        assert(all(abs(ddy_psi(1,:) - ddy_psi(end,:)) < 10*eps));
-        assert(all(abs(ddy_psi(:,1) - ddy_psi(:,end)) < 10*eps));
-        % Wait to shuffle until the end, but we could do that here
         
         %---------------------------------------------------------------------
         % 5. Advance the A1 and A2 and their derivatives by dt using BDF-1
@@ -316,21 +300,6 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
                                                          x, y, t_n, dx, dy, dt, kappa, beta_BDF);
         
 %         clean_splitting_error;
-                                                     
-        assert(all(abs(A1(1,:,3) - A1(end,:,3)) < 10*eps));
-        assert(all(abs(A1(:,1,3) - A1(:,end,3)) < 10*eps));
-        assert(all(abs(ddx_A1(1,:) - ddx_A1(end,:)) < 10*eps));
-        assert(all(abs(ddx_A1(:,1) - ddx_A1(:,end)) < 10*eps));
-        assert(all(abs(ddy_A1(1,:) - ddy_A1(end,:)) < 10*eps));
-        assert(all(abs(ddy_A1(:,1) - ddy_A1(:,end)) < 10*eps));
-        
-        assert(all(abs(A2(1,:,3) - A2(end,:,3)) < 10*eps));
-        assert(all(abs(A2(:,1,3) - A2(:,end,3)) < 10*eps));
-        assert(all(abs(ddx_A2(1,:) - ddx_A2(end,:)) < 10*eps));
-        assert(all(abs(ddx_A2(:,1) - ddx_A2(:,end)) < 10*eps));
-        assert(all(abs(ddy_A2(1,:) - ddy_A2(end,:)) < 10*eps));
-        assert(all(abs(ddy_A2(:,1) - ddy_A2(:,end)) < 10*eps));
-        % Wait to shuffle until the end, but we could do that here
         
         %---------------------------------------------------------------------
         % 6. Momentum advance by dt
@@ -359,7 +328,7 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         % Compute the residual in the Lorenz gauge 
         gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:) + ddy_A2(:,:);
         
-        gauge_error(steps) = get_L_2_error(gauge_residual(:,:), ...
+        gauge_error(steps+1) = get_L_2_error(gauge_residual(:,:), ...
                                            zeros(size(gauge_residual(:,:))), ...
                                            dx*dy);
         
@@ -380,12 +349,12 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         
         gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
         
-        gauss_law_error(steps) = get_L_2_error(gauss_law_residual(:,:), ...
+        gauss_law_error(steps+1) = get_L_2_error(gauss_law_residual(:,:), ...
                                                zeros(size(gauss_law_residual(:,:))), ...
                                                dx*dy);
         
         % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
-        sum_gauss_law_residual(steps) = sum(sum(gauss_law_residual(:,:)));
+        sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
         
         %---------------------------------------------------------------------
         % 8. Prepare for the next time step by shuffling the time history data
@@ -418,77 +387,29 @@ function [gauge_error, gauss_law_error, sum_gauss_law_residual, v_elec_var_histo
         % extra factor of two outside of this function
         var_v1 = var(v1_elec_new);
         var_v2 = var(v2_elec_new);
-        v_elec_var_history(steps) = ( 0.5*(var_v1 + var_v2) );
-        
-        rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
-
-        if (mod(steps-1, plot_at) == 0)
-            subplot(2,2,1);
-            scatter(x1_elec_new, x2_elec_new, 5, 'filled');
-            xlabel("x");
-            ylabel("y");
-            title("Electron Locations");
-            xlim([x(1),x(end)]);
-            ylim([y(1),y(end)]);
-
-            subplot(2,2,2);
-            surf(x,y,rho_mesh);
-            xlabel("x");
-            ylabel("y");
-            title("$\rho$",'Interpreter','latex');
-            xlim([x(1),x(end)]);
-            ylim([y(1),y(end)]);
-
-            % subplot(2,2,3);
-            % surf(x,y,psi(:,:,3));
-            % xlabel("x");
-            % ylabel("y");
-            % title("$\psi$",'Interpreter','latex');
-            % xlim([x(1),x(end)]);
-            % ylim([y(1),y(end)]);
-
-%             subplot(2,2,3);
-%             plot(0:dt:(steps-1)*dt,rho_hist(1:steps));
-%             xlabel("t");
-%             ylabel("$\sum_{i,j}\rho_{i,j}$",'Interpreter','latex');
-%             title("Total Charge Over Time");
-
-            subplot(2,2,3);
-            surf(x,y,A2(:,:,3));
-            xlabel("x");
-            ylabel("y");
-            title("$A_2$",'Interpreter','latex');
-            xlim([x(1),x(end)]);
-            ylim([y(1),y(end)]);
-
-            subplot(2,2,4);
-            surf(x,y,gauge_residual);
-            xlabel("x");
-            ylabel("y");
-            title("Gauge Error");
-            xlim([x(1),x(end)]);
-            ylim([y(1),y(end)]);
-
-            sgtitle("FFT method, t = " + t_n);
-            
-            drawnow;
-
-            currFrame = getframe(gcf);
-            writeVideo(vidObj, currFrame);
-        end
+        v_elec_var_history(steps+1) = ( 0.5*(var_v1 + var_v2) );
 
         % Step is now complete
         steps = steps + 1;
         t_n = t_n + dt;
 
+        rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
+
+        if (mod(steps, plot_at) == 0)
+            if (write_csvs)
+                save_csvs;
+            end
+            create_plots;
+        end
+
     end
 
     close(vidObj);
     figure;
-    plot(0:dt:(N_steps-2)*dt, gauge_error(1:end-1));
+    plot(0:dt:(N_steps-1)*dt, gauge_error);
     xlabel("t");
     ylabel("Gauge Error");
-    title("FFT Gauge Error over Time");
+    title("FFT Iterative Gauge Error over Time");
 end
 
 function r = ramp(t,kappa)

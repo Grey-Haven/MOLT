@@ -11,6 +11,7 @@ mesh_independent_variable_setup;
 grid_refinement = [32];
 
 enable_plots = true;
+write_csvs = true;
 plot_at = 25;
 
 for g = grid_refinement
@@ -31,5 +32,6 @@ for g = grid_refinement
                                        sigma_1, sigma_2, ...
                                        results_path, ...
                                        enable_plots, ...
+                                       write_csvs, ...
                                        plot_at);
 end
