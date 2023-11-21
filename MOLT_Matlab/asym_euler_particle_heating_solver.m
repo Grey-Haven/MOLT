@@ -9,15 +9,17 @@
 tag = (length(x)-1) + "x" + (length(y)-1);
 filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
-resultsPath = projectRoot + "\results\conserving\" + tag + "\CFL_" + CFL + "\non_split_correction\" + update_method_folder + "\";
+resultsPath = projectRoot + "\results\conserving\p_mult_" + particle_count_multiplier + "\" + tag + "\CFL_" + CFL + "\gauge_correction\" + update_method_folder + "\";
 figPath = resultsPath + "figures\";
 csvPath = resultsPath + "csv_files\";
 disp(resultsPath);
 create_directories;
 
-vidName = "moving_electron_bulk" + ".mp4";
-vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
-open(vidObj);
+if enable_plots
+    vidName = "moving_electron_bulk" + ".mp4";
+    vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
+    open(vidObj);
+end
 
 figure;
 x0=200;
@@ -30,9 +32,14 @@ steps = 0;
 if (write_csvs)
     save_csvs;
 end
-create_plots;
+if (enable_plots)
+    create_plots;
+end
 
 rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
+
+gauss_law_error = zeros(N_steps,1);
+sum_gauss_law_residual = zeros(N_steps,1);
 
 while(steps < N_steps)
     
@@ -89,7 +96,8 @@ while(steps < N_steps)
                                                      x, y, t_n, dx, dy, dt, kappa, beta_BDF);
     
 %         clean_splitting_error;
-    
+    gauge_correction;
+
     %---------------------------------------------------------------------
     % 6. Momentum advance by dt
     %---------------------------------------------------------------------
@@ -118,8 +126,8 @@ while(steps < N_steps)
     gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:) + ddy_A2(:,:);
     
     gauge_error(steps+1) = get_L_2_error(gauge_residual(:,:), ...
-                                       zeros(size(gauge_residual(:,:))), ...
-                                       dx*dy);
+                                         zeros(size(gauge_residual(:,:))), ...
+                                         dx*dy);
     
     % Compute the ddt_A with backwards finite-differences
     ddt_A1(:,:) = ( A1(:,:,end) - A1(:,:,end-1) )/dt;
@@ -188,17 +196,27 @@ while(steps < N_steps)
         if (write_csvs)
             save_csvs;
         end
-        create_plots;
+        if (enable_plots)
+            create_plots;
+        end
     end
 
 end
 
+ts = 0:dt:(N_steps-1)*dt;
+gauge_error_array = zeros(length(ts),2);
+gauge_error_array(:,1) = ts;
+gauge_error_array(:,2) = gauge_error;
+
 if (write_csvs)
     save_csvs;
 end
-create_plots;
+if enable_plots
+    create_plots;
+    close(vidObj);
+end
+writematrix(gauge_error_array,csvPath+"gauge_error.csv");
 
-close(vidObj);
 figure;
 plot(0:dt:(N_steps-1)*dt, gauge_error);
 xlabel("t");

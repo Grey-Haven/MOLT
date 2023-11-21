@@ -1,4 +1,4 @@
-paths = ["A1", "A2", "J1", "J2", "psi", "particles"];
+paths = ["A1", "A2", "J1", "J2", "ddx_A1", "ddy_A2", "ddt_psi", "psi", "particles"];
 
 if ~isfolder(resultsPath)
    mkdir(resultsPath)

@@ -36,7 +36,6 @@ y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
 dt = CFL*dx/(sqrt(2)*kappa);
-T_final = .5;
 N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
@@ -47,7 +46,7 @@ v1_drift = 0;
 v2_drift = 0;
 
 % Number of particles for each species
-N_p = 2.5e3;
+N_p = floor(particle_count_multiplier * 2.5e3);
 % N_p = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
