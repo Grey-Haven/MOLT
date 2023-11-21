@@ -65,3 +65,7 @@ B_0 = A_0/L;
 % These are the coefficients on the sources for the wave equations
 sigma_1 = (M*epsilon_0)/(n_bar*(Q*T)^2);
 sigma_2 = (n_bar*mu_0*(Q*L)^2)/M;
+
+% MOLT stability parameter
+% Set for the first-order method
+beta_BDF = 1.0;

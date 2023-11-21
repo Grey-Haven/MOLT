@@ -1,6 +1,3 @@
-% Compute J_mesh by scattering to the mesh
-J_mesh(:,:,:) = 0.0;
-
 % Map for electrons (ions are stationary)
 % Can try using the starred velocities here if we want
 J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...

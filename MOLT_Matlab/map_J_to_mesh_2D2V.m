@@ -8,29 +8,15 @@ function J_mesh = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
     % This mapping is to be used for the expanding beam problem.
     %%%%%%%%%%%%%%%%%%%%%
     
-    % Number of simulation particles
-    N_part = length(x1);
-    
     weight = w_s*q_s;
     
-    Nx = size(J_mesh(:,:,1),2);
-    Ny = size(J_mesh(:,:,1),1);
-    
-    J1_mesh = zeros(Nx,Ny);
-    J2_mesh = zeros(Nx,Ny);
+    Nx = length(x);
+    Ny = length(y);
 
     weights1 = weight*v1(:);
     weights2 = weight*v2(:);
 
     % Scatter current to the mesh
-%     for i = 1:N_part
-%         
-%         weight1 = weight*v1(i);
-%         weight2 = weight*v2(i);
-%         
-%         J1_mesh = J1_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight1); % J_x
-%         J2_mesh = J2_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x, y, dx, dy, weight2); % J_y
-%     end
     J1_mesh = scatter_2D_vectorized(Nx, Ny, x1(:), x2(:), x', y', dx, dy, weights1);
     J2_mesh = scatter_2D_vectorized(Nx, Ny, x1(:), x2(:), x', y', dx, dy, weights2);
     % End of particle loop

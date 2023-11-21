@@ -15,16 +15,6 @@ function writeCsvFiles(psi,A1,A2,J1,J2,p_x,p_y,p_vx,p_vy,x,y,s,csv_path)
     J2_title = J2_path + "J2_" + num2str(s) + ".csv";
     psi_title = psi_path + "psi_" + num2str(s) + ".csv";
     part_title = part_path + "particles_" + num2str(s) + ".csv";
-    
-    if ~isfolder(csv_path)
-       mkdir(csv_path)
-       mkdir(A1_path);
-       mkdir(A2_path);
-       mkdir(J1_path);
-       mkdir(J2_path);
-       mkdir(psi_path);
-       mkdir(part_path);
-    end
 
     A1_table = matrix_to_table(x,y,A1,'A1');
     A2_table = matrix_to_table(x,y,A2,'A2');

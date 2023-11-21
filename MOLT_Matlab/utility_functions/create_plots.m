@@ -30,7 +30,7 @@ title("Gauge Error");
 xlim([x(1),x(end)]);
 ylim([y(1),y(end)]);
 
-sgtitle("FFT Iterative method, t = " + t_n);
+sgtitle(update_method_title + " method, t = " + t_n);
 
 drawnow;
 

@@ -1,3 +1,5 @@
+rng(2);
+
 % Assumes g (grid_refinement) and mesh independent variables
 % have been established
 N = g+1;
@@ -33,7 +35,7 @@ x = linspace(a_x, b_x, N_x);
 y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
-dt = dx/(sqrt(2)*kappa);
+dt = CFL*dx/(sqrt(2)*kappa);
 T_final = .5;
 N_steps = floor(T_final/dt);
 
@@ -45,22 +47,11 @@ v1_drift = 0;
 v2_drift = 0;
 
 % Number of particles for each species
-% N_p = 2.5e5;
-N_p = 1000;
+N_p = 2.5e3;
+% N_p = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Domain Parameters
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% BEGIN Code Parameters
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-debug = true;
-save_results = true; % do we save the figures created?
-save_csvs = false;
-write_stride = 100; % save results every n timesteps
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% END Code Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -147,6 +138,157 @@ w_elec = 10*(L_x*L_y)/N_p;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN Storage Variables
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%------------------------------------------------------------------
+% Storage for the integrator
+%------------------------------------------------------------------
+
+% Initial position, momentum, and velocity of the particles
+% We copy the input data rather than overwrite it
+% and we store two time levels of history
+%
+% We'll assume that the ions remain stationary
+% so that we only need to update electrons.
+
+
+% Make a list for tracking the electron velocity history
+% we use this to compute the temperature outside the solver
+% This variance is an average of the variance in each direction
+v_elec_var_history = [];
+
+% Electron positions
+x1_elec_old = x1_elec(:);
+x2_elec_old = x2_elec(:);
+
+x1_elec_new = x1_elec(:);
+x2_elec_new = x2_elec(:);
+
+% Electron momenta
+P1_elec_old = P1_elec(:);
+P2_elec_old = P2_elec(:);
+
+P1_elec_new = P1_elec(:);
+P2_elec_new = P2_elec(:);
+
+% Electron velocities
+v1_elec_old = v1_elec(:);
+v2_elec_old = v2_elec(:);
+
+v1_elec_new = v1_elec(:);
+v2_elec_new = v2_elec(:);
+
+% Velocity at time t^{n-1} used for the Taylor approx. 
+v1_elec_nm1 = v1_elec(:);
+v2_elec_nm1 = v2_elec(:);
+
+% Taylor approximated velocity
+% v_star = v^{n} + ddt(v^{n})*dt
+% which is approximated by
+% v^{n} + (v^{n} - v^{n-1})
+v1_elec_star = v1_elec(:);
+v2_elec_star = v2_elec(:);
+
+% Store the total number of particles for each species
+N_ions = length(x1_ions);
+N_elec = length(x1_elec_new);
+
+% Mesh/field data
+% Need psi, A1, and A2
+% as well as their derivatives
+%
+% We compute ddt_psi with backwards differences
+psi = zeros(N_y,N_x,3);
+ddx_psi = zeros(N_y,N_x);
+ddy_psi = zeros(N_y,N_x);
+psi_src = zeros(N_y,N_x);
+
+A1 = zeros(N_y, N_x, 3);
+ddx_A1 = zeros(N_y,N_x);
+ddy_A1 = zeros(N_y,N_x);
+A1_src = zeros(N_y,N_x);
+
+A2 = zeros(N_y, N_x, 3);
+ddx_A2 = zeros(N_y,N_x);
+ddy_A2 = zeros(N_y,N_x);
+A2_src = zeros(N_y,N_x);
+
+% Other data needed for the evaluation of 
+% the gauge and Gauss' law
+ddt_psi = zeros(N_y,N_x);
+ddt_A1 = zeros(N_y,N_x);
+ddt_A2 = zeros(N_y,N_x);
+
+E1 = zeros(N_y,N_x);
+E2 = zeros(N_y,N_x);
+
+% Note that from the relation B = curl(A), we identify
+% B3 = ddx(A2) - ddy(A1)
+B3 = zeros(N_y,N_x);
+
+ddx_E1 = zeros(N_y,N_x);
+ddy_E2 = zeros(N_y,N_x);
+
+gauge_residual = zeros(N_y,N_x);
+gauss_law_residual = zeros(N_y,N_x);
+
+gauge_error = zeros(N_steps,1);
+gauss_law_error = zeros(N_steps,1);
+sum_gauss_law_residual = zeros(N_steps,1);
+
+% We track two time levels of J (n, n+1)
+% Note, we don't need J3 for this model 
+% Since ions are stationary J_mesh := J_elec
+J_mesh = zeros(N_y,N_x,2); % Idx order: grid indices (y,x), time level
+
+kx = 2*pi/(L_x)*[0:(N_x-1)/2-1, 0, -(N_x-1)/2+1:-1];
+ky = 2*pi/(L_y)*[0:(N_y-1)/2-1, 0, -(N_y-1)/2+1:-1];
+
+% Compute the cell volumes required in the particle to mesh mapping
+% The domain is periodic here, so the first and last cells here are
+% identical.
+cell_volumes = dx*dy*ones(N_y,N_x);
+    
+% Current time of the simulation and step counter
+t_n = 0.0;
+
+% Ions
+rho_ions = map_rho_to_mesh_2D(x, y, dx, dy, ...
+                              x1_ions, x2_ions, ...
+                              q_ions, cell_volumes, w_ions);
+
+% Electrons
+rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, ...
+                              x1_elec_new, x2_elec_new, ...
+                              q_elec, cell_volumes, w_elec);
+% Need to enforce periodicity for the charge on the mesh
+rho_ions = enforce_periodicity(rho_ions(:,:));
+rho_elec = enforce_periodicity(rho_elec(:,:));
+
+rho_mesh = rho_ions + rho_elec;
+
+% Current
+J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
+                        x1_elec_new, x2_elec_new, ...
+                        v1_elec_old, v2_elec_old, ...
+                        q_elec, cell_volumes, w_elec);
+
+% Need to enforce periodicity for the current on the mesh
+J_mesh(:,:,1) = enforce_periodicity(J_mesh(:,:,1));
+J_mesh(:,:,2) = enforce_periodicity(J_mesh(:,:,2));
+
+J1_mesh = J_mesh(:,:,1);
+J2_mesh = J_mesh(:,:,2);
+
+v_elec_var_history = zeros(N_steps, 1);
+
+rho_hist = zeros(N_steps,1);
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% END Storage Variables
+%%%%%%%%%%%%%%%%%%%%%%%
 
 if debug
 
