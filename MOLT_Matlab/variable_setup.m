@@ -40,10 +40,10 @@ N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
 
-% v1_drift = kappa/100;
-v1_drift = 0;
-% v2_drift = kappa/100;
-v2_drift = 0;
+v1_drift = kappa/100;
+% v1_drift = 0;
+v2_drift = kappa/100;
+% v2_drift = 0;
 
 % Number of particles for each species
 N_p = floor(particle_count_multiplier * 2.5e3);
@@ -118,8 +118,8 @@ v2_ions = zeros(N_p,1);
 electron_velocities = randn(N_p,2);
 
 % Electrons have drift velocity in addition to a thermal velocity
-v1_elec = v_ave_mag*electron_velocities(:,1) + v1_drift;
-v2_elec = v_ave_mag*electron_velocities(:,2) + v2_drift;
+v1_elec = v_ave_mag*electron_velocities(:,1); % + v1_drift;
+v2_elec = v_ave_mag*electron_velocities(:,2); % + v2_drift;
 
 % Convert velocity to generalized momentum (A = 0 since the total current is zero)
 % This is equivalent to the classical momentum
@@ -203,6 +203,8 @@ psi = zeros(N_y,N_x,3);
 ddx_psi = zeros(N_y,N_x);
 ddy_psi = zeros(N_y,N_x);
 psi_src = zeros(N_y,N_x);
+psi_A = zeros(N_y,N_x);
+psi_C = zeros(N_y,N_x);
 
 A1 = zeros(N_y, N_x, 3);
 ddx_A1 = zeros(N_y,N_x);
