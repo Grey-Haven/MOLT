@@ -9,9 +9,14 @@
 tag = (length(x)-1) + "x" + (length(y)-1);
 filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
-resultsPath = projectRoot + "\results\conserving\p_mult_" + particle_count_multiplier + "\" + tag + "\CFL_" + CFL + "\gauge_correction\" + update_method_folder + "\";
-figPath = resultsPath + "figures\";
-csvPath = resultsPath + "csv_files\";
+
+% modification = "no_mod";
+modification = "correct_gauge";
+
+resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
+              "/" + tag + "/CFL_" + CFL + "/" + modification + "/" + update_method_folder + "/";
+figPath = resultsPath + "figures/";
+csvPath = resultsPath + "csv_files/";
 disp(resultsPath);
 create_directories;
 
@@ -19,14 +24,14 @@ if enable_plots
     vidName = "moving_electron_bulk" + ".mp4";
     vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
     open(vidObj);
+    
+    figure;
+    x0=200;
+    y0=100;
+    width = 1200;
+    height = 1200;
+    set(gcf,'position',[x0,y0,width,height])
 end
-
-figure;
-x0=200;
-y0=100;
-width = 1200;
-height = 1200;
-set(gcf,'position',[x0,y0,width,height])
 
 steps = 0;
 if (write_csvs)
@@ -43,8 +48,8 @@ sum_gauss_law_residual = zeros(N_steps,1);
 
 while(steps < N_steps)
     
-    v1_elec_old = ramp(t_n,kappa)*v1_elec_old; % + ramp_velocity(t_n);
-    v2_elec_old = ramp(t_n,kappa)*v2_elec_old; % + ramp_velocity(t_n);
+    v1_elec_old = v1_elec_old + ramp_drift(t_n)*v1_drift;
+    v2_elec_old = v2_elec_old + ramp_drift(t_n)*v2_drift;
 
     %---------------------------------------------------------------------
     % 1. Advance electron positions by dt using v^{n}
@@ -65,8 +70,8 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-%     J_rho_update_vanilla;
-    J_rho_update_fft;
+    J_rho_update_vanilla;
+%     J_rho_update_fft;
 %     J_rho_update_fft_iterative;
 
     %---------------------------------------------------------------------
@@ -79,11 +84,11 @@ while(steps < N_steps)
     % which is consistent with the BDF scheme
     [psi, ddx_psi, ddy_psi] = BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src(:,:), ...
                                                         x, y, t_n, dx, dy, dt, kappa, beta_BDF);
-    
+
     %---------------------------------------------------------------------
     % 5. Advance the A1 and A2 and their derivatives by dt using BDF-1
     %---------------------------------------------------------------------
-    
+
     A1_src(:,:) = sigma_2*J1_mesh;
     A2_src(:,:) = sigma_2*J2_mesh;
 
@@ -94,9 +99,7 @@ while(steps < N_steps)
     % A2 uses J2
     [A2, ddx_A2, ddy_A2] = BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
                                                      x, y, t_n, dx, dy, dt, kappa, beta_BDF);
-    
-%         clean_splitting_error;
-    gauge_correction;
+
 
     %---------------------------------------------------------------------
     % 6. Momentum advance by dt
@@ -114,7 +117,7 @@ while(steps < N_steps)
                                            A1(:,:,end), ddx_A1, ddy_A1, ...
                                            A2(:,:,end), ddx_A2, ddy_A2, ...
                                            x, y, dx, dy, q_elec, r_elec, dt);
-    
+                                       
     %---------------------------------------------------------------------
     % 7. Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
@@ -152,6 +155,13 @@ while(steps < N_steps)
     
     % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
     sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
+    
+    %---------------------------------------------------------------------
+    % 7.5 Correct gauge error
+    %---------------------------------------------------------------------
+    %     clean_splitting_error;
+    gauge_correction;
+
     
     %---------------------------------------------------------------------
     % 8. Prepare for the next time step by shuffling the time history data
@@ -217,15 +227,15 @@ if enable_plots
 end
 writematrix(gauge_error_array,csvPath+"gauge_error.csv");
 
-figure;
-plot(0:dt:(N_steps-1)*dt, gauge_error);
-xlabel("t");
-ylabel("Gauge Error");
-title({'Gauge Error Over Time', update_method_title,tag + ", CFL: " + CFL});
+% figure;
+% plot(0:dt:(N_steps-1)*dt, gauge_error);
+% xlabel("t");
+% ylabel("Gauge Error");
+% title({'Gauge Error Over Time', update_method_title,tag + ", CFL: " + CFL});
 
-filename = figPath + "gauge_error.jpg";
+% filename = figPath + "gauge_error.jpg";
 
-saveas(gcf,filename)
+% saveas(gcf,filename)
 
 function r = ramp(t,kappa)
 %     r = kappa/100*exp(-((time - .05)^2)/.00025);
@@ -233,4 +243,8 @@ function r = ramp(t,kappa)
     if t < .1
         r = sin((2*pi*t)/.01);
     end
+end
+
+function r = ramp_drift(t)
+    r = exp(-500*(t-.1).^2);
 end
