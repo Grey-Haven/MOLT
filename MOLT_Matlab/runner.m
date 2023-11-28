@@ -4,22 +4,22 @@ addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 addpath(genpath([fileparts(pwd), '/rho_updaters']));
 
-grid_refinement = [16,32,64];
+grid_refinement = [64];
 CFLs = [1];
 particle_count_multipliers = [1];
 
 debug = true;
 
-enable_plots = false;
+enable_plots = true;
 write_csvs = false;
 plot_at = 25;
 
 
-% update_method_title = "Vanilla";
-% update_method_folder = "vanilla";
+update_method_title = "Vanilla";
+update_method_folder = "vanilla";
 
-update_method_title = "Non-Iterative FFT";
-update_method_folder = "non_iterative_fft";
+% update_method_title = "Non-Iterative FFT";
+% update_method_folder = "non_iterative_fft";
 
 % update_method_title = "Iterative FFT";
 % update_method_folder = "iterative_fft";

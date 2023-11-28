@@ -30,38 +30,38 @@ title("$\phi$",'Interpreter','latex');
 xlim([x(1),x(end)]);
 ylim([y(1),y(end)]);
 
-% subplot(2,3,5);
-% surf(x,y,A1(:,:,3));
-% xlabel("x");
-% ylabel("y");
-% title("$A_1$",'Interpreter','latex');
-% xlim([x(1),x(end)]);
-% ylim([y(1),y(end)]);
-% 
-% subplot(2,3,6);
-% surf(x,y,A2(:,:,3));
-% xlabel("x");
-% ylabel("y");
-% title("$A_2$",'Interpreter','latex');
-% xlim([x(1),x(end)]);
-% ylim([y(1),y(end)]);
-
-
 subplot(2,3,5);
-surf(x,y,psi_A);
+surf(x,y,A1(:,:,3));
 xlabel("x");
 ylabel("y");
-title("$\phi_A$",'Interpreter','latex');
+title("$A_1$",'Interpreter','latex');
 xlim([x(1),x(end)]);
 ylim([y(1),y(end)]);
 
 subplot(2,3,6);
-surf(x,y,psi_C);
+surf(x,y,A2(:,:,3));
 xlabel("x");
 ylabel("y");
-title("$\phi_C$",'Interpreter','latex');
+title("$A_2$",'Interpreter','latex');
 xlim([x(1),x(end)]);
 ylim([y(1),y(end)]);
+
+
+% subplot(2,3,5);
+% surf(x,y,psi_A);
+% xlabel("x");
+% ylabel("y");
+% title("$\phi_A$",'Interpreter','latex');
+% xlim([x(1),x(end)]);
+% ylim([y(1),y(end)]);
+% 
+% subplot(2,3,6);
+% surf(x,y,psi_C);
+% xlabel("x");
+% ylabel("y");
+% title("$\phi_C$",'Interpreter','latex');
+% xlim([x(1),x(end)]);
+% ylim([y(1),y(end)]);
 
 sgtitle({update_method_title + " method, t = " + t_n, update_method_title,tag + ", CFL: " + CFL});
 

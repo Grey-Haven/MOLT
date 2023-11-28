@@ -10,8 +10,8 @@ tag = (length(x)-1) + "x" + (length(y)-1);
 filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
-% modification = "no_mod";
-modification = "correct_gauge";
+modification = "no_mod";
+% modification = "correct_gauge";
 
 resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
               "/" + tag + "/CFL_" + CFL + "/" + modification + "/" + update_method_folder + "/";
@@ -48,16 +48,19 @@ sum_gauss_law_residual = zeros(N_steps,1);
 
 while(steps < N_steps)
     
-    v1_elec_old = v1_elec_old + ramp_drift(t_n)*v1_drift;
-    v2_elec_old = v2_elec_old + ramp_drift(t_n)*v2_drift;
+%     v1_elec_old = ramp(t_n)*v1_elec_old; % + ramp_drift(t_n)*v1_drift;
+%     v2_elec_old = ramp(t_n)*v2_elec_old; % + ramp_drift(t_n)*v2_drift;
 
     %---------------------------------------------------------------------
     % 1. Advance electron positions by dt using v^{n}
     %---------------------------------------------------------------------
-     
+
+    v1_star = 2*v1_elec_old - v1_elec_nm1;
+    v2_star = 2*v2_elec_old - v2_elec_nm1;
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
                                                                x1_elec_old, x2_elec_old, ...
-                                                               v1_elec_old, v2_elec_old, dt);
+                                                               v1_star, v2_star, dt);
+%                                                                v1_elec_new, v2_elec_new, dt);
     
     % Apply the particle boundary conditions
     % Need to include the shift function here
@@ -73,32 +76,20 @@ while(steps < N_steps)
     J_rho_update_vanilla;
 %     J_rho_update_fft;
 %     J_rho_update_fft_iterative;
-
-    %---------------------------------------------------------------------
-    % 5. Advance the psi and its derivatives by dt using BDF-1 
-    %---------------------------------------------------------------------
     
+    
+    %---------------------------------------------------------------------
+    % 5.1. Compute wave sources
+    %---------------------------------------------------------------------
     psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:);
-    
-    % Charge density is at the new time level from step (3)
-    % which is consistent with the BDF scheme
-    [psi, ddx_psi, ddy_psi] = BDF1_combined_per_advance(psi, ddx_psi, ddy_psi, psi_src(:,:), ...
-                                                        x, y, t_n, dx, dy, dt, kappa, beta_BDF);
-
-    %---------------------------------------------------------------------
-    % 5. Advance the A1 and A2 and their derivatives by dt using BDF-1
-    %---------------------------------------------------------------------
-
     A1_src(:,:) = sigma_2*J1_mesh;
     A2_src(:,:) = sigma_2*J2_mesh;
 
-    % A1 uses J1
-    [A1, ddx_A1, ddy_A1] = BDF1_combined_per_advance(A1, ddx_A1, ddy_A1, A1_src(:,:), ...
-                                                     x, y, t_n, dx, dy, dt, kappa, beta_BDF);
-    
-    % A2 uses J2
-    [A2, ddx_A2, ddy_A2] = BDF1_combined_per_advance(A2, ddx_A2, ddy_A2, A2_src(:,:), ...
-                                                     x, y, t_n, dx, dy, dt, kappa, beta_BDF);
+    %---------------------------------------------------------------------
+    % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
+    %---------------------------------------------------------------------
+%     update_waves;
+    update_waves_FFT;
 
 
     %---------------------------------------------------------------------
@@ -160,7 +151,7 @@ while(steps < N_steps)
     % 7.5 Correct gauge error
     %---------------------------------------------------------------------
     %     clean_splitting_error;
-    gauge_correction;
+%     gauge_correction;
 
     
     %---------------------------------------------------------------------
@@ -225,7 +216,7 @@ if enable_plots
     create_plots;
     close(vidObj);
 end
-writematrix(gauge_error_array,csvPath+"gauge_error.csv");
+writematrix(gauge_error_array,csvPath + "gauge_error.csv");
 
 % figure;
 % plot(0:dt:(N_steps-1)*dt, gauge_error);
@@ -237,14 +228,15 @@ writematrix(gauge_error_array,csvPath+"gauge_error.csv");
 
 % saveas(gcf,filename)
 
-function r = ramp(t,kappa)
+function r = ramp(t)
 %     r = kappa/100*exp(-((time - .05)^2)/.00025);
-    r = 1;
-    if t < .1
-        r = sin((2*pi*t)/.01);
-    end
+%     r = 1;
+%     if t < .1
+%         r = sin((2*pi*t)/.01);
+%     end
+    r = 1 - exp(-100 * t);
 end
 
-function r = ramp_drift(t)
-    r = exp(-500*(t-.1).^2);
-end
+% function r = ramp_drift(t)
+%     r = exp(-500*(t-.1).^2);
+% end
