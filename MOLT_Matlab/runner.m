@@ -4,7 +4,7 @@ addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 addpath(genpath([fileparts(pwd), '/rho_updaters']));
 
-grid_refinement = [64];
+grid_refinement = [16];
 CFLs = [1];
 particle_count_multipliers = [1];
 

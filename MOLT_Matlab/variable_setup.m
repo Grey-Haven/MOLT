@@ -93,8 +93,8 @@ particle_positions_ions = sig_y*randn(N_p,2) + [x_0, y_0];
 % x1_elec = particle_positions_elec(:,1);
 % x2_elec = particle_positions_elec(:,2);
 
-x1_elec = particle_positions_ions(:,1);
-x2_elec = particle_positions_ions(:,2);
+x1_elec = particle_positions_ions(:,1) + .1;
+x2_elec = particle_positions_ions(:,2) + .1;
 
 x1_ions = particle_positions_ions(:,1);
 x2_ions = particle_positions_ions(:,2);

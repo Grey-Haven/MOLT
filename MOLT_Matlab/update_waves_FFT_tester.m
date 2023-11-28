@@ -1,7 +1,10 @@
 close all;
 clear;
+addpath(genpath([fileparts(pwd)]));
+addpath(genpath([fileparts(pwd), '/utility_functions']));
+addpath(genpath([fileparts(pwd), '/rho_updaters']));
 
-N = 16;
+N = 32;
 N_x = N+1;
 N_y = N+1;
 
@@ -49,7 +52,8 @@ ky = 2*pi*fftshift((-(N_y-1)/2:(N_y-1)/2-1) * dky);
 
 xi_x = 2*pi;
 xi_y = 2*pi;
-xi_t = 2*pi;
+% xi_t = 2*pi;
+xi_t = sqrt(xi_x^2 + xi_y^2);
 kappa = .1;
 
 test_func = sin(xi_y*y_star)'.*sin(xi_x*x_star);
@@ -61,7 +65,7 @@ test_func_fft_yy = ifft(-ky'.^2.*fft(test_func,N_y-1,1),N_y-1,1);
 
 assert(norm(test_func_fft_xx - test_func_xx) < 1e-10);
 
-T = 64*pi;
+T = 4*pi;
 
 t = 0;
 dt = .001;
@@ -83,7 +87,7 @@ A1_err = zeros(floor(T/dt),1);
 A2_err = zeros(floor(T/dt),1);
 
 step = 1;
-plot_at = 500;
+plot_at = 250;
 
 while t < T
     
@@ -101,11 +105,11 @@ while t < T
     if mod(step,plot_at) == 0
         
         subplot(1,3,1);
-        surf(x,y,psi(:,:,3));
+        surf(x,y,A2(:,:,3));
         xlabel("x");
         ylabel("y");
-        title("Approx Psi");
-        zlim([-1.5,1.5]);
+        title("Approx A2");
+        zlim([-1,1]);
 
         subplot(1,3,2);
         surf(x,y,u(x,y,t,xi_x,xi_y,xi_t,kappa));
@@ -115,7 +119,7 @@ while t < T
         zlim([-1,1]);
 
         subplot(1,3,3);
-        surf(x,y,u(x,y,t,xi_x,xi_y,xi_t,kappa) - psi(:,:,3));
+        surf(x,y,u(x,y,t,xi_x,xi_y,xi_t,kappa) - A2(:,:,3));
         xlabel("x");
         ylabel("y");
         title("Analytic - Approx Psi");
