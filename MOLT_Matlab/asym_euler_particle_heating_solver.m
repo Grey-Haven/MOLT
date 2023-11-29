@@ -55,13 +55,13 @@ while(steps < N_steps)
     % 1. Advance electron positions by dt using v^{n}
     %---------------------------------------------------------------------
 
-%     v1_star = 2*v1_elec_old - v1_elec_nm1;
-%     v2_star = 2*v2_elec_old - v2_elec_nm1;
+    v1_star = 2*v1_elec_old - v1_elec_nm1;
+    v2_star = 2*v2_elec_old - v2_elec_nm1;
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
                                                                x1_elec_old, x2_elec_old, ...
-                                                               v1_elec_new, v2_elec_new, dt);
-%                                                                v1_star, v2_star, dt);
-%                                                                
+                                                               v1_star, v2_star, dt);
+%                                                                v1_elec_new, v2_elec_new, dt);
+
     
     % Apply the particle boundary conditions
     % Need to include the shift function here
@@ -74,16 +74,16 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-    J_rho_update_vanilla;
-%     J_rho_update_fft;
+%     J_rho_update_vanilla;
+    J_rho_update_fft;
 %     J_rho_update_fft_iterative;
 
-    rho_mesh(1:end-1,1:end-1) = ifft2(fft2(rho_mesh(1:end-1,1:end-1)));
-    J1_mesh(1:end-1,1:end-1) = ifft2(fft2(J1_mesh(1:end-1,1:end-1)));
-    J2_mesh(1:end-1,1:end-1) = ifft2(fft2(J2_mesh(1:end-1,1:end-1)));
-    rho_mesh = copy_periodic_boundaries(rho_mesh);
-    J1_mesh = copy_periodic_boundaries(J1_mesh);
-    J2_mesh = copy_periodic_boundaries(J2_mesh);
+%     rho_mesh(1:end-1,1:end-1) = ifft2(fft2(rho_mesh(1:end-1,1:end-1)));
+%     J1_mesh(1:end-1,1:end-1) = ifft2(fft2(J1_mesh(1:end-1,1:end-1)));
+%     J2_mesh(1:end-1,1:end-1) = ifft2(fft2(J2_mesh(1:end-1,1:end-1)));
+%     rho_mesh = copy_periodic_boundaries(rho_mesh);
+%     J1_mesh = copy_periodic_boundaries(J1_mesh);
+%     J2_mesh = copy_periodic_boundaries(J2_mesh);
     
     
     %---------------------------------------------------------------------
@@ -98,9 +98,7 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
 %     update_waves;
     update_waves_FFT_alt;
-    
-    psi_hat = fft2(psi(1:end-1,1:end-1,3));
-    psi_hat(N/2:end,N/2:end);
+%     update_waves_FFT;
 
 
     %---------------------------------------------------------------------

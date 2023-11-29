@@ -42,32 +42,31 @@ y = linspace(a_y, b_y, N_y);
 x_star = x(1:end-1);
 y_star = y(1:end-1);
 
-% kx = 2*pi/(L_x)*[0:(N_x-1)/2-1, 0, -(N_x-1)/2+1:-1];
-% ky = 2*pi/(L_y)*[0:(N_y-1)/2-1, 0, -(N_y-1)/2+1:-1];
-% Calculate wavenumber
-dkx = 1 / ((N_x-1) * dx); % Wavenumber increment in x direction
-dky = 1 / ((N_y-1) * dy); % Wavenumber increment in y direction
-kx = 2*pi*fftshift((-(N_x-1)/2:(N_x-1)/2-1) * dkx);
-ky = 2*pi*fftshift((-(N_y-1)/2:(N_y-1)/2-1) * dky);
+kx_deriv_1 = 2*pi/(L_x)*[0:(N_x-1)/2-1, 0, -(N_x-1)/2+1:-1];
+ky_deriv_1 = 2*pi/(L_y)*[0:(N_y-1)/2-1, 0, -(N_y-1)/2+1:-1];
+
+kx_deriv_2 = 2*pi/(L_x)*[0:(N_x-1)/2-1, -(N_x)/2, -(N_x-1)/2+1:-1];
+ky_deriv_2 = 2*pi/(L_y)*[0:(N_y-1)/2-1, -(N_y)/2, -(N_y-1)/2+1:-1];
 
 xi_x = 2*pi;
 xi_y = 2*pi;
 % xi_t = 2*pi;
 xi_t = sqrt(xi_x^2 + xi_y^2);
-kappa = .1;
+kappa = 10;
 
 test_func = sin(xi_y*y_star)'.*sin(xi_x*x_star);
 test_func_xx = -xi_x^2*sin(xi_y*y_star)'.*sin(xi_x*x_star);
 test_func_yy = -xi_y^2*sin(xi_y*y_star)'.*sin(xi_x*x_star);
 
-test_func_fft_xx = ifft(-kx.^2.*fft(test_func,N_x-1,2),N_x-1,2);
-test_func_fft_yy = ifft(-ky'.^2.*fft(test_func,N_y-1,1),N_y-1,1);
+test_func_fft_xx = ifft(-kx_deriv_2.^2.*fft(test_func,N_x-1,2),N_x-1,2);
+test_func_fft_yy = ifft(-ky_deriv_2'.^2.*fft(test_func,N_y-1,1),N_y-1,1);
 
 assert(norm(test_func_fft_xx - test_func_xx) < 1e-10);
 
 T = 4*pi;
 
 t = 0;
+% dt = dx^2/kappa^2;
 dt = .001;
 
 
@@ -95,7 +94,8 @@ while t < T
     A1_src = S(x,y,t-dt,xi_x,xi_y,xi_t,kappa);
     A2_src = S(x,y,t-dt,xi_x,xi_y,xi_t,kappa);
 
-    update_waves_FFT_alt;
+%     update_waves_FFT_alt;
+    update_waves_FFT;
     
     psi = shuffle_steps(psi);
     A1 = shuffle_steps(A1);
@@ -105,10 +105,10 @@ while t < T
     if mod(step,plot_at) == 0
         
         subplot(1,3,1);
-        surf(x,y,A2(:,:,3));
+        surf(x,y,psi(:,:,3));
         xlabel("x");
         ylabel("y");
-        title("Approx A2");
+        title("Approx Psi");
         zlim([-1,1]);
 
         subplot(1,3,2);
@@ -119,7 +119,7 @@ while t < T
         zlim([-1,1]);
 
         subplot(1,3,3);
-        surf(x,y,u(x,y,t,xi_x,xi_y,xi_t,kappa) - A2(:,:,3));
+        surf(x,y,u(x,y,t,xi_x,xi_y,xi_t,kappa) - psi(:,:,3));
         xlabel("x");
         ylabel("y");
         title("Analytic - Approx Psi");
@@ -129,9 +129,9 @@ while t < T
         drawnow;
     end
 
-    psi_err(step) = norm(analytic - psi(:,:,3),"inf");
-    A1_err(step) = norm(analytic - A1(:,:,3),"inf");
-    A2_err(step) = norm(analytic - A2(:,:,3),"inf");
+    psi_err(step) = max(max(abs(analytic - psi(:,:,3))));
+    A1_err(step) = max(max(abs(analytic - A1(:,:,3))));
+    A2_err(step) = max(max(abs(analytic - A2(:,:,3))));
     
     t = t + dt;
     step = step + 1;

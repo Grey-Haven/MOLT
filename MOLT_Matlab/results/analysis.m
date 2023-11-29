@@ -49,4 +49,4 @@ for particle_count_multiplier = particle_count_multipliers
     end
 end
 legend(labels);
-title({"Gauge Error", update_method_title + " method, t = " + t_n, update_method_title + ", Gauge Correction"});
+title({"Gauge Error", update_method_title + " method, t = " + t_n, update_method_title + ", No Gauge Correction"});

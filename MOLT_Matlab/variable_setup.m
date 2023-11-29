@@ -40,10 +40,10 @@ N_steps = floor(T_final/dt);
 
 v_ave_mag = 1;
 
-v1_drift = kappa/100;
-% v1_drift = 0;
-v2_drift = kappa/100;
-% v2_drift = 0;
+% v1_drift = kappa/100;
+v1_drift = 0;
+% v2_drift = kappa/100;
+v2_drift = 0;
 
 % Number of particles for each species
 N_p = floor(particle_count_multiplier * 2.5e3);
@@ -93,8 +93,8 @@ particle_positions_ions = sig_y*randn(N_p,2) + [x_0, y_0];
 % x1_elec = particle_positions_elec(:,1);
 % x2_elec = particle_positions_elec(:,2);
 
-x1_elec = particle_positions_ions(:,1) + .1;
-x2_elec = particle_positions_ions(:,2) + .1;
+x1_elec = particle_positions_ions(:,1);
+x2_elec = particle_positions_ions(:,2);
 
 x1_ions = particle_positions_ions(:,1);
 x2_ions = particle_positions_ions(:,2);
@@ -118,8 +118,8 @@ v2_ions = zeros(N_p,1);
 electron_velocities = randn(N_p,2);
 
 % Electrons have drift velocity in addition to a thermal velocity
-v1_elec = v_ave_mag*electron_velocities(:,1); % + v1_drift;
-v2_elec = v_ave_mag*electron_velocities(:,2); % + v2_drift;
+v1_elec = v_ave_mag*electron_velocities(:,1) + v1_drift;
+v2_elec = v_ave_mag*electron_velocities(:,2) + v2_drift;
 
 % Convert velocity to generalized momentum (A = 0 since the total current is zero)
 % This is equivalent to the classical momentum
@@ -244,8 +244,23 @@ sum_gauss_law_residual = zeros(N_steps,1);
 % Since ions are stationary J_mesh := J_elec
 J_mesh = zeros(N_y,N_x,2); % Idx order: grid indices (y,x), time level
 
-kx = 2*pi/(L_x)*[0:(N_x-1)/2-1, 0, -(N_x-1)/2+1:-1];
-ky = 2*pi/(L_y)*[0:(N_y-1)/2-1, 0, -(N_y-1)/2+1:-1];
+% From https://math.mit.edu/~stevenj/fft-deriv.pdf
+% TL;DR 
+% For first derivative, assuming N = 2n,
+% you want the (N/2)th wavenumber to be zero.
+% For the second derivative, you want it to be -2pi/L*(N/2)
+% They're the same otherwise.
+kx_deriv_1 = 2*pi/(L_x)*[0:(N_x-1)/2-1, 0, -(N_x-1)/2+1:-1];
+ky_deriv_1 = 2*pi/(L_y)*[0:(N_y-1)/2-1, 0, -(N_y-1)/2+1:-1];
+
+kx_deriv_2 = 2*pi/(L_x)*[0:(N_x-1)/2-1, -(N_x)/2, -(N_x-1)/2+1:-1];
+ky_deriv_2 = 2*pi/(L_y)*[0:(N_y-1)/2-1, -(N_y)/2, -(N_y-1)/2+1:-1];
+
+% More human readable then shifted to matlab's convention:
+% dkx = 1 / ((N_x-1) * dx); % Wavenumber increment in x direction
+% dky = 1 / ((N_y-1) * dy); % Wavenumber increment in y direction
+% kx_deriv_2 = 2*pi*fftshift((-(N_x-1)/2:(N_x-1)/2-1) * dkx);
+% ky_deriv_2 = 2*pi*fftshift((-(N_y-1)/2:(N_y-1)/2-1) * dky);
 
 % Compute the cell volumes required in the particle to mesh mapping
 % The domain is periodic here, so the first and last cells here are
