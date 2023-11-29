@@ -1,4 +1,4 @@
-function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF)
+function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF,kx_deriv_1,ky_deriv_1)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Performs the derivative and field advance function for a 2-D scalar field.
     % The function assumes we are working with a scalar field,
@@ -7,11 +7,27 @@ function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y
     % Shuffles for time stepping are performed later, outside of this utility.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    dudx = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
-    
-    dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    % dudx = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+
+    % dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
     u(:,:,3) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+
+    u_next = double(u(1:end-1,1:end-1,3));
+
+    [N_y,N_x] = size(u(:,:,3));
+
+    dudx_next = fft(u_next,N_x-1,2);
+    dudy_next = fft(u_next,N_y-1,1);
+
+    dudx = zeros(N_y,N_x);
+    dudy = zeros(N_y,N_x);
+
+    dudx(1:end-1,1:end-1) = ifft(sqrt(-1)*kx_deriv_1 .*dudx_next,N_x-1,2);
+    dudy(1:end-1,1:end-1) = ifft(sqrt(-1)*ky_deriv_1'.*dudy_next,N_y-1,1);
+
+    dudx = copy_periodic_boundaries(dudx);
+    dudy = copy_periodic_boundaries(dudy);
     
 end
 
@@ -123,7 +139,7 @@ function u = BDF1_advance_per(v, src_data, x, y, t, ...
             R(j,i) = 2*v(j,i,2) - v(j,i,1);
 
             % Contribution from the source term (at t_{n+1})
-            R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);
+            R(j,i) = R(j,i) + (  1/(alpha^2) )*src_data(j,i);
         end
     end
 

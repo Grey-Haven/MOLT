@@ -11,6 +11,7 @@ filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
 modification = "no_mod";
+% modification = "FFT_splitting_err";
 % modification = "correct_gauge";
 
 resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
@@ -74,17 +75,9 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-%     J_rho_update_vanilla;
+    % J_rho_update_vanilla;
     J_rho_update_fft;
-%     J_rho_update_fft_iterative;
-
-%     rho_mesh(1:end-1,1:end-1) = ifft2(fft2(rho_mesh(1:end-1,1:end-1)));
-%     J1_mesh(1:end-1,1:end-1) = ifft2(fft2(J1_mesh(1:end-1,1:end-1)));
-%     J2_mesh(1:end-1,1:end-1) = ifft2(fft2(J2_mesh(1:end-1,1:end-1)));
-%     rho_mesh = copy_periodic_boundaries(rho_mesh);
-%     J1_mesh = copy_periodic_boundaries(J1_mesh);
-%     J2_mesh = copy_periodic_boundaries(J2_mesh);
-    
+    % J_rho_update_fft_iterative;    
     
     %---------------------------------------------------------------------
     % 5.1. Compute wave sources
@@ -96,10 +89,17 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-%     update_waves;
-    update_waves_FFT_alt;
+    update_waves;
+    % update_waves_FFT_alt;
 %     update_waves_FFT;
 
+
+    
+    %---------------------------------------------------------------------
+    % 5.5 Correct gauge error
+    %---------------------------------------------------------------------
+    %     clean_splitting_error;
+    % gauge_correction;
 
     %---------------------------------------------------------------------
     % 6. Momentum advance by dt
@@ -155,12 +155,6 @@ while(steps < N_steps)
     
     % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
     sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
-    
-    %---------------------------------------------------------------------
-    % 7.5 Correct gauge error
-    %---------------------------------------------------------------------
-    %     clean_splitting_error;
-%     gauge_correction;
 
     
     %---------------------------------------------------------------------
