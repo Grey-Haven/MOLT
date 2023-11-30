@@ -11,11 +11,11 @@ function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y
 
     % dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
-    u(:,:,3) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    u(:,:,end) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
 
-    u_next = double(u(1:end-1,1:end-1,3));
+    u_next = double(u(1:end-1,1:end-1,end));
 
-    [N_y,N_x] = size(u(:,:,3));
+    [N_y,N_x] = size(u(:,:,end));
 
     dudx_next = fft(u_next,N_x-1,2);
     dudy_next = fft(u_next,N_y-1,1);
@@ -136,7 +136,7 @@ function u = BDF1_advance_per(v, src_data, x, y, t, ...
     
             % Time history (v doesn't include the extension region)
             % There are three time levels here
-            R(j,i) = 2*v(j,i,2) - v(j,i,1);
+            R(j,i) = 2*v(j,i,end-1) - v(j,i,end-2);
 
             % Contribution from the source term (at t_{n+1})
             R(j,i) = R(j,i) + (  1/(alpha^2) )*src_data(j,i);
