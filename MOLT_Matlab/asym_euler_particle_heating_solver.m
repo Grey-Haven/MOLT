@@ -15,7 +15,7 @@ modification = "no_mod";
 % modification = "correct_gauge";
 
 resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
-              "/" + tag + "/CFL_" + CFL + "/" + modification + "/" + update_method_folder + "/";
+              "/CFL_" + CFL + "/" + modification + "/" + update_method_folder + "/" + tag + "/";
 figPath = resultsPath + "figures/";
 csvPath = resultsPath + "csv_files/";
 disp(resultsPath);
@@ -29,9 +29,9 @@ if enable_plots
     figure;
     x0=200;
     y0=100;
-    width = 1200;
+    width = 1800;
     height = 1200;
-    set(gcf,'position',[x0,y0,width,height])
+    set(gcf,'position',[x0,y0,width,height]);
 end
 
 steps = 0;
@@ -76,7 +76,8 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
 
     % J_rho_update_vanilla;
-    J_rho_update_fft;
+    % J_rho_update_fft;
+    J_rho_update_FD6;
     % J_rho_update_fft_iterative;    
     
     %---------------------------------------------------------------------
@@ -89,7 +90,10 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    update_waves;
+    % update_waves;
+    % update_waves_hybrid_BDF;
+    % update_waves_hybrid_FFT;
+    update_waves_hybrid_FD6;
     % update_waves_FFT_alt;
 %     update_waves_FFT;
 
@@ -98,7 +102,7 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.5 Correct gauge error
     %---------------------------------------------------------------------
-    %     clean_splitting_error;
+    % clean_splitting_error;
     % gauge_correction;
 
     %---------------------------------------------------------------------
@@ -128,9 +132,10 @@ while(steps < N_steps)
     % Compute the residual in the Lorenz gauge 
     gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:) + ddy_A2(:,:);
     
-    gauge_error(steps+1) = get_L_2_error(gauge_residual(:,:), ...
-                                         zeros(size(gauge_residual(:,:))), ...
-                                         dx*dy);
+    gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(:,:), ...
+                                            zeros(size(gauge_residual(:,:))), ...
+                                            dx*dy);
+    gauge_error_inf = max(max(abs(gauge_residual)));
     
     % Compute the ddt_A with backwards finite-differences
     ddt_A1(:,:) = ( A1(:,:,end) - A1(:,:,end-1) )/dt;
@@ -208,9 +213,10 @@ while(steps < N_steps)
 end
 
 ts = 0:dt:(N_steps-1)*dt;
-gauge_error_array = zeros(length(ts),2);
+gauge_error_array = zeros(length(ts),3);
 gauge_error_array(:,1) = ts;
-gauge_error_array(:,2) = gauge_error;
+gauge_error_array(:,2) = gauge_error_L2;
+gauge_error_array(:,3) = gauge_error_inf;
 
 if (write_csvs)
     save_csvs;
