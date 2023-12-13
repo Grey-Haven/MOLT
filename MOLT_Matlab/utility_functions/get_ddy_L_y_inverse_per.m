@@ -4,7 +4,7 @@ function ddy = get_ddy_L_y_inverse_per(operand, x, y, dx, dy, dt, c, beta)
     N_y = length(y);
     
     alpha = beta/(c*dt);
-    mu_y = exp(-alpha*( y(end) - y(1) ) );    
+    mu_y = exp(-alpha*( y(end) - y(1) ) );
     
     % Create arrays for right and left-moving operators
     rite_moving_op = zeros(N_y, N_x);

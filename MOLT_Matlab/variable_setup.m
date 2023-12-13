@@ -36,14 +36,14 @@ y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
 dt = CFL*dx/(sqrt(2)*kappa);
-N_steps = floor(T_final/dt);
+N_steps = ceil(T_final/dt);
 
 v_ave_mag = 1;
 
-% v1_drift = kappa/100;
-v1_drift = 0;
-% v2_drift = kappa/100;
-v2_drift = 0;
+v1_drift = kappa/100;
+% v1_drift = 0;
+v2_drift = kappa/100;
+% v2_drift = 0;
 
 % Number of particles for each species
 N_p = floor(particle_count_multiplier * 2.5e3);
@@ -195,23 +195,25 @@ N_ions = length(x1_ions);
 N_elec = length(x1_elec_new);
 
 % Mesh/field data
-% Need psi, A1, and A2
+% Need current psi, A1, and A2 and N_h-1 historical steps
 % as well as their derivatives
 %
 % We compute ddt_psi with backwards differences
-psi = zeros(N_y,N_x,3);
+N_h = 6;
+
+psi = zeros(N_y, N_x, N_h);
 ddx_psi = zeros(N_y,N_x);
 ddy_psi = zeros(N_y,N_x);
 psi_src = zeros(N_y,N_x);
 psi_A = zeros(N_y,N_x);
 psi_C = zeros(N_y,N_x);
 
-A1 = zeros(N_y, N_x, 3);
+A1 = zeros(N_y, N_x, N_h);
 ddx_A1 = zeros(N_y,N_x);
 ddy_A1 = zeros(N_y,N_x);
 A1_src = zeros(N_y,N_x);
 
-A2 = zeros(N_y, N_x, 3);
+A2 = zeros(N_y, N_x, N_h);
 ddx_A2 = zeros(N_y,N_x);
 ddy_A2 = zeros(N_y,N_x);
 A2_src = zeros(N_y,N_x);
@@ -235,7 +237,8 @@ ddy_E2 = zeros(N_y,N_x);
 gauge_residual = zeros(N_y,N_x);
 gauss_law_residual = zeros(N_y,N_x);
 
-gauge_error = zeros(N_steps,1);
+gauge_error_L2 = zeros(N_steps,1);
+gauge_error_inf = zeros(N_steps,1);
 gauss_law_error = zeros(N_steps,1);
 sum_gauss_law_residual = zeros(N_steps,1);
 
@@ -283,7 +286,8 @@ rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, ...
 rho_ions = enforce_periodicity(rho_ions(:,:));
 rho_elec = enforce_periodicity(rho_elec(:,:));
 
-rho_mesh = rho_ions + rho_elec;
+% rho_mesh = rho_ions + rho_elec;
+rho_mesh = zeros(size(rho_elec));
 
 % Current
 J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...

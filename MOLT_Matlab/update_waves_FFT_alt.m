@@ -6,10 +6,11 @@ ik = 1i*[0:N/2 -N/2+1:-1]; % i * wave number vector (matlab ordering)
 ik2 = ik.*ik;
 
 laplacian_hat = kappa^2*dt^2*(-kx_deriv_2'.^2 - ky_deriv_2.^2);
-split_term_hat = kappa^4*dt^4*kx_deriv_2'.^2 .* ky_deriv_2.^2;
+% split_term_hat = kappa^4*dt^4*kx_deriv_2'.^2 .* ky_deriv_2.^2;
+split_term_hat = 0;
 
-psi_prev = psi(1:end-1,1:end-1,1);
-psi_curr = psi(1:end-1,1:end-1,2);
+psi_prev = psi(1:end-1,1:end-1,end-2);
+psi_curr = psi(1:end-1,1:end-1,end-1);
 psi_src_curr = psi_src(1:end-1,1:end-1);
 
 psi_prev_hat = fft2(psi_prev);
@@ -20,15 +21,15 @@ psi_next_hat = (2*psi_curr_hat - psi_prev_hat + kappa^2*dt^2*psi_src_hat) ./ (1 
 
 psi_next = ifft2(psi_next_hat);
 
-psi(1:end-1,1:end-1,3) = psi_next;
-psi(:,:,3) = copy_periodic_boundaries(psi(:,:,3));
+psi(1:end-1,1:end-1,end) = psi_next;
+psi(:,:,end) = copy_periodic_boundaries(psi(:,:,end));
 
 %---------------------------------------------------------------------
 % 5.2.2. Advance A1 by dt using BDF-1
 %---------------------------------------------------------------------
 
-A1_prev = A1(1:end-1,1:end-1,1);
-A1_curr = A1(1:end-1,1:end-1,2);
+A1_prev = A1(1:end-1,1:end-1,end-2);
+A1_curr = A1(1:end-1,1:end-1,end-1);
 A1_src_curr = A1_src(1:end-1,1:end-1);
 
 A1_prev_hat = fft2(A1_prev);
@@ -39,15 +40,15 @@ A1_next_hat = (2*A1_curr_hat - A1_prev_hat + kappa^2*dt^2*A1_src_hat) ./ (1 - la
 
 A1_next = ifft2(A1_next_hat);
 
-A1(1:end-1,1:end-1,3) = A1_next;
-A1(:,:,3) = copy_periodic_boundaries(A1(:,:,3));
+A1(1:end-1,1:end-1,end) = A1_next;
+A1(:,:,end) = copy_periodic_boundaries(A1(:,:,end));
 
 %---------------------------------------------------------------------
 % 5.2.3. Advance A2 by dt using BDF-1
 %---------------------------------------------------------------------
 
-A2_prev = A2(1:end-1,1:end-1,1);
-A2_curr = A2(1:end-1,1:end-1,2);
+A2_prev = A2(1:end-1,1:end-1,end-2);
+A2_curr = A2(1:end-1,1:end-1,end-1);
 A2_src_curr = A2_src(1:end-1,1:end-1);
 
 A2_prev_hat = fft2(A2_prev);
@@ -58,8 +59,8 @@ A2_next_hat = (2*A2_curr_hat - A2_prev_hat + kappa^2*dt^2*A2_src_hat) ./ (1 - la
 
 A2_next = ifft2(A2_next_hat);
 
-A2(1:end-1,1:end-1,3) = A2_next;
-A2(:,:,3) = copy_periodic_boundaries(A2(:,:,3));
+A2(1:end-1,1:end-1,end) = A2_next;
+A2(:,:,end) = copy_periodic_boundaries(A2(:,:,end));
 
 %---------------------------------------------------------------------
 % 5.2.4. Compute the derivatives of the above fields

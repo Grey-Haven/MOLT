@@ -11,8 +11,8 @@ A1_curr  = A1 (1:end-1,1:end-1,3);
 A2_curr  = A2 (1:end-1,1:end-1,3);
 psi_curr = psi(1:end-1,1:end-1,3);
 
-A1_xx = ifft(-kx'.^2.*fft(A1_curr,N_x-1,1),N_x-1);
-gamma1(1:end-1,1:end-1) = ifft(-ky.^2.*fft(A1_xx,N_y-1,2),N_y-1,2);
+A1_xx = ifft(-kx_deriv_2'.^2.*fft(A1_curr,N_x-1,1),N_x-1);
+gamma1(1:end-1,1:end-1) = ifft(-ky_deriv_2.^2.*fft(A1_xx,N_y-1,2),N_y-1,2);
 gamma1(:,end) = gamma1(:,1);
 gamma1(end,:) = gamma1(1,:);
 
@@ -25,8 +25,8 @@ A1(:,:,3) = A1(:,:,3) - ERR1;
 % A1(:,end) = A1(:,1);
 % A1(end,:) = A1(1,:);
 
-A2_xx = ifft(-kx'.^2.*fft(A2_curr,N_x-1,1),N_x-1);
-gamma2(1:end-1,1:end-1) = ifft(-ky.^2.*fft(A2_xx,N_y-1,2),N_y-1,2);
+A2_xx = ifft(-kx_deriv_2'.^2.*fft(A2_curr,N_x-1,1),N_x-1);
+gamma2(1:end-1,1:end-1) = ifft(-ky_deriv_2.^2.*fft(A2_xx,N_y-1,2),N_y-1,2);
 gamma2(:,end) = gamma2(:,1);
 gamma2(end,:) = gamma2(1,:);
 
@@ -37,8 +37,8 @@ uncleaned2 = A2(:,:,3);
 
 A2(:,:,3) = A2(:,:,3) - ERR2;
 
-psi_xx = ifft(-kx'.^2.*fft(psi_curr,N_x-1,1),N_x-1);
-gamma3(1:end-1,1:end-1) = ifft(-ky.^2.*fft(psi_xx,N_y-1,2),N_y-1,2);
+psi_xx = ifft(-kx_deriv_2'.^2.*fft(psi_curr,N_x-1,1),N_x-1);
+gamma3(1:end-1,1:end-1) = ifft(-ky_deriv_2.^2.*fft(psi_xx,N_y-1,2),N_y-1,2);
 gamma3(:,end) = gamma3(:,1);
 gamma3(end,:) = gamma3(1,:);
 

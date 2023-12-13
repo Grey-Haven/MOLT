@@ -15,7 +15,7 @@ J1_clean_FFTx = fft(J1_clean,N_x-1,2);
 J2_clean_FFTy = fft(J2_clean,N_y-1,1);
 
 J1_deriv_clean = ifft(sqrt(-1)*kx_deriv_1 .*J1_clean_FFTx,N_x-1,2);
-J2_deriv_clean = ifft(sqrt(-1)*ky_deriv_1' .*J2_clean_FFTy,N_y-1,1);
+J2_deriv_clean = ifft(sqrt(-1)*ky_deriv_1'.*J2_clean_FFTy,N_y-1,1);
 
 Gamma = -1/((N_x-1)*(N_y-1))*sum(sum(J1_deriv_clean + J2_deriv_clean));
 

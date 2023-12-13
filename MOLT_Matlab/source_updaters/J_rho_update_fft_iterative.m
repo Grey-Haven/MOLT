@@ -22,8 +22,8 @@ u_avg_mesh(end,:,2) = u_avg_mesh(1,:,2);
 u_avg_mesh(:,end,2) = u_avg_mesh(:,1,2);
         
 rho_n = rho_elec(:,:);
-opts = optimoptions('fsolve', 'TolFun', 1E-10, 'TolX', 1E-10, 'Display', 'Off');
-rho_root = @(rho_guess) rho_implicit(rho_guess,rho_n(1:end-1,1:end-1),u_avg_mesh(1:end-1,1:end-1,:),dt,kx,ky);
+opts = optimoptions('fsolve', 'TolFun', 1E-6, 'TolX', 1E-6, 'Display', 'iter');
+rho_root = @(rho_guess) rho_implicit(rho_guess,rho_n(1:end-1,1:end-1),u_avg_mesh(1:end-1,1:end-1,:),dt,kx_deriv_1,ky_deriv_1);
 
 rho_elec_next = fsolve(rho_root,rho_elec(1:end-1,1:end-1),opts);
 
@@ -43,15 +43,12 @@ J1_mesh(:,end) = J1_mesh(:,1);
 J2_mesh(end,:) = J2_mesh(1,:);
 J2_mesh(:,end) = J2_mesh(:,1);
 
-% J1_fft_deriv_x = ifft(sqrt(-1)*kx'.*fft(J1_mesh(1:end-1,1:end-1),N_x-1,1),N_x-1,1);
-% J2_fft_deriv_y = ifft(sqrt(-1)*ky .*fft(J2_mesh(1:end-1,1:end-1),N_y-1,2),N_y-1,2);
-% 
-% div_J = zeros(N_x,N_y);
-% div_J(1:end-1,1:end-1) = J1_fft_deriv_x + J2_fft_deriv_y;
-% div_J(end,:) = div_J(1,:);
-% div_J(:,end) = div_J(:,1);
+J1_fft_deriv_x = ifft(sqrt(-1)*kx_deriv_1'.*fft(J1_mesh(1:end-1,1:end-1),N_x-1,1),N_x-1,1);
+J2_fft_deriv_y = ifft(sqrt(-1)*ky_deriv_1 .*fft(J2_mesh(1:end-1,1:end-1),N_y-1,2),N_y-1,2);
 
-% disp(norm(norm(rho_elec_next - (rho_n - dt*div_J))));
+div_J = J1_fft_deriv_x + J2_fft_deriv_y;
+
+disp(norm(norm(rho_elec_next - rho_n(1:end-1,1:end-1) + dt*div_J)));
 % Asserting that the continuity equation is satisfied
 % assert(norm(norm(rho_elec_next - (rho_n - dt*div_J))) < 10*eps);
 

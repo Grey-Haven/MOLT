@@ -7,27 +7,11 @@ function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y
     % Shuffles for time stepping are performed later, outside of this utility.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    % dudx = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    dudx = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
 
-    % dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
     u(:,:,end) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
-
-    u_next = double(u(1:end-1,1:end-1,end));
-
-    [N_y,N_x] = size(u(:,:,end));
-
-    dudx_next = fft(u_next,N_x-1,2);
-    dudy_next = fft(u_next,N_y-1,1);
-
-    dudx = zeros(N_y,N_x);
-    dudy = zeros(N_y,N_x);
-
-    dudx(1:end-1,1:end-1) = ifft(sqrt(-1)*kx_deriv_1 .*dudx_next,N_x-1,2);
-    dudy(1:end-1,1:end-1) = ifft(sqrt(-1)*ky_deriv_1'.*dudy_next,N_y-1,1);
-
-    dudx = copy_periodic_boundaries(dudx);
-    dudy = copy_periodic_boundaries(dudy);
     
 end
 
