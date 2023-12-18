@@ -354,3 +354,20 @@ if debug
     % Is the time step small enough?
     assert(dt < dx/6, "Make dt smaller. Use more steps or run to a shorter final time.\n")
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN Cold Storage Variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+tag = (length(x)-1) + "x" + (length(y)-1);
+filePath = matlab.desktop.editor.getActiveFilename;
+projectRoot = fileparts(filePath);
+
+resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
+              "/CFL_" + CFL + "/" + modification + "/" + update_method_folder + "/" + tag + "/";
+figPath = resultsPath + "figures/";
+csvPath = resultsPath + "csv_files/";
+disp(resultsPath);
+create_directories;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% END Cold Storage Variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
