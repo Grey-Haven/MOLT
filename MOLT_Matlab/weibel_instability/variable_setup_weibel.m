@@ -17,8 +17,8 @@ disp(tag);
 
 % L_x = 32.0;
 % L_y = 32.0;
-L_x = 1.0;
-L_y = 1.0;
+L_x = 20.0;
+L_y = 20.0;
 
 a_x = -L_x/2;
 b_x = L_x/2;
@@ -40,13 +40,21 @@ N_steps = ceil(T_final/dt);
 
 v_ave_mag = 1;
 
-v1_drift = kappa/100;
-% v1_drift = 0;
-v2_drift = kappa/100;
-% v2_drift = 0;
+% v1_drift = kappa/100;
+% v2_drift = kappa/100;
+
+v1_drift = 0;
+v2_drift = 0;
+
+v1_therm = 5e-2;
+v2_therm = v1_therm / 20;
+
+N_px = 1000;
+N_py = 1000;
+N_p = N_px*N_py;
 
 % Number of particles for each species
-N_p = floor(particle_count_multiplier * 2.5e3);
+% N_p = floor(particle_count_multiplier * 2.5e3);
 % N_p = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -63,12 +71,6 @@ b_x = x(end);
 a_y = y(1);
 b_y = y(end);
 
-x1_ions = zeros(N_p,1);
-x2_ions = zeros(N_p,1);
-
-x1_elec = zeros(N_p,1);
-x2_elec = zeros(N_p,1);
-
 %%% Sampling approach for particle intialization
 % % Generate a set of uniform samples in the domain for ions and electrons
 xy_min = [a_x, a_y];
@@ -84,20 +86,25 @@ y_0 = (a_y + b_y) / 2;
 x_offset = (b_x - a_x)/4;
 y_offset = (b_y - a_y)/4;
 
-sig_x = .05*(b_x - a_x);
-sig_y = .05*(b_y - a_y);
+particle_positions_elec_x = L_x*(rand(2*N_p,1) - .5);
+particle_positions_elec_y = L_y*(rand(2*N_p,1) - .5);
 
-particle_positions_elec = sig_x*randn(N_p,2) + [x_0, y_0]; %+ [x_offset, y_offset];
-particle_positions_ions = sig_y*randn(N_p,2) + [x_0, y_0];
+particle_positions_ions_x = L_x*(rand(N_p,1) - .5);
+particle_positions_ions_y = L_y*(rand(N_p,1) - .5);
 
-% x1_elec = particle_positions_elec(:,1);
-% x2_elec = particle_positions_elec(:,2);
+% We double the electron macroparticle count but keep the physical
+% particle count down (ie halve the weight)
+x1_elec_1 = particle_positions_ions_x;
+x2_elec_1 = particle_positions_ions_y;
 
-x1_elec = particle_positions_ions(:,1);
-x2_elec = particle_positions_ions(:,2);
+x1_elec_2 = particle_positions_ions_x;
+x2_elec_2 = particle_positions_ions_y;
 
-x1_ions = particle_positions_ions(:,1);
-x2_ions = particle_positions_ions(:,2);
+x1_elec = [x1_elec_1;x1_elec_2];
+x2_elec = [x2_elec_1;x2_elec_2];
+
+x1_ions = particle_positions_ions_x;
+x2_ions = particle_positions_ions_y;
 
 % Normalized masses
 r_ions = M_ion/M;
@@ -108,6 +115,7 @@ r_elec = M_electron/M;
 q_ions = Q_ion/Q;
 q_elec = Q_electron/Q;
 
+% Setting up velocity:
 
 % Ions will be stationary for this experiment
 v1_ions = zeros(N_p,1);
@@ -118,8 +126,23 @@ v2_ions = zeros(N_p,1);
 electron_velocities = randn(N_p,2);
 
 % Electrons have drift velocity in addition to a thermal velocity
-v1_elec = v_ave_mag*electron_velocities(:,1) + v1_drift;
-v2_elec = v_ave_mag*electron_velocities(:,2) + v2_drift;
+v1_elec_1 = v1_therm*electron_velocities(:,1) + v1_drift;
+v1_elec_2 = v1_therm*electron_velocities(:,1) + v1_drift;
+
+v2_elec_1 = v2_therm*electron_velocities(:,2) + v2_drift;
+v2_elec_2 = v2_therm*electron_velocities(:,2) + v2_drift;
+
+% Perturb the electron velocity in the y direction
+epsilon = 1.0e-04;
+k_y = 1.0;
+v2_elec_1 = v2_elec_1 + epsilon*sin(2*pi*k_y*(x2_elec_1 - a_y)/L_y);
+v2_elec_2 = v2_elec_2 + epsilon*sin(2*pi*k_y*(x2_elec_2 - a_y)/L_y);
+
+v1_elec_2 = -v1_elec_2;
+v2_elec_2 = -v2_elec_2;
+
+v1_elec = [v1_elec_1;v1_elec_2];
+v2_elec = [v2_elec_1;v2_elec_2];
 
 % Convert velocity to generalized momentum (A = 0 since the total current is zero)
 % This is equivalent to the classical momentum
@@ -131,8 +154,8 @@ P2_elec = v2_elec*r_elec;
 
 % Compute the normalized particle weights
 % L_x and L_y are the non-dimensional domain lengths
-w_ions = 10*(L_x*L_y)/N_p;
-w_elec = 10*(L_x*L_y)/N_p;
+w_ions = (L_x*L_y)/N_p;
+w_elec = .5*(L_x*L_y)/N_p;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters
@@ -354,6 +377,7 @@ if debug
     % Is the time step small enough?
     assert(dt < dx/6, "Make dt smaller. Use more steps or run to a shorter final time.\n")
 end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % BEGIN Cold Storage Variables
