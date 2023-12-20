@@ -6,21 +6,6 @@
 % fields are taken to be zero initially.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-tag = (length(x)-1) + "x" + (length(y)-1);
-filePath = matlab.desktop.editor.getActiveFilename;
-projectRoot = fileparts(filePath);
-
-modification = "no_mod";
-% modification = "FFT_splitting_err";
-% modification = "correct_gauge";
-
-resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
-              "/CFL_" + CFL + "/" + modification + "/" + update_method_folder + "/" + tag + "/";
-figPath = resultsPath + "figures/";
-csvPath = resultsPath + "csv_files/";
-disp(resultsPath);
-create_directories;
-
 if enable_plots
     vidName = "moving_electron_bulk" + ".mp4";
     vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
@@ -75,9 +60,9 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-    % J_rho_update_vanilla;
+    J_rho_update_vanilla;
     % J_rho_update_fft;
-    J_rho_update_FD6;
+    % J_rho_update_FD6;
     % J_rho_update_fft_iterative;    
     
     %---------------------------------------------------------------------
@@ -90,10 +75,10 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    % update_waves;
+    update_waves;
     % update_waves_hybrid_BDF;
     % update_waves_hybrid_FFT;
-    update_waves_hybrid_FD6;
+    % update_waves_hybrid_FD6;
     % update_waves_FFT_alt;
 %     update_waves_FFT;
 
@@ -103,7 +88,9 @@ while(steps < N_steps)
     % 5.5 Correct gauge error
     %---------------------------------------------------------------------
     % clean_splitting_error;
-    % gauge_correction;
+    % gauge_correction_FFT_deriv;
+    gauge_correction_FD6_deriv;
+    
 
     %---------------------------------------------------------------------
     % 6. Momentum advance by dt
