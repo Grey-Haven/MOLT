@@ -18,11 +18,11 @@ plot_at = 5;
 % update_method_title = "Vanilla";
 % update_method_folder = "vanilla";
 
-% update_method_title = "FFT Charge Update, BDF-1 Wave Update, FFT Derivative";
-% update_method_folder = "FFT_charge_BDF_wave_update_FFT_derivative";
+update_method_title = "FFT Charge Update, BDF-1 Wave Update, FFT Derivative";
+update_method_folder = "FFT_charge_BDF_wave_update_FFT_derivative";
 
-update_method_title = "FD6 Charge Update, BDF-1 Wave Update, FD6 Derivative";
-update_method_folder = "FD6_charge_BDF_wave_update_FD6_derivative";
+% update_method_title = "FD6 Charge Update, BDF-1 Wave Update, FD6 Derivative";
+% update_method_folder = "FD6_charge_BDF_wave_update_FD6_derivative";
     
 modification = "no_mod";
 % modification = "FFT_splitting_err";
@@ -35,7 +35,7 @@ for particle_count_multiplier = particle_count_multipliers
         for g = grid_refinement
             close all;
             variable_setup_weibel;
-            asym_euler_particle_heating_solver;
+            asym_euler_particle_heating_solver_weibel;
         end
     end
 end

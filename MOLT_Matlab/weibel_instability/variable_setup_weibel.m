@@ -329,6 +329,11 @@ v_elec_var_history = zeros(N_steps, 1);
 
 rho_hist = zeros(N_steps,1);
 
+Ex_L2_hist = zeros(N_steps,1);
+Ey_L2_hist = zeros(N_steps,1);
+
+Bz_L2_hist = zeros(N_steps,1);
+
 %%%%%%%%%%%%%%%%%%%%%%%
 % END Storage Variables
 %%%%%%%%%%%%%%%%%%%%%%%
