@@ -35,8 +35,11 @@ x = linspace(a_x, b_x, N_x);
 y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
-dt = CFL*dx/(sqrt(2)*kappa);
-N_steps = ceil(T_final/dt);
+% dt = CFL*dx/(sqrt(2)*kappa);
+% N_steps = ceil(T_final/dt);
+
+N_steps = 4000;
+dt = T_final / N_steps;
 
 v_ave_mag = 1;
 
@@ -46,7 +49,7 @@ v_ave_mag = 1;
 v1_drift = 0;
 v2_drift = 0;
 
-v1_therm = 5e-2;
+v1_therm = 5e-1;
 v2_therm = v1_therm / 20;
 
 N_px = 1000;

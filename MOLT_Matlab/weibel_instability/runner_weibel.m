@@ -4,14 +4,14 @@ addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 addpath(genpath([fileparts(pwd), '/rho_updaters']));
 
-grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
+grid_refinement = [128]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
 particle_count_multipliers = [1];
 
 debug = true;
 
 enable_plots = true;
-write_csvs = true;
+write_csvs = false;
 plot_at = 5;
 
 

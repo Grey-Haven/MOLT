@@ -46,6 +46,9 @@ ylabel("y");
 title("$B_z$",'Interpreter','latex');
 xlim([x(1),x(end)]);
 ylim([y(1),y(end)]);
+view(2);
+shading interp;
+colorbar;
 axis square;
 
 

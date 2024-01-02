@@ -27,7 +27,7 @@ M = M_electron;
 Q = 1.602e-19;
 
 % Compute the average macroscopic number density for the plasma [m^{-3}]
-n_bar = 10^13; % number density in [m^-3]
+n_bar = 10^12; % number density in [m^-3]
 
 % Compute the average macroscopic temperature [K] using lam_D and n_bar
 T_bar = 10000; % temperature in Kelvin [K]
@@ -39,8 +39,9 @@ w_p = sqrt( ( n_bar*(Q^2) )/( M*epsilon_0 ) );
 lam_D = sqrt((epsilon_0 * k_B * T_bar)/(n_bar*Q^2));
 
 % Define the length and time scales from the plasma parameters
-L = lam_D; % L has units of [m]
-T = 1/w_p; % T has units of [s/rad]
+% L = lam_D; % L has units of [m]
+L = c / w_p;
+T = 1 / w_p; % T has units of [s/rad]
 
 % Compute the thermal velocity V = lam_D * w_p in units of [m/s]
 V = L/T;
@@ -70,4 +71,4 @@ sigma_2 = (n_bar*mu_0*(Q*L)^2)/M;
 % Set for the first-order method
 beta_BDF = 1.0;
 
-T_final = .5;
+T_final = 50;
