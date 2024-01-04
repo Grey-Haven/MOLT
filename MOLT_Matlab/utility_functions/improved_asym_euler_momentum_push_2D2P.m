@@ -6,7 +6,7 @@ function [v1_s_new, v2_s_new, P1_s_new, P2_s_new] = ...
                                                      ddx_psi_mesh, ddy_psi_mesh, ...
                                                      A1_mesh, ddx_A1_mesh, ddy_A1_mesh, ...
                                                      A2_mesh, ddx_A2_mesh, ddy_A2_mesh, ...
-                                                     x, y, dx, dy, q_s, r_s, dt)
+                                                     x, y, dx, dy, q_s, r_s, kappa, dt)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Applies a single step of the asymmetrical Euler method to 2D-2P particle data.
     %
@@ -47,6 +47,7 @@ function [v1_s_new, v2_s_new, P1_s_new, P2_s_new] = ...
     % that retains the linear terms
     v1_s_star = v1_s_old + ( v1_s_old - v1_s_nm1 );
     v2_s_star = v2_s_old + ( v2_s_old - v2_s_nm1 );
+
     rhs1 = -q_s*ddx_psi_p + q_s*( ddx_A1_p.*v1_s_star + ddx_A2_p.*v2_s_star );
     rhs2 = -q_s*ddy_psi_p + q_s*( ddy_A1_p.*v1_s_star + ddy_A2_p.*v2_s_star );
     
@@ -54,9 +55,12 @@ function [v1_s_new, v2_s_new, P1_s_new, P2_s_new] = ...
     P1_s_new = P1_s_old + dt*rhs1;
     P2_s_new = P2_s_old + dt*rhs2;
     
+    denom = sqrt((P1_s_new - q_s*A1_p).^2 + (P2_s_new - q_s*A2_p).^2 + (r_s*kappa).^2);
     % Compute the new velocity using the updated momentum
-    v1_s_new = (1/r_s)*(P1_s_new - q_s*A1_p);
-    v2_s_new = (1/r_s)*(P2_s_new - q_s*A2_p);
+    % v1_s_new = (1/r_s)*(P1_s_new - q_s*A1_p);
+    % v2_s_new = (1/r_s)*(P2_s_new - q_s*A2_p);
+    v1_s_new = (kappa*(P1_s_new - q_s*A1_p)) ./ denom;
+    v2_s_new = (kappa*(P2_s_new - q_s*A2_p)) ./ denom;
         
 %     for i = 1:N_s
 %         
