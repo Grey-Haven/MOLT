@@ -23,10 +23,11 @@ update_method_folder = "FFT_charge_BDF_wave_update_FFT_derivative";
 
 % update_method_title = "FD6 Charge Update, BDF-1 Wave Update, FD6 Derivative";
 % update_method_folder = "FD6_charge_BDF_wave_update_FD6_derivative";
-    
+
 modification = "no_mod";
 % modification = "FFT_splitting_err";
 % modification = "correct_gauge";
+% modification = "parabolic_cleaning";
 
 mesh_independent_variable_setup_weibel;
 
@@ -34,7 +35,7 @@ for particle_count_multiplier = particle_count_multipliers
     for CFL = CFLs
         for g = grid_refinement
             close all;
-            variable_setup_weibel;
+            variable_setup_weibel_new;
             asym_euler_particle_heating_solver_weibel;
         end
     end

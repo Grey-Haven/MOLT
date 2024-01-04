@@ -30,7 +30,7 @@ Q = 1.602e-19;
 n_bar = 10^12; % number density in [m^-3]
 
 % Compute the average macroscopic temperature [K] using lam_D and n_bar
-T_bar = 10000; % temperature in Kelvin [K]
+T_bar = 2e6; % temperature in Kelvin [K]
 
 % Angular oscillation frequency [rad/s]
 w_p = sqrt( ( n_bar*(Q^2) )/( M*epsilon_0 ) );
@@ -71,4 +71,23 @@ sigma_2 = (n_bar*mu_0*(Q*L)^2)/M;
 % Set for the first-order method
 beta_BDF = 1.0;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN Domain Parameters
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 T_final = 50;
+
+% L_x = 32.0;
+% L_y = 32.0;
+L_x = 20.0;
+L_y = 20.0;
+
+a_x = -L_x/2;
+b_x = L_x/2;
+
+a_y = -L_y/2;
+b_y =  L_y/2;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% END Domain Parameters
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
