@@ -1,4 +1,4 @@
-function [u,dudx,dudy] = BDF_Hybrid_1_4_combined_per_advance(u, dudx, dudy, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF,kx_deriv_1,ky_deriv_1)
+function [u,dudx,dudy] = BDF1_combined_per_advance_hybrid_FFT(u, dudx, dudy, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF,kx_deriv_1,ky_deriv_1)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Performs the derivative and field advance function for a 2-D scalar field.
     % The function assumes we are working with a scalar field,

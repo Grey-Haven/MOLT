@@ -35,8 +35,11 @@ x = linspace(a_x, b_x, N_x);
 y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
-dt = CFL*dx/(sqrt(2)*kappa);
-N_steps = ceil(T_final/dt);
+% dt = CFL*dx/(sqrt(2)*kappa);
+% N_steps = ceil(T_final/dt);
+
+N_steps = 4000;
+dt = T_final / N_steps;
 
 v_ave_mag = 1;
 
@@ -46,7 +49,7 @@ v_ave_mag = 1;
 v1_drift = 0;
 v2_drift = 0;
 
-v1_therm = 5e-2;
+v1_therm = 5e-1;
 v2_therm = v1_therm / 20;
 
 N_px = 1000;
@@ -265,6 +268,26 @@ gauge_error_inf = zeros(N_steps,1);
 gauss_law_error = zeros(N_steps,1);
 sum_gauss_law_residual = zeros(N_steps,1);
 
+total_mass = zeros(N_steps,1);
+total_energy = zeros(N_steps,1);
+
+total_mass_ions = get_total_mass_species(rho_ions, cell_volumes, q_ions, r_ions);
+total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
+
+total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+                                     x1_ions, x2_ions, ...
+                                     P1_ions, P2_ions, ...
+                                     x, y, q_ions, w_ions*r_ions, kappa);
+
+total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+                                     x1_elec_new, x2_elec_new, ...
+                                     P1_elec_new, P2_elec_new, ...
+                                     x, y, q_elec, w_elec*r_elec, kappa);
+
+% Combine the results from both species
+total_mass(1) = total_mass_ions + total_mass_elec;
+total_energy(1) = total_energy_ions + total_energy_elec;
+
 % We track two time levels of J (n, n+1)
 % Note, we don't need J3 for this model 
 % Since ions are stationary J_mesh := J_elec
@@ -328,6 +351,11 @@ J2_mesh = J_mesh(:,:,2);
 v_elec_var_history = zeros(N_steps, 1);
 
 rho_hist = zeros(N_steps,1);
+
+Ex_L2_hist = zeros(N_steps,1);
+Ey_L2_hist = zeros(N_steps,1);
+
+Bz_L2_hist = zeros(N_steps,1);
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % END Storage Variables
@@ -395,3 +423,32 @@ create_directories;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Cold Storage Variables
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN Recording Process Start
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+if enable_plots
+    vidName = "moving_electron_bulk" + ".mp4";
+    vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
+    open(vidObj);
+    
+    figure;
+    x0=200;
+    y0=100;
+    width = 1800;
+    height = 1200;
+    set(gcf,'position',[x0,y0,width,height]);
+end
+
+steps = 0;
+if (write_csvs)
+    save_csvs;
+end
+if (enable_plots)
+    create_plots_weibel;
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% END Recording Process Start
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -6,32 +6,6 @@
 % fields are taken to be zero initially.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if enable_plots
-    vidName = "moving_electron_bulk" + ".mp4";
-    vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
-    open(vidObj);
-    
-    figure;
-    x0=200;
-    y0=100;
-    width = 1800;
-    height = 1200;
-    set(gcf,'position',[x0,y0,width,height]);
-end
-
-steps = 0;
-if (write_csvs)
-    save_csvs;
-end
-if (enable_plots)
-    create_plots;
-end
-
-rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
-
-gauss_law_error = zeros(N_steps,1);
-sum_gauss_law_residual = zeros(N_steps,1);
-
 while(steps < N_steps)
     
 %     v1_elec_old = ramp(t_n)*v1_elec_old; % + ramp_drift(t_n)*v1_drift;
@@ -45,7 +19,8 @@ while(steps < N_steps)
     v2_star = 2*v2_elec_old - v2_elec_nm1;
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
                                                                x1_elec_old, x2_elec_old, ...
-                                                               v1_star, v2_star, dt);
+                                                               v1_elec_old, v2_elec_old, dt);
+                                                               % v1_star, v2_star, dt);
 %                                                                v1_elec_new, v2_elec_new, dt);
 
     
@@ -60,8 +35,8 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-    J_rho_update_vanilla;
-    % J_rho_update_fft;
+    % J_rho_update_vanilla;
+    J_rho_update_fft;
     % J_rho_update_FD6;
     % J_rho_update_fft_iterative;    
     
@@ -75,9 +50,9 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    update_waves;
+    % update_waves;
     % update_waves_hybrid_BDF;
-    % update_waves_hybrid_FFT;
+    update_waves_hybrid_FFT;
     % update_waves_hybrid_FD6;
     % update_waves_FFT_alt;
 %     update_waves_FFT;
@@ -89,7 +64,7 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % clean_splitting_error;
     % gauge_correction_FFT_deriv;
-    gauge_correction_FD6_deriv;
+    % gauge_correction_FD6_deriv;
     
 
     %---------------------------------------------------------------------
@@ -107,14 +82,37 @@ while(steps < N_steps)
                                            ddx_psi, ddy_psi, ...
                                            A1(:,:,end), ddx_A1, ddy_A1, ...
                                            A2(:,:,end), ddx_A2, ddy_A2, ...
-                                           x, y, dx, dy, q_elec, r_elec, dt);
-                                       
+                                           x, y, dx, dy, q_elec, r_elec, ...
+                                           kappa, dt);
+
+
     %---------------------------------------------------------------------
-    % 7. Compute the errors in the Lorenz gauge and Gauss' law
+    % 7. Diagnostics and Storage
+    %---------------------------------------------------------------------
+
+    %---------------------------------------------------------------------
+    % 7.1 Compute the E and B fields
+    %---------------------------------------------------------------------
+
+    % Compute E = -grad(psi) - ddt_A
+    % For ddt A, we use backward finite-differences
+    % Note, E3 is not used in the particle update so we don't need ddt_A3
+    E1(:,:) = -ddx_psi(:,:) - ddt_A1(:,:);
+    E2(:,:) = -ddy_psi(:,:) - ddt_A2(:,:);
+        
+    % Compute B = curl(A)
+    B3 = ddx_A2(:,:,end) - ddy_A1(:,:,end);
+
+    %---------------------------------------------------------------------
+    % 7.2 Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
     
     % Compute the time derivative of psi using finite differences
     ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) )/dt;
+    
+    % Compute the ddt_A with backwards finite-differences
+    ddt_A1(:,:) = ( A1(:,:,end) - A1(:,:,end-1) )/dt;
+    ddt_A2(:,:) = ( A2(:,:,end) - A2(:,:,end-1) )/dt;
     
     % Compute the residual in the Lorenz gauge 
     gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:) + ddy_A2(:,:);
@@ -122,18 +120,33 @@ while(steps < N_steps)
     gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(:,:), ...
                                             zeros(size(gauge_residual(:,:))), ...
                                             dx*dy);
-    gauge_error_inf = max(max(abs(gauge_residual)));
+    gauge_error_inf(steps+1) = max(max(abs(gauge_residual)));
+
+    %-----------------------------------------------------------------------
+    % 7.3 Measure the total mass and energy of the system (ions + electrons)
+    %-----------------------------------------------------------------------
+
+    % Ions are stationary, so their total mass will not change
+    total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
     
-    % Compute the ddt_A with backwards finite-differences
-    ddt_A1(:,:) = ( A1(:,:,end) - A1(:,:,end-1) )/dt;
-    ddt_A2(:,:) = ( A2(:,:,end) - A2(:,:,end-1) )/dt;
+    total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+                                           x1_ions, x2_ions, ...
+                                           P1_ions, P2_ions, ...
+                                           x, y, q_ions, w_ions*r_ions, kappa);
     
-    % Compute E = -grad(psi) - ddt_A
-    % For ddt A, we use backward finite-differences
-    % Note, E3 is not used in the particle update so we don't need ddt_A3
-    E1(:,:) = -ddx_psi(:,:) - ddt_A1(:,:);
-    E2(:,:) = -ddy_psi(:,:) - ddt_A2(:,:);
+    total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+                                         x1_elec_new, x2_elec_new, ...
+                                         P1_elec_new, P2_elec_new, ...
+                                         x, y, q_elec, w_elec*r_elec, kappa);
     
+    % Combine the species information
+    total_mass(steps+1) = total_mass_ions + total_mass_elec;
+    total_energy(steps+1) = total_energy_ions + total_energy_elec;
+    
+    %---------------------------------------------------------------------
+    % 7.4 Compute the error in Gauss' Law
+    %---------------------------------------------------------------------
+
     % Compute Gauss' law div(E) - rho to check the involution
     % We'll just use finite-differences here
     ddx_E1 = compute_ddx_FD(E1, dx);
@@ -182,6 +195,10 @@ while(steps < N_steps)
     var_v2 = var(v2_elec_new);
     v_elec_var_history(steps+1) = ( 0.5*(var_v1 + var_v2) );
 
+    Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(B3)),dx*dy);
+    Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(B3)),dx*dy);
+    Bz_L2_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
+
     % Step is now complete
     steps = steps + 1;
     t_n = t_n + dt;
@@ -193,7 +210,8 @@ while(steps < N_steps)
             save_csvs;
         end
         if (enable_plots)
-            create_plots;
+            create_plots_weibel;
+            % create_plots_magnetic_magnitude;
         end
     end
 
@@ -205,34 +223,27 @@ gauge_error_array(:,1) = ts;
 gauge_error_array(:,2) = gauge_error_L2;
 gauge_error_array(:,3) = gauge_error_inf;
 
+B3_L2_array = zeros(length(ts),2);
+B3_L2_array(:,1) = ts;
+B3_L2_array(:,2) = Bz_L2_hist;
+
+E1_L2_array = zeros(length(ts),2);
+E1_L2_array(:,1) = ts;
+E1_L2_array(:,2) = Ex_L2_hist;
+
+E2_L2_array = zeros(length(ts),2);
+E2_L2_array(:,1) = ts;
+E2_L2_array(:,2) = Ey_L2_hist;
+
 if (write_csvs)
     save_csvs;
 end
 if enable_plots
-    create_plots;
+    create_plots_weibel;
     close(vidObj);
 end
+
 writematrix(gauge_error_array,csvPath + "gauge_error.csv");
-
-% figure;
-% plot(0:dt:(N_steps-1)*dt, gauge_error);
-% xlabel("t");
-% ylabel("Gauge Error");
-% title({'Gauge Error Over Time', update_method_title,tag + ", CFL: " + CFL});
-
-% filename = figPath + "gauge_error.jpg";
-
-% saveas(gcf,filename)
-
-function r = ramp(t)
-%     r = kappa/100*exp(-((time - .05)^2)/.00025);
-%     r = 1;
-%     if t < .1
-%         r = sin((2*pi*t)/.01);
-%     end
-    r = 1 - exp(-100 * t);
-end
-
-% function r = ramp_drift(t)
-%     r = exp(-500*(t-.1).^2);
-% end
+writematrix(B3_L2_array,csvPath + "B3_magnitude.csv");
+writematrix(E1_L2_array,csvPath + "E1_magnitude.csv");
+writematrix(E2_L2_array,csvPath + "E2_magnitude.csv");

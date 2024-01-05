@@ -4,7 +4,7 @@ addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 addpath(genpath([fileparts(pwd), '/rho_updaters']));
 
-grid_refinement = [64]; % Run FFT BDF BDF for 64x64
+grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
 particle_count_multipliers = [10];
 
@@ -15,8 +15,8 @@ write_csvs = true;
 plot_at = 500;
 
 
-% update_method_title = "Vanilla";
-% update_method_folder = "vanilla";
+update_method_title = "Vanilla";
+update_method_folder = "vanilla";
 
 % update_method_title = "FFT Charge Update, BDF-1 Wave Update, FD6 Derivative";
 % update_method_folder = "FFT_charge_BDF_wave_update_FD6_derivative";
@@ -33,8 +33,8 @@ plot_at = 500;
 % update_method_title = "FD6 Charge Update, BDF-1 Wave Update, FFT Derivative";
 % update_method_folder = "FD6_charge_BDF_wave_update_FFT_derivative";
 
-update_method_title = "FD6 Charge Update, BDF-1 Wave Update, FD6 Derivative";
-update_method_folder = "FD6_charge_BDF_wave_update_FD6_derivative";
+% update_method_title = "FD6 Charge Update, BDF-1 Wave Update, FD6 Derivative, Gauge Corrected";
+% update_method_folder = "FD6_charge_BDF_wave_update_FD6_derivative";
 
 % update_method_title = "FD6 Charge Update, BDF-1 Wave Update, FFT Derivative";
 % update_method_folder = "FD6_charge_BDF_wave_update_FFT_derivative";
@@ -48,9 +48,9 @@ update_method_folder = "FD6_charge_BDF_wave_update_FD6_derivative";
 % update_method_title = "Iterative FFT";
 % update_method_folder = "iterative_fft";
     
-modification = "no_mod";
+% modification = "no_mod";
 % modification = "FFT_splitting_err";
-% modification = "correct_gauge";
+modification = "correct_gauge";
 
 mesh_independent_variable_setup;
 
