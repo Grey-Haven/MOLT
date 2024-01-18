@@ -35,9 +35,9 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-    % J_rho_update_vanilla;
-    J_rho_update_fft;
-    % J_rho_update_FD6;
+    J_rho_update_vanilla;
+%     J_rho_update_fft;
+%     J_rho_update_FD6;
     % J_rho_update_fft_iterative;    
     
     %---------------------------------------------------------------------
@@ -50,10 +50,10 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    % update_waves;
+    update_waves;
     % update_waves_hybrid_BDF;
-    update_waves_hybrid_FFT;
-    % update_waves_hybrid_FD6;
+%     update_waves_hybrid_FFT;
+%     update_waves_hybrid_FD6;
     % update_waves_FFT_alt;
 %     update_waves_FFT;
 
@@ -62,8 +62,8 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.5 Correct gauge error
     %---------------------------------------------------------------------
-    % clean_splitting_error;
-    % gauge_correction_FFT_deriv;
+%     clean_splitting_error;
+%     gauge_correction_FFT_deriv;
     % gauge_correction_FD6_deriv;
     
 
@@ -127,21 +127,21 @@ while(steps < N_steps)
     %-----------------------------------------------------------------------
 
     % Ions are stationary, so their total mass will not change
-    total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
-    
-    total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-                                           x1_ions, x2_ions, ...
-                                           P1_ions, P2_ions, ...
-                                           x, y, q_ions, w_ions*r_ions, kappa);
-    
-    total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-                                         x1_elec_new, x2_elec_new, ...
-                                         P1_elec_new, P2_elec_new, ...
-                                         x, y, q_elec, w_elec*r_elec, kappa);
-    
-    % Combine the species information
-    total_mass(steps+1) = total_mass_ions + total_mass_elec;
-    total_energy(steps+1) = total_energy_ions + total_energy_elec;
+%     total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
+%     
+%     total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+%                                            x1_ions, x2_ions, ...
+%                                            P1_ions, P2_ions, ...
+%                                            x, y, q_ions, w_ions*r_ions, kappa);
+%     
+%     total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+%                                          x1_elec_new, x2_elec_new, ...
+%                                          P1_elec_new, P2_elec_new, ...
+%                                          x, y, q_elec, w_elec*r_elec, kappa);
+%     
+%     % Combine the species information
+%     total_mass(steps+1) = total_mass_ions + total_mass_elec;
+%     total_energy(steps+1) = total_energy_ions + total_energy_elec;
     
     %---------------------------------------------------------------------
     % 7.4 Compute the error in Gauss' Law
@@ -235,6 +235,10 @@ E2_L2_array = zeros(length(ts),2);
 E2_L2_array(:,1) = ts;
 E2_L2_array(:,2) = Ey_L2_hist;
 
+rho_hist_array = zeros(length(ts),2);
+rho_hist_array(:,1) = ts;
+rho_hist_array(:,2) = rho_hist;
+
 if (write_csvs)
     save_csvs;
 end
@@ -247,3 +251,4 @@ writematrix(gauge_error_array,csvPath + "gauge_error.csv");
 writematrix(B3_L2_array,csvPath + "B3_magnitude.csv");
 writematrix(E1_L2_array,csvPath + "E1_magnitude.csv");
 writematrix(E2_L2_array,csvPath + "E2_magnitude.csv");
+writematrix(rho_hist_array,csvPath + "rho_hist.csv");

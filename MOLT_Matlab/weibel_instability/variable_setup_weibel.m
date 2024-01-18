@@ -271,23 +271,6 @@ sum_gauss_law_residual = zeros(N_steps,1);
 total_mass = zeros(N_steps,1);
 total_energy = zeros(N_steps,1);
 
-total_mass_ions = get_total_mass_species(rho_ions, cell_volumes, q_ions, r_ions);
-total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
-
-total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-                                     x1_ions, x2_ions, ...
-                                     P1_ions, P2_ions, ...
-                                     x, y, q_ions, w_ions*r_ions, kappa);
-
-total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-                                     x1_elec_new, x2_elec_new, ...
-                                     P1_elec_new, P2_elec_new, ...
-                                     x, y, q_elec, w_elec*r_elec, kappa);
-
-% Combine the results from both species
-total_mass(1) = total_mass_ions + total_mass_elec;
-total_energy(1) = total_energy_ions + total_energy_elec;
-
 % We track two time levels of J (n, n+1)
 % Note, we don't need J3 for this model 
 % Since ions are stationary J_mesh := J_elec
@@ -356,6 +339,23 @@ Ex_L2_hist = zeros(N_steps,1);
 Ey_L2_hist = zeros(N_steps,1);
 
 Bz_L2_hist = zeros(N_steps,1);
+
+total_mass_ions = get_total_mass_species(rho_ions, cell_volumes, q_ions, r_ions);
+total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
+
+total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+                                     x1_ions, x2_ions, ...
+                                     P1_ions, P2_ions, ...
+                                     x, y, q_ions, w_ions*r_ions, kappa);
+
+total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+                                     x1_elec_new, x2_elec_new, ...
+                                     P1_elec_new, P2_elec_new, ...
+                                     x, y, q_elec, w_elec*r_elec, kappa);
+
+% Combine the results from both species
+total_mass(1) = total_mass_ions + total_mass_elec;
+total_energy(1) = total_energy_ions + total_energy_elec;
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % END Storage Variables

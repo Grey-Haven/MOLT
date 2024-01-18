@@ -4,8 +4,10 @@ rng(2);
 % Note that V = c, so we require all
 % velocities to be less than 1 in these normalized units
 
-v_perp = 0.5; % Electron drift velocity in x
-v_parallel = 0.1; % Electrons have uniform velocities in the interval [-v_parallel, v_parallel)
+% v_perp = 0.5; % Electron drift velocity in x
+% v_parallel = 0.1; % Electrons have uniform velocities in the interval [-v_parallel, v_parallel)
+v_perp = kappa / 2;
+v_parallel = kappa / 100;
 
 % Base number of particles per species per direction and total
 N_px = 500;
@@ -116,7 +118,7 @@ y = linspace(a_y, b_y, N_y);
 % dt = 5*dx/kappa
 % dt = CFL*dx/(sqrt(2)*kappa);
 % N_steps = ceil(T_final/dt);
-N_steps = 10000;
+N_steps = 40000;
 dt = T_final / N_steps;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -296,22 +298,22 @@ Ey_L2_hist = zeros(N_steps,1);
 
 Bz_L2_hist = zeros(N_steps,1);
 
-total_mass_ions = get_total_mass_species(rho_ions, cell_volumes, q_ions, r_ions);
-total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
-
-total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-                                     x1_ions, x2_ions, ...
-                                     P1_ions, P2_ions, ...
-                                     x, y, q_ions, w_ions*r_ions, kappa);
-
-total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-                                     x1_elec_new, x2_elec_new, ...
-                                     P1_elec_new, P2_elec_new, ...
-                                     x, y, q_elec, w_elec*r_elec, kappa);
-
-% Combine the results from both species
-total_mass(1) = total_mass_ions + total_mass_elec;
-total_energy(1) = total_energy_ions + total_energy_elec;
+% total_mass_ions = get_total_mass_species(rho_ions, cell_volumes, q_ions, r_ions);
+% total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
+% 
+% total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+%                                      x1_ions, x2_ions, ...
+%                                      P1_ions, P2_ions, ...
+%                                      x, y, q_ions, w_ions*r_ions, kappa);
+% 
+% total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
+%                                      x1_elec_new, x2_elec_new, ...
+%                                      P1_elec_new, P2_elec_new, ...
+%                                      x, y, q_elec, w_elec*r_elec, kappa);
+% 
+% % Combine the results from both species
+% total_mass(1) = total_mass_ions + total_mass_elec;
+% total_energy(1) = total_energy_ions + total_energy_elec;
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % END Storage Variables

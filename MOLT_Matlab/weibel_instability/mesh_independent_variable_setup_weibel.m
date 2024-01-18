@@ -27,10 +27,12 @@ M = M_electron;
 Q = 1.602e-19;
 
 % Compute the average macroscopic number density for the plasma [m^{-3}]
-n_bar = 10^12; % number density in [m^-3]
+% n_bar = 10^12; % number density in [m^-3]
+n_bar = 1e10
 
 % Compute the average macroscopic temperature [K] using lam_D and n_bar
-T_bar = 2e6; % temperature in Kelvin [K]
+% T_bar = 2e6; % temperature in Kelvin [K]
+T_bar = 1e4;
 
 % Angular oscillation frequency [rad/s]
 w_p = sqrt( ( n_bar*(Q^2) )/( M*epsilon_0 ) );
@@ -77,10 +79,11 @@ beta_BDF = 1.0;
 
 T_final = 50;
 
-% L_x = 32.0;
-% L_y = 32.0;
-L_x = 20.0;
-L_y = 20.0;
+% L_x = 20.0;
+% L_y = 20.0;
+
+L_x = 1.153896;
+L_y = 1.153896;
 
 a_x = -L_x/2;
 b_x = L_x/2;
