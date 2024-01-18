@@ -13,34 +13,51 @@ function [v1_s_new, v2_s_new, P1_s_new, P2_s_new] = ...
     % Data is passed by reference, so there is no return. The new particle position data
     % is used to map the fields to the particles. Therefore, the position update needs
     % to be done before the momentum push.
-    %
-    % Note: This function is specific to the expanding beam problem.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-%     v1_s_new = zeros(size(v1_s_old));
-%     v2_s_new = zeros(size(v2_s_old));
-%     
-%     P1_s_new = zeros(size(P1_s_old));
-%     P2_s_new = zeros(size(P2_s_old));
-    
-    % Number of particles of a species s
-%     N_s = length(x1_s_new);
 
-    ddx_psi_p = gather_2D_vectorized(ddx_psi_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-    ddy_psi_p = gather_2D_vectorized(ddy_psi_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-        
+%     ddx_psi_p = gather_2D_vectorized(ddx_psi_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+%     ddy_psi_p = gather_2D_vectorized(ddy_psi_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+
     % Vector potential data
     
     % A1
-    A1_p = gather_2D_vectorized(A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-    ddx_A1_p = gather_2D_vectorized(ddx_A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-    ddy_A1_p = gather_2D_vectorized(ddy_A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+%     A1_p = gather_2D_vectorized(A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+%     ddx_A1_p = gather_2D_vectorized(ddx_A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+%     ddy_A1_p = gather_2D_vectorized(ddy_A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
     
     % A2
-    A2_p = gather_2D_vectorized(A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-    ddx_A2_p = gather_2D_vectorized(ddx_A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-    ddy_A2_p = gather_2D_vectorized(ddy_A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-    
+%     A2_p = gather_2D_vectorized(A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+%     ddx_A2_p = gather_2D_vectorized(ddx_A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+%     ddy_A2_p = gather_2D_vectorized(ddy_A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
+
+    meshes = zeros([size(A1_mesh),8]);
+    meshes(:,:,1) = ddx_psi_mesh;
+    meshes(:,:,2) = ddy_psi_mesh; 
+    meshes(:,:,3) = A1_mesh;
+    meshes(:,:,4) = ddx_A1_mesh;
+    meshes(:,:,5) = ddy_A1_mesh;
+    meshes(:,:,6) = A2_mesh;
+    meshes(:,:,7) = ddx_A2_mesh;
+    meshes(:,:,8) = ddy_A2_mesh;
+    X = ...
+        gather_2D_vectorized_multiple(meshes, x1_s_new, x2_s_new, x, y, dx, dy);
+    ddx_psi_p = X(:,1);
+    ddy_psi_p = X(:,2);
+    A1_p = X(:,3);
+    ddx_A1_p = X(:,4);
+    ddy_A1_p = X(:,5);
+    A2_p = X(:,6);
+    ddx_A2_p = X(:,7);
+    ddy_A2_p = X(:,8);
+
+%     assert(norm(ddx_psi_p_alt - ddx_psi_p) < eps);
+%     assert(norm(ddy_psi_p_alt - ddy_psi_p) < eps);
+%     assert(norm(A1_p_alt - A1_p) < eps);
+%     assert(norm(ddx_A1_p_alt - ddx_A1_p) < eps);
+%     assert(norm(ddy_A1_p_alt - ddy_A1_p) < eps);
+%     assert(norm(A2_p_alt - A2_p) < eps);
+%     assert(norm(ddx_A2_p_alt - ddx_A2_p) < eps);
+%     assert(norm(ddy_A2_p_alt - ddy_A2_p) < eps);
     % A3 is zero for this problem (so are its derivatives)
     
     % Compute the momentum rhs terms using a Taylor approximation of v^{n+1}
@@ -57,48 +74,7 @@ function [v1_s_new, v2_s_new, P1_s_new, P2_s_new] = ...
     
     denom = sqrt((P1_s_new - q_s*A1_p).^2 + (P2_s_new - q_s*A2_p).^2 + (r_s*kappa).^2);
     % Compute the new velocity using the updated momentum
-    % v1_s_new = (1/r_s)*(P1_s_new - q_s*A1_p);
-    % v2_s_new = (1/r_s)*(P2_s_new - q_s*A2_p);
     v1_s_new = (kappa*(P1_s_new - q_s*A1_p)) ./ denom;
     v2_s_new = (kappa*(P2_s_new - q_s*A2_p)) ./ denom;
-        
-%     for i = 1:N_s
-%         
-%         % First, we need to map the fields from the mesh to the particle
-%         % using the gather function based on the new particle coordinates.
-% 
-%         % Scalar potential data
-%         ddx_psi_p = gather_2D(ddx_psi_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         ddy_psi_p = gather_2D(ddy_psi_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         
-%         % Vector potential data
-%         
-%         % A1
-%         A1_p = gather_2D(A1_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         ddx_A1_p = gather_2D(ddx_A1_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         ddy_A1_p = gather_2D(ddy_A1_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         
-%         % A2
-%         A2_p = gather_2D(A2_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         ddx_A2_p = gather_2D(ddx_A2_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         ddy_A2_p = gather_2D(ddy_A2_mesh, x1_s_new(i), x2_s_new(i), x, y, dx, dy);
-%         
-%         % A3 is zero for this problem (so are its derivatives)
-%         
-%         % Compute the momentum rhs terms using a Taylor approximation of v^{n+1}
-%         % that retains the linear terms
-%         v1_s_star = v1_s_old(i) + ( v1_s_old(i) - v1_s_nm1(i) );
-%         v2_s_star = v2_s_old(i) + ( v2_s_old(i) - v2_s_nm1(i) );
-%         rhs1 = -q_s*ddx_psi_p + q_s*( ddx_A1_p*v1_s_star + ddx_A2_p*v2_s_star );
-%         rhs2 = -q_s*ddy_psi_p + q_s*( ddy_A1_p*v1_s_star + ddy_A2_p*v2_s_star );
-%         
-%         % Compute the new momentum
-%         P1_s_new(i) = P1_s_old(i) + dt*rhs1;
-%         P2_s_new(i) = P2_s_old(i) + dt*rhs2;
-%         
-%         % Compute the new velocity using the updated momentum
-%         v1_s_new(i) = (1/r_s)*(P1_s_new(i) - q_s*A1_p);
-%         v2_s_new(i) = (1/r_s)*(P2_s_new(i) - q_s*A2_p);
-%         
-%     end
+
 end
