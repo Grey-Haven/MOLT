@@ -259,7 +259,7 @@ else
 end
 
 writematrix(gauge_error_array,csvPath + "gauge_error" + tag + ".csv");
-writematrix(temp_hist_array,csvPath + "gauge_error" + tag + ".csv");
+writematrix(temp_hist_array,csvPath + "temp_hist" + tag + ".csv");
 writematrix(B3_L2_array,csvPath + "B3_magnitude" + tag + ".csv");
 writematrix(E1_L2_array,csvPath + "E1_magnitude" + tag + ".csv");
 writematrix(E2_L2_array,csvPath + "E2_magnitude" + tag + ".csv");
