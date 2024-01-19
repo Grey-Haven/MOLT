@@ -9,5 +9,8 @@
 *.jpg
 *.png
 *.slurm
+*.asv
+*.DS_Store
+*.zip
 
 Vlasov-analysis
