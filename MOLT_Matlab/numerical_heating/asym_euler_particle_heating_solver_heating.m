@@ -43,8 +43,8 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-    J_rho_update_vanilla;
-%     J_rho_update_fft;
+%     J_rho_update_vanilla;
+    J_rho_update_fft;
 %     J_rho_update_FD6;
     % J_rho_update_fft_iterative;    
     
@@ -58,9 +58,9 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    update_waves;
+%     update_waves;
 %     update_waves_hybrid_BDF;
-%     update_waves_hybrid_FFT;
+    update_waves_hybrid_FFT;
 %     update_waves_hybrid_FD6;
     % update_waves_FFT_alt;
 %     update_waves_FFT;
@@ -72,7 +72,7 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
 %     clean_splitting_error;
 %     gauge_correction_FFT_deriv;
-    gauge_correction_FD6_deriv;
+%     gauge_correction_FD6_deriv;
     
 
     %---------------------------------------------------------------------
@@ -244,6 +244,10 @@ rho_hist_array = zeros(length(ts),2);
 rho_hist_array(:,1) = ts;
 rho_hist_array(:,2) = rho_hist;
 
+temp_hist_array = zeros(length(ts),2);
+temp_hist_array(:,1) = ts;
+temp_hist_array(:,2) = temp_hist;
+
 if (write_csvs)
     save_csvs;
 end
@@ -255,6 +259,7 @@ else
 end
 
 writematrix(gauge_error_array,csvPath + "gauge_error" + tag + ".csv");
+writematrix(temp_hist_array,csvPath + "temp_hist" + tag + ".csv");
 writematrix(B3_L2_array,csvPath + "B3_magnitude" + tag + ".csv");
 writematrix(E1_L2_array,csvPath + "E1_magnitude" + tag + ".csv");
 writematrix(E2_L2_array,csvPath + "E2_magnitude" + tag + ".csv");
