@@ -4,8 +4,10 @@ function dudx_fft = compute_ddx_FFT(u,kx_deriv_1)
     %%%%%%%%%%%%%%%%%%%%%%%%%
 
     [N_y,N_x] = size(u(:,:,end));
+    
+    u_domain = u(1:end-1,1:end-1,end);
 
-    u_fft_x = fft(u_next,N_x-1,2);
+    u_fft_x = fft(u_domain,N_x-1,2);
 
     dudx_fft = zeros(N_y,N_x);
 
