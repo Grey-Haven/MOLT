@@ -227,7 +227,9 @@ gauss_law_residual = zeros(N_y,N_x);
 
 gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
-gauss_law_error = zeros(N_steps,1);
+gauss_law_error_L2 = zeros(N_steps,1);
+gauss_law_error_inf = zeros(N_steps,1);
+
 sum_gauss_law_residual = zeros(N_steps,1);
 
 % We track two time levels of J (n, n+1)
@@ -356,7 +358,7 @@ tag = (length(x)-1) + "x" + (length(y)-1);
 filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
-resultsPath = projectRoot + "/results/conserving/" + modification + "/" + update_method_folder + "/" + tag + "/";
+resultsPath = projectRoot + "/results/conserving/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
 figPath = resultsPath + "figures/";
 csvPath = resultsPath + "csv_files/";
 disp(resultsPath);

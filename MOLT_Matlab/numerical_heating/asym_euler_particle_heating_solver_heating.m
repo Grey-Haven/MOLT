@@ -16,7 +16,8 @@ while(steps < N_steps)
             create_plots_heating;
             disp(tag + " " + num2str((t_n / T_final) * 100) + "% complete");
         else
-            waitbar((steps / N_steps), f, tag)
+            % waitbar((steps / N_steps), f, tag)
+            disp(tag + " " + num2str((t_n / T_final) * 100) + "% complete");
         end
     end
     %---------------------------------------------------------------------
@@ -43,8 +44,16 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-%     J_rho_update_vanilla;
-    J_rho_update_fft;
+    if J_rho_update_method == J_rho_update_method_vanilla
+        J_rho_update_vanilla;
+    elseif J_rho_update_method == J_rho_update_method_FFT
+        J_rho_update_fft;
+    elseif J_rho_update_method == J_rho_update_method_FD6
+        J_rho_update_FD6;
+    else
+        ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
+        throw(ME);
+    end
 %     J_rho_update_FD6;
     % J_rho_update_fft_iterative;    
     
@@ -58,21 +67,30 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-%     update_waves;
-%     update_waves_hybrid_BDF;
-    update_waves_hybrid_FFT;
-%     update_waves_hybrid_FD6;
-    % update_waves_FFT_alt;
-%     update_waves_FFT;
-
-
+    if waves_update_method == waves_update_method_vanilla
+        update_waves;
+    elseif waves_update_method == waves_update_method_FFT
+        update_waves_hybrid_FFT;
+    elseif waves_update_method == waves_update_method_FD6
+        update_waves_hybrid_FD6
+    else
+        ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
+        throw(ME);
+    end
     
     %---------------------------------------------------------------------
     % 5.5 Correct gauge error
     %---------------------------------------------------------------------
-%     clean_splitting_error;
-%     gauge_correction_FFT_deriv;
-%     gauge_correction_FD6_deriv;
+    if gauge_correction == gauge_correction_none
+        % Nothing
+    elseif gauge_correction == gauge_correction_FFT
+        gauge_correction_FFT_deriv;
+    elseif gauge_correction == gauge_correction_FD6
+        gauge_correction_FD6_deriv;
+    else
+        ME = MException('GaugeCorrectionException','Gauge Correction Method ' + gauge_correction + " not an option");
+        throw(ME);
+    end
     
 
     %---------------------------------------------------------------------
@@ -161,15 +179,28 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
 
     % Compute Gauss' law div(E) - rho to check the involution
-    % We'll just use finite-differences here
-    ddx_E1 = compute_ddx_FD(E1, dx);
-    ddy_E2 = compute_ddy_FD(E2, dy);
-    
+    if waves_update_method == waves_update_method_vanilla
+        ddx_E1 = compute_ddx_FD(E1, dx);
+        ddy_E2 = compute_ddy_FD(E2, dy);
+    elseif waves_update_method == waves_update_method_FFT
+        ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
+        ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
+    elseif waves_update_method == waves_update_method_FD6
+        ME = MException('WaveException',"FD6 Derivative not implemented yet.");
+        throw(ME);
+        % ddx_E1 = compute_ddx_FD6(E1, dx);
+        % ddy_E2 = compute_ddy_FD6(E2, dy);
+    else
+        ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
+        throw(ME);
+    end
+
     gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
     
-    gauss_law_error(steps+1) = get_L_2_error(gauss_law_residual(:,:), ...
+    gauss_law_error_L2(steps+1) = get_L_2_error(gauss_law_residual(:,:), ...
                                            zeros(size(gauss_law_residual(:,:))), ...
                                            dx*dy);
+    gauss_law_error_inf(steps+1) = max(max(abs(gauss_law_residual(:,:))));
     
     % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
     sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
@@ -216,17 +247,23 @@ while(steps < N_steps)
     steps = steps + 1;
     t_n = t_n + dt;
 
-    rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
+    rho_hist(steps) = sum(sum(rho_mesh(1:end-1,1:end-1)));
 
 end
 
 temp_hist = ((M_electron * V^2) / k_B) * v_elec_var_hist;
 
 ts = 0:dt:(N_steps-1)*dt;
+
 gauge_error_array = zeros(length(ts),3);
 gauge_error_array(:,1) = ts;
 gauge_error_array(:,2) = gauge_error_L2;
 gauge_error_array(:,3) = gauge_error_inf;
+
+gauss_error_array = zeros(length(ts),3);
+gauss_error_array(:,1) = ts;
+gauss_error_array(:,2) = gauss_law_error_L2;
+gauss_error_array(:,3) = gauss_law_error_inf;
 
 B3_L2_array = zeros(length(ts),2);
 B3_L2_array(:,1) = ts;
@@ -258,9 +295,10 @@ else
     close(f);
 end
 
-writematrix(gauge_error_array,csvPath + "gauge_error" + tag + ".csv");
-writematrix(temp_hist_array,csvPath + "temp_hist" + tag + ".csv");
-writematrix(B3_L2_array,csvPath + "B3_magnitude" + tag + ".csv");
-writematrix(E1_L2_array,csvPath + "E1_magnitude" + tag + ".csv");
-writematrix(E2_L2_array,csvPath + "E2_magnitude" + tag + ".csv");
-writematrix(rho_hist_array,csvPath + "rho_hist" + tag + ".csv");
+writematrix(gauge_error_array,csvPath + "gauge_error_" + tag + ".csv");
+writematrix(gauss_error_array,csvPath + "gauss_error_" + tag + ".csv");
+writematrix(temp_hist_array,csvPath + "temp_hist_" + tag + ".csv");
+writematrix(B3_L2_array,csvPath + "B3_magnitude_" + tag + ".csv");
+writematrix(E1_L2_array,csvPath + "E1_magnitude_" + tag + ".csv");
+writematrix(E2_L2_array,csvPath + "E2_magnitude_" + tag + ".csv");
+writematrix(rho_hist_array,csvPath + "rho_hist_" + tag + ".csv");
