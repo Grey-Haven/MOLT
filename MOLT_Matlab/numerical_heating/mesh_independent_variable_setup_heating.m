@@ -65,10 +65,10 @@ beta_BDF = 1.0;
 % BEGIN Domain Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-T_final = 1000;
+T_final = 500;
 
-L_x = 32.0;
-L_y = 32.0;
+L_x = 25.0;
+L_y = 25.0;
 
 a_x = -L_x/2;
 b_x = L_x/2;
