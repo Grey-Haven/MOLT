@@ -87,9 +87,9 @@ while(steps < N_steps)
                                            P1_elec_old, P2_elec_old, ...
                                            v1_elec_old, v2_elec_old, ...
                                            v1_elec_nm1, v2_elec_nm1, ...
-                                           ddx_psi, ddy_psi, ...
-                                           A1(:,:,end), ddx_A1, ddy_A1, ...
-                                           A2(:,:,end), ddx_A2, ddy_A2, ...
+                                           ddx_psi(:,:,end), ddy_psi(:,:,end), ...
+                                           A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
+                                           A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
                                            x, y, dx, dy, q_elec, r_elec, ...
                                            kappa, dt);
 
@@ -99,20 +99,7 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
 
     %---------------------------------------------------------------------
-    % 7.1 Compute the E and B fields
-    %---------------------------------------------------------------------
-
-    % Compute E = -grad(psi) - ddt_A
-    % For ddt A, we use backward finite-differences
-    % Note, E3 is not used in the particle update so we don't need ddt_A3
-    E1(:,:) = -ddx_psi(:,:) - ddt_A1(:,:);
-    E2(:,:) = -ddy_psi(:,:) - ddt_A2(:,:);
-        
-    % Compute B = curl(A)
-    B3 = ddx_A2(:,:,end) - ddy_A1(:,:,end);
-
-    %---------------------------------------------------------------------
-    % 7.2 Compute the errors in the Lorenz gauge and Gauss' law
+    % 7.1 Compute the time derivatives of the potentials
     %---------------------------------------------------------------------
     
     % Compute the time derivative of psi using finite differences
@@ -121,9 +108,26 @@ while(steps < N_steps)
     % Compute the ddt_A with backwards finite-differences
     ddt_A1(:,:) = ( A1(:,:,end) - A1(:,:,end-1) )/dt;
     ddt_A2(:,:) = ( A2(:,:,end) - A2(:,:,end-1) )/dt;
+
+    %---------------------------------------------------------------------
+    % 7.2 Compute the E and B fields
+    %---------------------------------------------------------------------
+
+    % Compute E = -grad(psi) - ddt_A
+    % For ddt A, we use backward finite-differences
+    % Note, E3 is not used in the particle update so we don't need ddt_A3
+    E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
+    E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
+        
+    % Compute B = curl(A)
+    B3 = ddx_A2(:,:,end) - ddy_A1(:,:,end);
+
+    %---------------------------------------------------------------------
+    % 7.3 Compute the errors in the Lorenz gauge and Gauss' law
+    %---------------------------------------------------------------------
     
     % Compute the residual in the Lorenz gauge 
-    gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:) + ddy_A2(:,:);
+    gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:,end) + ddy_A2(:,:,end);
     
     gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(:,:), ...
                                             zeros(size(gauge_residual(:,:))), ...
@@ -136,7 +140,7 @@ while(steps < N_steps)
     v_elec_var_hist(steps+1) = var_v;
 
     %-----------------------------------------------------------------------
-    % 7.3 Measure the total mass and energy of the system (ions + electrons)
+    % 7.4 Measure the total mass and energy of the system (ions + electrons)
     %-----------------------------------------------------------------------
 
     % Ions are stationary, so their total mass will not change
@@ -157,22 +161,50 @@ while(steps < N_steps)
 %     total_energy(steps+1) = total_energy_ions + total_energy_elec;
     
     %---------------------------------------------------------------------
-    % 7.4 Compute the error in Gauss' Law
+    % 7.5 Compute the error in Gauss' Law
     %---------------------------------------------------------------------
 
     % Compute Gauss' law div(E) - rho to check the involution
     % We'll just use finite-differences here
     ddx_E1 = compute_ddx_FD(E1, dx);
     ddy_E2 = compute_ddy_FD(E2, dy);
-    
+
     gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
     
     gauss_law_error(steps+1) = get_L_2_error(gauss_law_residual(:,:), ...
-                                           zeros(size(gauss_law_residual(:,:))), ...
-                                           dx*dy);
+                                             zeros(size(gauss_law_residual(:,:))), ...
+                                             dx*dy);
     
     % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
     sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
+
+%     div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
+%     div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
+%     ddt_div_A = (div_A_curr - div_A_prev)/dt;
+% 
+%     ddt2_phi = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2))/(kappa^2*dt^2);
+%     gauss_law_potential_form(steps+1) = get_L_2_error(ddt_div_A + ddt2_phi, ...
+%                                              zeros(size(gauss_law_residual(:,:))), ...
+%                                              dx*dy);
+% 
+%     laplacian_phi = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
+%     LHS = ddt2_phi - laplacian_phi;
+%     res = LHS - rho_mesh / sigma_1;
+%     divE = - laplacian_phi - ddt_div_A;
+%     gauss_law_alt_residual = divE - rho_mesh;
+%     gauss_law_alt_err = get_L_2_error(gauss_law_alt_residual, ...
+%                                       zeros(size(gauss_law_residual(:,:))), ...
+%                                       dx*dy);
+%     subplot(1,3,1);
+%     surf(x,y,LHS);
+%     title("$\frac{1}{\kappa^2}\frac{\partial^2 \phi}{\partial t^2} - \Delta \phi$",'interpreter','latex','FontSize',24);
+%     subplot(1,3,2);
+%     surf(x,y,rho_mesh/sigma_1);
+%     title("$\frac{\rho}{\sigma_1}$",'interpreter','latex','FontSize',24);
+%     subplot(1,3,3);
+%     surf(x,y,res);
+%     title("$\left(\frac{1}{\kappa^2}\frac{\partial^2 \phi}{\partial t^2} - \Delta \phi\right) - \frac{\rho}{\sigma_1}$",'interpreter','latex','FontSize',24);
+%     drawnow;
 
     
     %---------------------------------------------------------------------
@@ -181,8 +213,14 @@ while(steps < N_steps)
     
     % Shuffle the time history of the fields
     psi = shuffle_steps(psi);
+    ddx_psi = shuffle_steps(ddx_psi);
+    ddy_psi = shuffle_steps(ddy_psi);
     A1 = shuffle_steps(A1);
+    ddx_A1 = shuffle_steps(ddx_A1);
+    ddy_A1 = shuffle_steps(ddy_A1);
     A2 = shuffle_steps(A2);
+    ddx_A2 = shuffle_steps(ddx_A2);
+    ddy_A2 = shuffle_steps(ddy_A2);
     
     % Shuffle the time history of the particle data
     v1_elec_nm1(:) = v1_elec_old(:);
@@ -211,6 +249,45 @@ while(steps < N_steps)
     Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(B3)),dx*dy);
     Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(B3)),dx*dy);
     Bz_L2_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
+
+%     if (mod(steps,50) == 0)
+% 
+%         temp_hist = ((M_electron * V^2) / k_B) * v_elec_var_hist;
+%         
+%         ts = 0:dt:steps*dt;
+%         gauge_error_array = zeros(length(ts),3);
+%         gauge_error_array(:,1) = ts;
+%         gauge_error_array(:,2) = gauge_error_L2(1:steps+1);
+%         gauge_error_array(:,3) = gauge_error_inf(1:steps+1);
+%         
+%         B3_L2_array = zeros(length(ts),2);
+%         B3_L2_array(:,1) = ts;
+%         B3_L2_array(:,2) = Bz_L2_hist(1:steps+1);
+%         
+%         E1_L2_array = zeros(length(ts),2);
+%         E1_L2_array(:,1) = ts;
+%         E1_L2_array(:,2) = Ex_L2_hist(1:steps+1);
+%         
+%         E2_L2_array = zeros(length(ts),2);
+%         E2_L2_array(:,1) = ts;
+%         E2_L2_array(:,2) = Ey_L2_hist(1:steps+1);
+%         
+%         rho_hist_array = zeros(length(ts),2);
+%         rho_hist_array(:,1) = ts;
+%         rho_hist_array(:,2) = rho_hist(1:steps+1);
+%         
+%         temp_hist_array = zeros(length(ts),2);
+%         temp_hist_array(:,1) = ts;
+%         temp_hist_array(:,2) = temp_hist(1:steps+1);
+% 
+%         writematrix(gauge_error_array,csvPath + "gauge_error" + tag + ".csv");
+%         writematrix(temp_hist_array,csvPath + "temp_hist" + tag + ".csv");
+%         writematrix(B3_L2_array,csvPath + "B3_magnitude" + tag + ".csv");
+%         writematrix(E1_L2_array,csvPath + "E1_magnitude" + tag + ".csv");
+%         writematrix(E2_L2_array,csvPath + "E2_magnitude" + tag + ".csv");
+%         writematrix(rho_hist_array,csvPath + "rho_hist" + tag + ".csv");
+% 
+%     end
 
     % Step is now complete
     steps = steps + 1;
