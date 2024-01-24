@@ -76,12 +76,40 @@ while(steps < N_steps)
     % update_waves_hybrid_FD6;
 
 
+    % Alternative way of solving phi
+
+    div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
+    div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
+    ddt_div_A = (div_A_curr - div_A_prev)/dt;
+
+    RHS = -(rho_mesh / sigma_1 + ddt_div_A);
+    LHS = solve_poisson_FFT(RHS,kx_deriv_2,ky_deriv_2);
+    psi(:,:,end) = LHS;
+
+    psi_next_fft_x = fft(psi(1:end-1,1:end-1,end),N_x-1,2);
+    psi_next_fft_y = fft(psi(1:end-1,1:end-1,end),N_y-1,1);
+
+    ddx_psi_fft = zeros(N_y,N_x);
+    ddy_psi_fft = zeros(N_y,N_x);
+
+    ddx_psi_fft(1:end-1,1:end-1) = ifft(sqrt(-1)*kx_deriv_1 .*psi_next_fft_x,N_x-1,2);
+    ddy_psi_fft(1:end-1,1:end-1) = ifft(sqrt(-1)*ky_deriv_1'.*psi_next_fft_y,N_y-1,1);
+
+    ddx_psi_fft = copy_periodic_boundaries(ddx_psi_fft);
+    ddy_psi_fft = copy_periodic_boundaries(ddy_psi_fft);
+
+    ddx_psi(:,:,end) = ddx_psi_fft;
+    ddy_psi(:,:,end) = ddy_psi_fft;
+
+    % End Alternative Way
+
+
     
     %---------------------------------------------------------------------
     % 5. Correct gauge error (optional)
     %---------------------------------------------------------------------
 %     clean_splitting_error;
-%     gauge_correction_FFT_deriv;
+    % gauge_correction_FFT_deriv;
 %     gauge_correction_FD6_deriv;
     
 
@@ -130,8 +158,12 @@ while(steps < N_steps)
     
     % Compute Gauss' law div(E) - rho to check the involution
     % We'll just use finite-differences here
-    ddx_E1 = compute_ddx_FD(E1, dx);
-    ddy_E2 = compute_ddy_FD(E2, dy);
+    % ddx_E1 = compute_ddx_FD(E1, dx);
+    % ddy_E2 = compute_ddy_FD(E2, dy);
+    ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
+    ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
+
+    LHS_field = ddx_E1(:,:) + ddy_E2(:,:);
     
     gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
     
@@ -142,7 +174,6 @@ while(steps < N_steps)
     % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
     sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
 
-
     div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
     div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
     ddt_div_A = (div_A_curr - div_A_prev)/dt;
@@ -151,69 +182,28 @@ while(steps < N_steps)
 
     laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
     
-    LHS = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
+    LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
     RHS = rho_mesh / sigma_1;
 
-    alpha = kappa*dt;
+    LHS_gauge = -ddt_div_A - laplacian_phi_FFT;
 
-    LHS_alt0 = 1/(alpha^2) * (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2)) - laplacian_phi_FFT;
-    res0 = LHS - RHS;
+    gauss_law_potential_res = LHS_potential  - RHS;
+    gauss_law_gauge_res     = LHS_gauge      - RHS;
+    gauss_law_field_res     = LHS_field      - RHS;
 
-    LHS_alt = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2)) - alpha^2 * laplacian_phi_FFT;
-    RHS_alt = alpha^2 * rho_mesh / sigma_1;
-    res_alt = LHS_alt - RHS_alt;
+    gauss_law_potential_err_L2(steps+1) = get_L_2_error(gauss_law_potential_res, ...
+                                                        zeros(size(gauss_law_residual(:,:))), ...
+                                                        dx*dy);
+    gauss_law_gauge_err_L2(steps+1) = get_L_2_error(gauss_law_gauge_res, ...
+                                                    zeros(size(gauss_law_residual(:,:))), ...
+                                                    dx*dy);
+    gauss_law_field_err_L2(steps+1) = get_L_2_error(gauss_law_field_res, ...
+                                                    zeros(size(gauss_law_residual(:,:))), ...
+                                                    dx*dy);
 
-    res = LHS - RHS;
-    divE = - laplacian_phi_FFT - ddt_div_A;
-    gauss_law_alt_residual = divE - rho_mesh;
-    gauss_law_alt_err = get_L_2_error(gauss_law_alt_residual, ...
-                                      zeros(size(gauss_law_residual(:,:))), ...
-                                      dx*dy);
-
-    subplot(1,2,1);
-    surf(x,y,res);
-    title("$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$",'interpreter','latex','FontSize',24);
-    subplot(1,2,2);
-    surf(x,y,res_alt);
-    title("$\phi^{n+1} - 2\phi^{n} + \phi^{n-1} - \alpha^2\Delta \phi^{n+1} - \alpha^2\frac{\rho^{n+1}}{\sigma_1}$",'interpreter','latex','FontSize',24);
-
-    
-    subplot(1,2,1);
-    surf(x,y,-ddt_div_A - laplacian_phi_FFT - rho_mesh / sigma_1);
-    title("$-\frac{\nabla \cdot \textbf{A}^{n+1} - \nabla \cdot \textbf{A}^{n}}{\partial t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$",'interpreter','latex','FontSize',24);
-    subplot(1,2,2);
-    surf(x,y,-alpha^2*ddt_div_A - alpha^2*laplacian_phi_FFT - alpha^2*rho_mesh / sigma_1);
-    title("$-\alpha^2\frac{\nabla \cdot \textbf{A}^{n+1} - \nabla \cdot \textbf{A}^{n}}{\partial t} - \alpha^2\Delta \phi^{n+1} - \alpha^2\frac{\rho^{n+1}}{\sigma_1}$",'interpreter','latex','FontSize',24);
-
-    subplot(2,2,1);
-    surf(x,y,LHS);
-    title("$\frac{1}{\kappa^2}\frac{\partial^2 \phi}{\partial t^2} - \Delta \phi$",'interpreter','latex','FontSize',24);
-    view(2);
-    colorbar;
-    axis square;
-    subplot(2,2,2);
-    surf(x,y,RHS);
-    title("$\frac{\rho}{\sigma_1}$",'interpreter','latex','FontSize',24);
-    view(2);
-    colorbar;
-    axis square;
-    subplot(2,2,3);
-    surf(x,y,res);
-    title("$\left(\frac{1}{\kappa^2}\frac{\partial^2 \phi}{\partial t^2} - \Delta \phi\right) - \frac{\rho}{\sigma_1}$",'interpreter','latex','FontSize',24);
-    view(2);
-    colorbar;
-    axis square;
-    subplot(2,2,4);
-    scatter(x1_elec_new, x2_elec_new, 5, 'filled');
-    xlabel("x");
-    ylabel("y");
-    title("Electron Locations");
-    xlim([x(1),x(end)]);
-    ylim([y(1),y(end)]);
-    axis square;
-
-    sgtitle({update_method_title + " method", "Grid: " + tag + ", CFL: " + CFL + ", Particle Multiplier: " + particle_count_multiplier, "t = " + num2str(t_n,'%.4f')});
-    drawnow;
+    gauss_law_potential_err_inf(steps+1) = max(max(abs(gauss_law_potential_res)));
+    gauss_law_gauge_err_inf(steps+1) = max(max(abs(gauss_law_gauge_res)));
+    gauss_law_field_err_inf(steps+1) = max(max(abs(gauss_law_field_res)));
 
     
     %---------------------------------------------------------------------
@@ -262,10 +252,20 @@ while(steps < N_steps)
 end
 
 ts = 0:dt:(N_steps-1)*dt;
+
 gauge_error_array = zeros(length(ts),3);
 gauge_error_array(:,1) = ts;
 gauge_error_array(:,2) = gauge_error_L2;
 gauge_error_array(:,3) = gauge_error_inf;
+
+gauss_error_array = zeros(length(ts),7);
+gauss_error_array(:,1) = ts;
+gauss_error_array(:,2) = gauss_law_potential_err_L2;
+gauss_error_array(:,3) = gauss_law_potential_err_inf;
+gauss_error_array(:,4) = gauss_law_gauge_err_L2;
+gauss_error_array(:,5) = gauss_law_gauge_err_inf;
+gauss_error_array(:,6) = gauss_law_field_err_L2;
+gauss_error_array(:,7) = gauss_law_field_err_inf;
 
 if (write_csvs)
     save_csvs;
@@ -274,7 +274,24 @@ if enable_plots
     create_plots;
     close(vidObj);
 end
+
+figure;
+plot(ts, gauss_law_potential_err_L2);
+xlabel("t");
+title("$||\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
+
+figure;
+plot(ts, gauss_law_gauge_err_L2);
+xlabel("t");
+title("$||-\frac{\nabla \cdot \textbf{A}^{n+1} - \nabla \cdot \textbf{A}^{n}}{\Delta t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
+
+figure;
+plot(ts, gauss_law_field_err_L2);
+xlabel("t");
+title("$||\nabla \cdot \textbf{E} - \frac{\rho}{\sigma_1}||_2$", 'FontSize', 24);
+
 writematrix(gauge_error_array,csvPath + "gauge_error.csv");
+writematrix(gauss_error_array,csvPath + "gauss_error.csv");
 
 % figure;
 % plot(0:dt:(N_steps-1)*dt, gauge_error);
