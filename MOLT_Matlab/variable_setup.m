@@ -199,7 +199,7 @@ N_elec = length(x1_elec_new);
 % as well as their derivatives
 %
 % We compute ddt_psi with backwards differences
-N_h = 6;
+N_h = 3;
 
 psi = zeros(N_y, N_x, N_h);
 ddx_psi = zeros(N_y,N_x);
@@ -209,13 +209,13 @@ psi_A = zeros(N_y,N_x);
 psi_C = zeros(N_y,N_x);
 
 A1 = zeros(N_y, N_x, N_h);
-ddx_A1 = zeros(N_y,N_x);
-ddy_A1 = zeros(N_y,N_x);
+ddx_A1 = zeros(N_y,N_x, N_h);
+ddy_A1 = zeros(N_y,N_x, N_h);
 A1_src = zeros(N_y,N_x);
 
 A2 = zeros(N_y, N_x, N_h);
-ddx_A2 = zeros(N_y,N_x);
-ddy_A2 = zeros(N_y,N_x);
+ddx_A2 = zeros(N_y,N_x, N_h);
+ddy_A2 = zeros(N_y,N_x, N_h);
 A2_src = zeros(N_y,N_x);
 
 % Other data needed for the evaluation of 
@@ -241,6 +241,13 @@ gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
 gauss_law_error = zeros(N_steps,1);
 sum_gauss_law_residual = zeros(N_steps,1);
+
+gauss_law_potential_err_L2 = zeros(N_steps,1);
+gauss_law_potential_err_inf = zeros(N_steps,1);
+gauss_law_gauge_err_L2 = zeros(N_steps,1);
+gauss_law_gauge_err_inf = zeros(N_steps,1);
+gauss_law_field_err_L2 = zeros(N_steps,1);
+gauss_law_field_err_inf = zeros(N_steps,1);
 
 % We track two time levels of J (n, n+1)
 % Note, we don't need J3 for this model 
