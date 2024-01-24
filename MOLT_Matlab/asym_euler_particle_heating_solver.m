@@ -276,16 +276,17 @@ if enable_plots
 end
 
 figure;
+subplot(1,3,1);
 plot(ts, gauss_law_potential_err_L2);
 xlabel("t");
 title("$||\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
 
-figure;
+subplot(1,3,2);
 plot(ts, gauss_law_gauge_err_L2);
 xlabel("t");
 title("$||-\frac{\nabla \cdot \textbf{A}^{n+1} - \nabla \cdot \textbf{A}^{n}}{\Delta t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
 
-figure;
+subplot(1,3,3);
 plot(ts, gauss_law_field_err_L2);
 xlabel("t");
 title("$||\nabla \cdot \textbf{E} - \frac{\rho}{\sigma_1}||_2$", 'FontSize', 24);
