@@ -27,8 +27,8 @@ function [u,dudx,dudy] = BDF1_combined_per_advance_hybrid_FFT(u, dudx, dudy, src
     dudx_fft = copy_periodic_boundaries(dudx_fft);
     dudy_fft = copy_periodic_boundaries(dudy_fft);
 
-    dudx = dudx_fft;
-    dudy = dudy_fft;
+    dudx(:,:,end) = dudx_fft;
+    dudy(:,:,end) = dudy_fft;
     
 end
 

@@ -7,9 +7,9 @@ function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y
     % Shuffles for time stepping are performed later, outside of this utility.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    dudx = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    dudx(:,:,end) = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
 
-    dudy = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    dudy(:,:,end) = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
     u(:,:,end) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
     
