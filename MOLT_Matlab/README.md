@@ -38,3 +38,7 @@ $$
 $$
 
 We then solve Poisson's equation using the FFT (may explore other methods as well).
+
+# Why the Fourth Method?
+
+The fourth method is pretty convoluted and seemingly throws away a lot of the simplicity that the BDF1 method brings with it. Why are we using it? In addition to linking the continuity equation to the Gauge condition, we have a theorem that shows satisfaction of the Gauge condition implies satisfaction of Gauss' Law, $\nabla \cdot \textbf{E} = 0$. However, numerical experiments are not following this theorem. This is due to machine precision errors creeping in through the multiplication and division of small numbers (ie $\Delta t$).
