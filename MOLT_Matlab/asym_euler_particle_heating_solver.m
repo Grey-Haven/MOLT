@@ -57,64 +57,57 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-%     J_rho_update_vanilla;
-    J_rho_update_fft;
-    % J_rho_update_FD6;
+    if J_rho_update_method == J_rho_update_method_vanilla
+        J_rho_update_vanilla;
+    elseif J_rho_update_method == J_rho_update_method_FFT
+        J_rho_update_fft;
+    elseif J_rho_update_method == J_rho_update_method_FD6
+        J_rho_update_FD6;
+    else
+        ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
+        throw(ME);
+    end
     
     %---------------------------------------------------------------------
-    % 3. Compute wave sources
+    % 3.1. Compute wave sources
     %---------------------------------------------------------------------
     psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:);
     A1_src(:,:) = sigma_2*J1_mesh;
     A2_src(:,:) = sigma_2*J2_mesh;
 
     %---------------------------------------------------------------------
-    % 4. Update the scalar (phi) and vector (A) potentials waves. 
+    % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-%     update_waves;
-    update_waves_hybrid_FFT;
-    % update_waves_hybrid_FD6;
-
-
-    % Alternative way of solving phi
-
-    div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-    div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
-    ddt_div_A = (div_A_curr - div_A_prev)/dt;
-
-    RHS = -(rho_mesh / sigma_1 + ddt_div_A);
-    LHS = solve_poisson_FFT(RHS,kx_deriv_2,ky_deriv_2);
-    psi(:,:,end) = LHS;
-
-    psi_next_fft_x = fft(psi(1:end-1,1:end-1,end),N_x-1,2);
-    psi_next_fft_y = fft(psi(1:end-1,1:end-1,end),N_y-1,1);
-
-    ddx_psi_fft = zeros(N_y,N_x);
-    ddy_psi_fft = zeros(N_y,N_x);
-
-    ddx_psi_fft(1:end-1,1:end-1) = ifft(sqrt(-1)*kx_deriv_1 .*psi_next_fft_x,N_x-1,2);
-    ddy_psi_fft(1:end-1,1:end-1) = ifft(sqrt(-1)*ky_deriv_1'.*psi_next_fft_y,N_y-1,1);
-
-    ddx_psi_fft = copy_periodic_boundaries(ddx_psi_fft);
-    ddy_psi_fft = copy_periodic_boundaries(ddy_psi_fft);
-
-    ddx_psi(:,:,end) = ddx_psi_fft;
-    ddy_psi(:,:,end) = ddy_psi_fft;
-
-    % End Alternative Way
-
-
+    if waves_update_method == waves_update_method_vanilla
+        update_waves;
+    elseif waves_update_method == waves_update_method_FFT
+        update_waves_hybrid_FFT;
+    elseif waves_update_method == waves_update_method_FD6
+        update_waves_hybrid_FD6
+    elseif waves_update_method == waves_update_method_poisson_phi
+        update_waves_poisson_phi;
+    else
+        ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
+        throw(ME);
+    end
     
     %---------------------------------------------------------------------
-    % 5. Correct gauge error (optional)
+    % 3.3 Correct gauge error (optional)
     %---------------------------------------------------------------------
-%     clean_splitting_error;
-    % gauge_correction_FFT_deriv;
-%     gauge_correction_FD6_deriv;
+    if gauge_correction == gauge_correction_none
+        % Nothing
+    elseif gauge_correction == gauge_correction_FFT
+        gauge_correction_FFT_deriv;
+    elseif gauge_correction == gauge_correction_FD6
+        gauge_correction_FD6_deriv;
+    else
+        ME = MException('GaugeCorrectionException','Gauge Correction Method ' + gauge_correction + " not an option");
+        throw(ME);
+    end
     
 
     %---------------------------------------------------------------------
-    % 6. Momentum advance by dt
+    % 4. Momentum advance by dt
     %---------------------------------------------------------------------
     
     % Fields are taken implicitly and we use the "lagged" velocity
@@ -132,7 +125,7 @@ while(steps < N_steps)
                                            kappa, dt);
                                        
     %---------------------------------------------------------------------
-    % 7. Compute the errors in the Lorenz gauge and Gauss' law
+    % 5. Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
     
     % Compute the time derivative of psi using finite differences
@@ -145,69 +138,12 @@ while(steps < N_steps)
                                             zeros(size(gauge_residual(:,:))), ...
                                             dx*dy);
     gauge_error_inf = max(max(abs(gauge_residual)));
-    
-    % Compute the ddt_A with backwards finite-differences
-    ddt_A1(:,:) = ( A1(:,:,end) - A1(:,:,end-1) )/dt;
-    ddt_A2(:,:) = ( A2(:,:,end) - A2(:,:,end-1) )/dt;
-    
-    % Compute E = -grad(psi) - ddt_A
-    % For ddt A, we use backward finite-differences
-    % Note, E3 is not used in the particle update so we don't need ddt_A3
-    E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
-    E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
-    
-    % Compute Gauss' law div(E) - rho to check the involution
-    % We'll just use finite-differences here
-    % ddx_E1 = compute_ddx_FD(E1, dx);
-    % ddy_E2 = compute_ddy_FD(E2, dy);
-    ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
-    ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
 
-    LHS_field = ddx_E1(:,:) + ddy_E2(:,:);
-    
-    gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
-    
-    gauss_law_error(steps+1) = get_L_2_error(gauss_law_residual(:,:), ...
-                                           zeros(size(gauss_law_residual(:,:))), ...
-                                           dx*dy);
-    
-    % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
-    sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
-
-    div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
-    div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-    ddt_div_A = (div_A_curr - div_A_prev)/dt;
-
-    ddt2_phi = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2))/(dt^2);
-
-    laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
-    
-    LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
-    RHS = rho_mesh / sigma_1;
-
-    LHS_gauge = -ddt_div_A - laplacian_phi_FFT;
-
-    gauss_law_potential_res = LHS_potential  - RHS;
-    gauss_law_gauge_res     = LHS_gauge      - RHS;
-    gauss_law_field_res     = LHS_field      - RHS;
-
-    gauss_law_potential_err_L2(steps+1) = get_L_2_error(gauss_law_potential_res, ...
-                                                        zeros(size(gauss_law_residual(:,:))), ...
-                                                        dx*dy);
-    gauss_law_gauge_err_L2(steps+1) = get_L_2_error(gauss_law_gauge_res, ...
-                                                    zeros(size(gauss_law_residual(:,:))), ...
-                                                    dx*dy);
-    gauss_law_field_err_L2(steps+1) = get_L_2_error(gauss_law_field_res, ...
-                                                    zeros(size(gauss_law_residual(:,:))), ...
-                                                    dx*dy);
-
-    gauss_law_potential_err_inf(steps+1) = max(max(abs(gauss_law_potential_res)));
-    gauss_law_gauge_err_inf(steps+1) = max(max(abs(gauss_law_gauge_res)));
-    gauss_law_field_err_inf(steps+1) = max(max(abs(gauss_law_field_res)));
+    compute_gauss_residual;
 
     
     %---------------------------------------------------------------------
-    % 8. Prepare for the next time step by shuffling the time history data
+    % 6. Prepare for the next time step by shuffling the time history data
     %---------------------------------------------------------------------
     
     % Shuffle the time history of the fields
@@ -275,21 +211,21 @@ if enable_plots
     close(vidObj);
 end
 
-figure;
-subplot(1,3,1);
-plot(ts, gauss_law_potential_err_L2);
-xlabel("t");
-title("$||\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
-
-subplot(1,3,2);
-plot(ts, gauss_law_gauge_err_L2);
-xlabel("t");
-title("$||-\frac{\nabla \cdot \textbf{A}^{n+1} - \nabla \cdot \textbf{A}^{n}}{\Delta t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
-
-subplot(1,3,3);
-plot(ts, gauss_law_field_err_L2);
-xlabel("t");
-title("$||\nabla \cdot \textbf{E} - \frac{\rho}{\sigma_1}||_2$", 'FontSize', 24);
+% figure;
+% subplot(1,3,1);
+% plot(ts, gauss_law_potential_err_L2);
+% xlabel("t");
+% title("$||\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
+% 
+% subplot(1,3,2);
+% plot(ts, gauss_law_gauge_err_L2);
+% xlabel("t");
+% title("$||-\frac{\nabla \cdot \textbf{A}^{n+1} - \nabla \cdot \textbf{A}^{n}}{\Delta t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
+% 
+% subplot(1,3,3);
+% plot(ts, gauss_law_field_err_L2);
+% xlabel("t");
+% title("$||\nabla \cdot \textbf{E} - \frac{\rho}{\sigma_1}||_2$", 'FontSize', 24);
 
 writematrix(gauge_error_array,csvPath + "gauge_error.csv");
 writematrix(gauss_error_array,csvPath + "gauss_error.csv");

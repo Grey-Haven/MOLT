@@ -370,7 +370,7 @@ filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
 resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
-              "/CFL_" + CFL + "/" + modification + "/" + update_method_folder + "/" + tag + "/";
+              "/CFL_" + CFL + "/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
 figPath = resultsPath + "figures/";
 csvPath = resultsPath + "csv_files/";
 disp(resultsPath);
