@@ -227,12 +227,13 @@ gauss_law_residual = zeros(N_y,N_x);
 
 gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
-gauss_law_error_L2 = zeros(N_steps,1);
-gauss_law_error_inf = zeros(N_steps,1);
 
-sum_gauss_law_residual = zeros(N_steps,1);
-
-gauss_law_potential_form = zeros(N_steps,1);
+gauss_law_potential_err_L2 = zeros(N_steps,1);
+gauss_law_potential_err_inf = zeros(N_steps,1);
+gauss_law_gauge_err_L2 = zeros(N_steps,1);
+gauss_law_gauge_err_inf = zeros(N_steps,1);
+gauss_law_field_err_L2 = zeros(N_steps,1);
+gauss_law_field_err_inf = zeros(N_steps,1);
 
 % We track two time levels of J (n, n+1)
 % Note, we don't need J3 for this model 

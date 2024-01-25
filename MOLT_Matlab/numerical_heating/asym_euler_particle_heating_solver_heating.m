@@ -28,8 +28,7 @@ while(steps < N_steps)
     v2_star = 2*v2_elec_old - v2_elec_nm1;
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
                                                                x1_elec_old, x2_elec_old, ...
-                                                               v1_elec_old, v2_elec_old, dt);
-                                                               % v1_star, v2_star, dt);
+                                                               v1_star, v2_star, dt);
 %                                                                v1_elec_new, v2_elec_new, dt);
 
     
@@ -37,7 +36,6 @@ while(steps < N_steps)
     % Need to include the shift function here
     x1_elec_new = periodic_shift(x1_elec_new, x(1), L_x);
     x2_elec_new = periodic_shift(x2_elec_new, y(1), L_y);
-    %---------------------------------------------------------------------
 
     %---------------------------------------------------------------------
     % 2. Compute the electron current density used for updating A
@@ -54,18 +52,20 @@ while(steps < N_steps)
         ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
         throw(ME);
     end
-%     J_rho_update_FD6;
-    % J_rho_update_fft_iterative;    
-    
+
     %---------------------------------------------------------------------
-    % 5.1. Compute wave sources
+    % 3. Update the vector and scalar equations (wave solve)
+    %---------------------------------------------------------------------
+
+    %---------------------------------------------------------------------
+    % 3.1. Compute wave sources
     %---------------------------------------------------------------------
     psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:);
     A1_src(:,:) = sigma_2*J1_mesh;
     A2_src(:,:) = sigma_2*J2_mesh;
 
     %---------------------------------------------------------------------
-    % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
+    % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
     if waves_update_method == waves_update_method_vanilla
         update_waves;
@@ -73,13 +73,15 @@ while(steps < N_steps)
         update_waves_hybrid_FFT;
     elseif waves_update_method == waves_update_method_FD6
         update_waves_hybrid_FD6
+    elseif waves_update_method == waves_update_method_poisson_phi
+        update_waves_poisson_phi;
     else
         ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
         throw(ME);
     end
     
     %---------------------------------------------------------------------
-    % 5.5 Correct gauge error
+    % 3.3 Correct gauge error (optional)
     %---------------------------------------------------------------------
     if gauge_correction == gauge_correction_none
         % Nothing
@@ -94,7 +96,7 @@ while(steps < N_steps)
     
 
     %---------------------------------------------------------------------
-    % 6. Momentum advance by dt
+    % 4. Momentum advance by dt
     %---------------------------------------------------------------------
     
     % Fields are taken implicitly and we use the "lagged" velocity
@@ -113,36 +115,15 @@ while(steps < N_steps)
 
 
     %---------------------------------------------------------------------
-    % 7. Diagnostics and Storage
+    % 5. Diagnostics and Storage
     %---------------------------------------------------------------------
 
     %---------------------------------------------------------------------
-    % 7.1 Compute the time derivatives of the potentials
+    % 5.1 Compute the errors in the Lorenz gauge
     %---------------------------------------------------------------------
     
-    % Compute the time derivative of psi using finite differences
+    % Compute the time derivative of psi using finite difference
     ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) )/dt;
-    
-    % Compute the ddt_A with backwards finite-differences
-    ddt_A1(:,:) = ( A1(:,:,end) - A1(:,:,end-1) )/dt;
-    ddt_A2(:,:) = ( A2(:,:,end) - A2(:,:,end-1) )/dt;
-
-    %---------------------------------------------------------------------
-    % 7.2 Compute the E and B fields
-    %---------------------------------------------------------------------
-
-    % Compute E = -grad(psi) - ddt_A
-    % For ddt A, we use backward finite-differences
-    % Note, E3 is not used in the particle update so we don't need ddt_A3
-    E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
-    E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
-        
-    % Compute B = curl(A)
-    B3 = ddx_A2(:,:,end) - ddy_A1(:,:,end);
-
-    %---------------------------------------------------------------------
-    % 7.3 Compute the errors in the Lorenz gauge and Gauss' law
-    %---------------------------------------------------------------------
     
     % Compute the residual in the Lorenz gauge 
     gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:) + ddx_A1(:,:,end) + ddy_A2(:,:,end);
@@ -152,13 +133,32 @@ while(steps < N_steps)
                                             dx*dy);
     gauge_error_inf(steps+1) = max(max(abs(gauge_residual)));
     
-    var_vx = var(v1_elec_new);
-    var_vy = var(v2_elec_new);
-    var_v = (var_vx + var_vy)/2;
-    v_elec_var_hist(steps+1) = var_v;
+    %---------------------------------------------------------------------
+    % 5.2 Compute the error in Gauss' Law
+    %---------------------------------------------------------------------
+    compute_gauss_residual;
+
+    %---------------------------------------------------------------------
+    % 5.3 Compute the electron variance (will be used to compute temp)
+    %---------------------------------------------------------------------
+    var_v1 = var(v1_elec_new);
+    var_v2 = var(v2_elec_new);
+    v_elec_var_hist(steps+1) = ( 0.5*(var_v1 + var_v2) );
 
     %-----------------------------------------------------------------------
-    % 7.4 Measure the total mass and energy of the system (ions + electrons)
+    % 5.4 Store total charge
+    %-----------------------------------------------------------------------
+    rho_hist(steps+1) = sum(sum(rho_mesh(1:end-1,1:end-1)));
+
+    %-----------------------------------------------------------------------
+    % 5.5 Store magnitudes of E and B fields
+    %-----------------------------------------------------------------------
+    Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(E1)),dx*dy);
+    Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(E2)),dx*dy);
+    Bz_L2_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
+
+    %-----------------------------------------------------------------------
+    % 5.6 Measure the total mass and energy of the system (ions + electrons)
     %-----------------------------------------------------------------------
 
     % Ions are stationary, so their total mass will not change
@@ -177,69 +177,10 @@ while(steps < N_steps)
 %     % Combine the species information
 %     total_mass(steps+1) = total_mass_ions + total_mass_elec;
 %     total_energy(steps+1) = total_energy_ions + total_energy_elec;
-    
-    %---------------------------------------------------------------------
-    % 7.5 Compute the error in Gauss' Law
-    %---------------------------------------------------------------------
-
-    % Compute Gauss' law div(E) - rho to check the involution
-    if waves_update_method == waves_update_method_vanilla
-        ddx_E1 = compute_ddx_FD(E1, dx);
-        ddy_E2 = compute_ddy_FD(E2, dy);
-    elseif waves_update_method == waves_update_method_FFT
-        ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
-        ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
-    elseif waves_update_method == waves_update_method_FD6
-        ME = MException('WaveException',"FD6 Derivative not implemented yet.");
-        throw(ME);
-        % ddx_E1 = compute_ddx_FD6(E1, dx);
-        % ddy_E2 = compute_ddy_FD6(E2, dy);
-    else
-        ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
-        throw(ME);
-    end
-
-    gauss_law_residual(:,:) = ddx_E1(:,:) + ddy_E2(:,:) - psi_src(:,:);
-    
-    gauss_law_error_L2(steps+1) = get_L_2_error(gauss_law_residual(:,:), ...
-                                           zeros(size(gauss_law_residual(:,:))), ...
-                                           dx*dy);
-    gauss_law_error_inf(steps+1) = max(max(abs(gauss_law_residual(:,:))));
-    
-    % Now we measure the sum of the residual in Gauss' law (avoiding the boundary)
-    sum_gauss_law_residual(steps+1) = sum(sum(gauss_law_residual(:,:)));
-
-%     div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
-%     div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-%     ddt_div_A = (div_A_curr - div_A_prev)/dt;
-% 
-%     ddt2_phi = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2))/(kappa^2*dt^2);
-%     gauss_law_potential_form(steps+1) = get_L_2_error(ddt_div_A + ddt2_phi, ...
-%                                              zeros(size(gauss_law_residual(:,:))), ...
-%                                              dx*dy);
-% 
-%     laplacian_phi = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
-%     LHS = ddt2_phi - laplacian_phi;
-%     res = LHS - rho_mesh / sigma_1;
-%     divE = - laplacian_phi - ddt_div_A;
-%     gauss_law_alt_residual = divE - rho_mesh;
-%     gauss_law_alt_err = get_L_2_error(gauss_law_alt_residual, ...
-%                                       zeros(size(gauss_law_residual(:,:))), ...
-%                                       dx*dy);
-%     subplot(1,3,1);
-%     surf(x,y,LHS);
-%     title("$\frac{1}{\kappa^2}\frac{\partial^2 \phi}{\partial t^2} - \Delta \phi$",'interpreter','latex','FontSize',24);
-%     subplot(1,3,2);
-%     surf(x,y,rho_mesh/sigma_1);
-%     title("$\frac{\rho}{\sigma_1}$",'interpreter','latex','FontSize',24);
-%     subplot(1,3,3);
-%     surf(x,y,res);
-%     title("$\left(\frac{1}{\kappa^2}\frac{\partial^2 \phi}{\partial t^2} - \Delta \phi\right) - \frac{\rho}{\sigma_1}$",'interpreter','latex','FontSize',24);
-%     drawnow;
 
     
     %---------------------------------------------------------------------
-    % 8. Prepare for the next time step by shuffling the time history data
+    % 6. Prepare for the next time step by shuffling the time history data
     %---------------------------------------------------------------------
     
     % Shuffle the time history of the fields
@@ -267,19 +208,6 @@ while(steps < N_steps)
     P2_elec_old(:) = P2_elec_new(:);
 
     % u_prev(:,:) = u_star(:,:);
-    
-    % % Measure the variance of the electron velocity distribution
-    % and store for later use
-    %
-    % Note that we average the variance here so we don't need an
-    % extra factor of two outside of this function
-    var_v1 = var(v1_elec_new);
-    var_v2 = var(v2_elec_new);
-    v_elec_var_hist(steps+1) = ( 0.5*(var_v1 + var_v2) );
-
-    Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(B3)),dx*dy);
-    Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(B3)),dx*dy);
-    Bz_L2_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
 
 %     if (mod(steps,50) == 0)
 % 
@@ -324,8 +252,6 @@ while(steps < N_steps)
     steps = steps + 1;
     t_n = t_n + dt;
 
-    rho_hist(steps) = sum(sum(rho_mesh(1:end-1,1:end-1)));
-
 end
 
 temp_hist = ((M_electron * V^2) / k_B) * v_elec_var_hist;
@@ -339,8 +265,12 @@ gauge_error_array(:,3) = gauge_error_inf;
 
 gauss_error_array = zeros(length(ts),3);
 gauss_error_array(:,1) = ts;
-gauss_error_array(:,2) = gauss_law_error_L2;
-gauss_error_array(:,3) = gauss_law_error_inf;
+gauss_error_array(:,2) = gauss_law_potential_err_L2;
+gauss_error_array(:,3) = gauss_law_potential_err_inf;
+gauss_error_array(:,4) = gauss_law_gauge_err_L2;
+gauss_error_array(:,5) = gauss_law_gauge_err_inf;
+gauss_error_array(:,6) = gauss_law_field_err_L2;
+gauss_error_array(:,7) = gauss_law_field_err_inf;
 
 B3_L2_array = zeros(length(ts),2);
 B3_L2_array(:,1) = ts;
