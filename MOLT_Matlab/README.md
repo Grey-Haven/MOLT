@@ -43,6 +43,14 @@ We then solve Poisson's equation using the FFT (may explore other methods as wel
 
 The fourth method is pretty convoluted and seemingly throws away a lot of the simplicity that the BDF1 method brings with it. Why are we using it? In addition to linking the continuity equation to the Gauge condition, we have a theorem that shows satisfaction of the Gauge condition implies satisfaction of Gauss' Law, $\nabla \cdot \textbf{E} = 0$. However, numerical experiments are not following this theorem. This is due to machine precision errors creeping in through the multiplication and division of small numbers (ie $\Delta t$).
 
-![Residuals over time with vanilla, no gauge cleaning](figures/gauss_residuals_over_time_vanilla_ng.jpg)}
+In the following figures we see the results of the different techniques used. Vanilla and Poisson have comparable gauge errors, whereas Poisson has very good preservation of Gauss' Law.
+
+![Residuals over time with vanilla, no gauge cleaning](figures/gauss_residuals_over_time_vanilla_ng.jpg)
 ![Residuals over time with FFT, no gauge cleaning](figures/gauss_residuals_over_time_FFT_ng.jpg)
 ![Residuals over time with poisson, no gauge cleaning](figures/gauss_residuals_over_time_poisson_ng.jpg)
+
+The final steps and the surface plots may be observed in the following:
+
+![Residuals over time with vanilla, no gauge cleaning](figures/LHS_RHS_Gauss_vanilla_ng.jpg)
+![Residuals over time with FFT, no gauge cleaning](figures/LHS_RHS_Gauss_FFT_ng.jpg)
+![Residuals over time with poisson, no gauge cleaning](figures/LHS_RHS_Gauss_poisson_ng.jpg)
