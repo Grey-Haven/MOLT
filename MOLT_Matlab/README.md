@@ -54,3 +54,15 @@ The final steps and the surface plots may be observed in the following:
 ![Residuals over time with vanilla, no gauge cleaning](figures/LHS_RHS_Gauss_vanilla_ng.jpg)
 ![Residuals over time with FFT, no gauge cleaning](figures/LHS_RHS_Gauss_FFT_ng.jpg)
 ![Residuals over time with poisson, no gauge cleaning](figures/LHS_RHS_Gauss_poisson_ng.jpg)
+
+The above was without any sort of gauge correction. The following is including gauge correction.
+
+![Residuals over time with vanilla, no gauge cleaning](figures/gauss_residuals_over_time_vanilla_gc.jpg)
+![Residuals over time with FFT, no gauge cleaning](figures/gauss_residuals_over_time_FFT_gc.jpg)
+![Residuals over time with poisson, no gauge cleaning](figures/gauss_residuals_over_time_poisson_gc.jpg)
+
+The final steps and the surface plots may be observed in the following:
+
+![Residuals over time with vanilla, no gauge cleaning](figures/LHS_RHS_Gauss_vanilla_gc.jpg)
+![Residuals over time with FFT, no gauge cleaning](figures/LHS_RHS_Gauss_FFT_gc.jpg)
+![Residuals over time with poisson, no gauge cleaning](figures/LHS_RHS_Gauss_poisson_gc.jpg)
