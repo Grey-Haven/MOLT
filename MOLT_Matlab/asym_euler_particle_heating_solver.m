@@ -137,7 +137,9 @@ while(steps < N_steps)
     gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(:,:), ...
                                             zeros(size(gauge_residual(:,:))), ...
                                             dx*dy);
-    gauge_error_inf = max(max(abs(gauge_residual)));
+    gauge_error_inf(steps+1) = max(max(abs(gauge_residual)));
+
+    rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
     compute_gauss_residual;
 
@@ -173,8 +175,6 @@ while(steps < N_steps)
     % Step is now complete
     steps = steps + 1;
     t_n = t_n + dt;
-
-    rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
     if (mod(steps, plot_at) == 0)
         if (write_csvs)
