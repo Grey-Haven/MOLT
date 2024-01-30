@@ -3,6 +3,7 @@ close all;
 addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 addpath(genpath([fileparts(pwd), '/rho_updaters']));
+addpath(genpath([fileparts(pwd), '/wave_solvers']));
 
 grid_refinement = [128];
 CFLs = [1];

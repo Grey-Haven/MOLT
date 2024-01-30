@@ -1,22 +1,19 @@
 clear;
-close all force;
+close all;
 addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/utility_functions']));
 addpath(genpath([fileparts(pwd), '/rho_updaters']));
 addpath(genpath([fileparts(pwd), '/wave_solvers']));
 
-set(0,'defaulttextinterpreter','latex')
-set(0,'DefaultTextFontname', 'cmss')
-set(0,'DefaultAxesFontName', 'cmss')
-
-grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
+grid_refinement = [16]; % Run FFT BDF BDF for 64x64
+CFLs = [1];
+particle_count_multipliers = [1];
 
 debug = true;
 
-enable_plots = false;
+enable_plots = true;
 write_csvs = false;
 plot_at = 50;
-
 gauge_correction_none = "no_mod";
 gauge_correction_FFT = "correct_gauge_fft";
 gauge_correction_FD6 = "correct_gauge_fd6";
@@ -43,7 +40,7 @@ run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 % THIS IS THE ONLY PARAMETER TO TWEAK
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-run_type = run_type_FFT_ng;
+run_type = run_type_poisson_ng;
 
 if run_type == run_type_vanilla_ng
 
@@ -99,11 +96,14 @@ else
     throw(ME);
 end
 
-mesh_independent_variable_setup_heating;
+mesh_independent_variable_setup;
 
-for g = grid_refinement
-    close all force;
-    variable_setup_heating;
-    asym_euler_particle_heating_solver_heating;
+for particle_count_multiplier = particle_count_multipliers
+    for CFL = CFLs
+        for g = grid_refinement
+            close all;
+            variable_setup;
+            asym_euler_particle_heating_solver;
+        end
+    end
 end
-
