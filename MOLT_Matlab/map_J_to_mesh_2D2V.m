@@ -1,4 +1,4 @@
-function J_mesh = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
+function J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
                                      x1, x2, v1, v2, ...
                                      q_s, cell_volumes, w_s)
     %%%%%%%%%%%%%%%%%%%%%
@@ -12,6 +12,8 @@ function J_mesh = map_J_to_mesh_2D2V(J_mesh, x, y, dx, dy, ...
     
     Nx = length(x);
     Ny = length(y);
+
+    J_mesh = zeros(Ny,Nx,2);
 
     weights1 = weight*v1(:);
     weights2 = weight*v2(:);
