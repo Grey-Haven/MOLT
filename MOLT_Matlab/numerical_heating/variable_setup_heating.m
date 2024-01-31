@@ -223,7 +223,7 @@ ddx_E1 = zeros(N_y,N_x);
 ddy_E2 = zeros(N_y,N_x);
 
 gauge_residual = zeros(N_y,N_x);
-gauss_law_residual = zeros(N_y,N_x);
+gauss_residual = zeros(N_y,N_x);
 
 gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
@@ -283,7 +283,7 @@ rho_elec = enforce_periodicity(rho_elec(:,:));
 rho_mesh = zeros(size(rho_elec));
 
 % Current
-J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
+J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
                         x1_elec_new, x2_elec_new, ...
                         v1_elec_old, v2_elec_old, ...
                         q_elec, cell_volumes, w_elec);

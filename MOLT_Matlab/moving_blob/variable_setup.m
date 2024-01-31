@@ -235,7 +235,7 @@ ddx_E1 = zeros(N_y,N_x);
 ddy_E2 = zeros(N_y,N_x);
 
 gauge_residual = zeros(N_y,N_x);
-gauss_law_residual = zeros(N_y,N_x);
+gauss_residual = zeros(N_y,N_x);
 
 gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
@@ -248,11 +248,6 @@ gauss_law_gauge_err_L2 = zeros(N_steps,1);
 gauss_law_gauge_err_inf = zeros(N_steps,1);
 gauss_law_field_err_L2 = zeros(N_steps,1);
 gauss_law_field_err_inf = zeros(N_steps,1);
-
-% We track two time levels of J (n, n+1)
-% Note, we don't need J3 for this model 
-% Since ions are stationary J_mesh := J_elec
-J_mesh = zeros(N_y,N_x,2); % Idx order: grid indices (y,x), time level
 
 % From https://math.mit.edu/~stevenj/fft-deriv.pdf
 % TL;DR 
@@ -297,10 +292,10 @@ rho_elec = enforce_periodicity(rho_elec(:,:));
 rho_mesh = zeros(size(rho_elec));
 
 % Current
-J_mesh = map_J_to_mesh_2D2V(J_mesh(:,:,:), x, y, dx, dy, ...
-                        x1_elec_new, x2_elec_new, ...
-                        v1_elec_old, v2_elec_old, ...
-                        q_elec, cell_volumes, w_elec);
+J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
+                            x1_elec_new, x2_elec_new, ...
+                            v1_elec_old, v2_elec_old, ...
+                            q_elec, cell_volumes, w_elec);
 
 % Need to enforce periodicity for the current on the mesh
 J_mesh(:,:,1) = enforce_periodicity(J_mesh(:,:,1));
