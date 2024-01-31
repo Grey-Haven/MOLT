@@ -31,7 +31,7 @@ elseif waves_update_method == waves_update_method_FD6
     throw(ME);
     % ddx_E1 = compute_ddx_FD6(E1, dx);
     % ddy_E2 = compute_ddy_FD6(E2, dy);
-elseif waves_update_method == waves_update_method_poisson_phi
+elseif ismember(waves_update_method, [waves_update_method_poisson_phi, waves_update_method_pure_FFT])
     ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
     ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
 else
@@ -56,7 +56,7 @@ ddt_div_A = (div_A_curr - div_A_prev)/dt;
 LHS_gauge = -ddt_div_A - laplacian_phi_FFT;
 
 % Compute all residuals
-RHS = rho_mesh / sigma_1;
+RHS = rho_mesh(:,:,end) / sigma_1;
 
 gauss_law_potential_res = LHS_potential  - RHS;
 gauss_law_gauge_res     = LHS_gauge      - RHS;
@@ -64,13 +64,13 @@ gauss_law_field_res     = LHS_field      - RHS;
 
 % Store the residuals
 gauss_law_potential_err_L2(steps+1) = get_L_2_error(gauss_law_potential_res, ...
-                                                    zeros(size(gauss_law_residual(:,:))), ...
+                                                    zeros(size(gauss_residual(:,:))), ...
                                                     dx*dy);
 gauss_law_gauge_err_L2(steps+1) = get_L_2_error(gauss_law_gauge_res, ...
-                                                zeros(size(gauss_law_residual(:,:))), ...
+                                                zeros(size(gauss_residual(:,:))), ...
                                                 dx*dy);
 gauss_law_field_err_L2(steps+1) = get_L_2_error(gauss_law_field_res, ...
-                                                zeros(size(gauss_law_residual(:,:))), ...
+                                                zeros(size(gauss_residual(:,:))), ...
                                                 dx*dy);
 
 gauss_law_potential_err_inf(steps+1) = max(max(abs(gauss_law_potential_res)));
