@@ -1,7 +1,10 @@
 J_compute_vanilla;
 
-ddx_J1_FD6 = zeros(size(J1_mesh));
-ddy_J2_FD6 = zeros(size(J2_mesh));
+J1_curr = J1_mesh(:,:,end);
+J2_curr = J2_mesh(:,:,end);
+
+ddx_J1_FD6 = zeros(size(J1_curr));
+ddy_J2_FD6 = zeros(size(J2_curr));
 
 Nx = N_x - 1;
 Ny = N_y - 1;
@@ -37,8 +40,8 @@ for i = 1:Nx
         j_idx_p2 = mod(j_idx_p2 - 1, Ny) + 1;
         j_idx_p3 = mod(j_idx_p3 - 1, Nx) + 1;
 
-        ddx_J1_FD6(j_idx,i_idx) = (-1/60*J1_mesh(j_idx,i_idx_m3) + 3/20*J1_mesh(j_idx,i_idx_m2) - 3/4*J1_mesh(j_idx,i_idx_m1) + 3/4*J1_mesh(j_idx,i_idx_p1) - 3/20*J1_mesh(j_idx,i_idx_p2) + 1/60*J1_mesh(j_idx,i_idx_p3)) / (dx);
-        ddy_J2_FD6(j_idx,i_idx) = (-1/60*J2_mesh(j_idx_m3,i_idx) + 3/20*J2_mesh(j_idx_m2,i_idx) - 3/4*J2_mesh(j_idx_m1,i_idx) + 3/4*J2_mesh(j_idx_p1,i_idx) - 3/20*J2_mesh(j_idx_p2,i_idx) + 1/60*J2_mesh(j_idx_p3,i_idx)) / (dy);
+        ddx_J1_FD6(j_idx,i_idx) = (-1/60*J1_curr(j_idx,i_idx_m3) + 3/20*J1_curr(j_idx,i_idx_m2) - 3/4*J1_curr(j_idx,i_idx_m1) + 3/4*J1_curr(j_idx,i_idx_p1) - 3/20*J1_curr(j_idx,i_idx_p2) + 1/60*J1_curr(j_idx,i_idx_p3)) / (dx);
+        ddy_J2_FD6(j_idx,i_idx) = (-1/60*J2_curr(j_idx_m3,i_idx) + 3/20*J2_curr(j_idx_m2,i_idx) - 3/4*J2_curr(j_idx_m1,i_idx) + 3/4*J2_curr(j_idx_p1,i_idx) - 3/20*J2_curr(j_idx_p2,i_idx) + 1/60*J2_curr(j_idx_p3,i_idx)) / (dy);
     end
 end
 
@@ -48,6 +51,7 @@ ddy_J2_FD6 = copy_periodic_boundaries(ddy_J2_FD6);
 J1_star_deriv = ddx_J1_FD6(1:end-1,1:end-1);
 J2_star_deriv = ddy_J2_FD6(1:end-1,1:end-1);
 
-rho_mesh(1:end-1,1:end-1) = rho_mesh(1:end-1,1:end-1) - dt*(J1_star_deriv + J2_star_deriv);
-rho_mesh(end,:) = rho_mesh(1,:);
-rho_mesh(:,end) = rho_mesh(:,1);
+rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end) - dt*(J1_star_deriv + J2_star_deriv);
+rho_mesh(:,:,end) = copy_periodic_boundaries(rho_mesh(:,:,end));
+% rho_mesh(end,:) = rho_mesh(1,:);
+% rho_mesh(:,end) = rho_mesh(:,1);
