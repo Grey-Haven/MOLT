@@ -6,6 +6,47 @@
 
 steps = 0;
 
+
+% Do an initial half step to acquire A^{1/2}, J^{1/2}, phi^{1}, rho^{1}
+half_step_forward;
+
+% Already have storage for J^-3/2 (end-2)
+J1_mesh_p3_2 = J1_mesh(:,:,end); % initial guess
+J2_mesh_p3_2 = J2_mesh(:,:,end); % initial guess
+
+% Ditto for A
+A1_mesh_p3_2 = A1(:,:,end);
+A2_mesh_p3_2 = A2(:,:,end);
+
+half_step_reverse;
+
+A1(:,:,end-2) = A1(:,:,end-1);
+A2(:,:,end-2) = A2(:,:,end-1);
+
+J1_mesh(:,:,end-2) = J1_mesh(:,:,end-1);
+J2_mesh(:,:,end-2) = J2_mesh(:,:,end-1);
+
+% The situation as it is:
+% We have approximations for x, rho, and phi at {-1, 0, 1}\
+% We have approximations for v, J, and A at {-3/2, -1/2, 1/2, 3/2}
+% Need to iterate primarily for the half timesteps, as these used the most
+% liberal amount of approximations to compute their values in the first
+% place.
+%
+
+for i = 1:20
+    % Now take a full step to acquire A^{3/2}, J^{3/2}
+    full_step_forward;
+
+    % Do an initial half step in reverse to get the approximate previous
+    % potentials and charges
+    full_step_reverse;
+end
+create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
+             gauge_residual, gauss_residual, ...
+             x1_elec_new, x2_elec_new, t_n, ...
+             update_method_title, tag, vidObj);
+
 while(steps < N_steps)
 
     if (mod(steps, plot_at) == 0)
@@ -26,8 +67,7 @@ while(steps < N_steps)
 
     v1_star = 2*v1_elec_old - v1_elec_nm1;
     v2_star = 2*v2_elec_old - v2_elec_nm1;
-    [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
-                                                               x1_elec_old, x2_elec_old, ...
+    [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
                                                                v1_star, v2_star, dt);
 
     
@@ -57,8 +97,8 @@ while(steps < N_steps)
     % 3.1. Compute wave sources
     %---------------------------------------------------------------------
     psi_src(:,:) = (1/sigma_1)*(rho_mesh(:,:,end) + rho_mesh(:,:,end-2));
-    A1_src(:,:) = sigma_2*(J1_mesh(:,:,end) + J1_mesh(:,:,end-2));
-    A2_src(:,:) = sigma_2*(J2_mesh(:,:,end) + J2_mesh(:,:,end-2));
+    A1_src(:,:)  =     sigma_2*(J1_mesh(:,:,end)  + J1_mesh(:,:,end-2) );
+    A2_src(:,:)  =     sigma_2*(J2_mesh(:,:,end)  + J2_mesh(:,:,end-2) );
 
     %---------------------------------------------------------------------
     % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
@@ -101,15 +141,15 @@ while(steps < N_steps)
     %
     % This will give us new momenta and velocities for the next step
     [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
-    improved_asym_euler_momentum_push_2D2P(x1_elec_new, x2_elec_new, ...
-                                           P1_elec_old, P2_elec_old, ...
-                                           v1_elec_old, v2_elec_old, ...
-                                           v1_elec_nm1, v2_elec_nm1, ...
-                                           ddx_psi(:,:,end), ddy_psi(:,:,end), ...
-                                           A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
-                                           A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
-                                           x, y, dx, dy, q_elec, r_elec, ...
-                                           kappa, dt);
+    improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
+                                                    P1_elec_old, P2_elec_old, ...
+                                                    v1_elec_old, v2_elec_old, ...
+                                                    v1_elec_nm1, v2_elec_nm1, ...
+                                                    ddx_psi, ddy_psi, ...
+                                                    A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
+                                                    A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
+                                                    x, y, dx, dy, q_elec, r_elec, ...
+                                                    kappa, dt);
                                        
     %---------------------------------------------------------------------
     % 5. Compute the errors in the Lorenz gauge and Gauss' law
@@ -117,8 +157,12 @@ while(steps < N_steps)
     
     % Compute the time derivative of psi using finite differences
     ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
+
+%     ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1)) / 2;
+%     ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1)) / 2;
     
     % Compute the residual in the Lorenz gauge 
+%     gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) + ddx_A1_ave(:,:,end) + ddy_A2_ave(:,:,end);
     gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) + ddx_A1(:,:,end) + ddy_A2(:,:,end);
     
     gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(:,:), ...
@@ -128,7 +172,7 @@ while(steps < N_steps)
 
     rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
-    compute_gauss_residual;
+    compute_gauss_residual_second_order;
 
     
     %---------------------------------------------------------------------

@@ -310,6 +310,13 @@ J_mesh(:,:,2) = enforce_periodicity(J_mesh(:,:,2));
 J1_mesh(:,:,end) = J_mesh(:,:,1);
 J2_mesh(:,:,end) = J_mesh(:,:,2);
 
+% Initial guesses for the previous two timesteps (-1/2 and -3/2)
+J1_mesh(:,:,end-1) = J_mesh(:,:,1);
+J2_mesh(:,:,end-1) = J_mesh(:,:,2);
+
+J1_mesh(:,:,end-2) = J_mesh(:,:,1);
+J2_mesh(:,:,end-2) = J_mesh(:,:,2);
+
 v_elec_var_history = zeros(N_steps, 1);
 
 rho_hist = zeros(N_steps,1);
