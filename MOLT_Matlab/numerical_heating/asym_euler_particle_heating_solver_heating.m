@@ -26,8 +26,7 @@ while(steps < N_steps)
 
     v1_star = 2*v1_elec_old - v1_elec_nm1;
     v2_star = 2*v2_elec_old - v2_elec_nm1;
-    [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
-                                                               x1_elec_old, x2_elec_old, ...
+    [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
                                                                v1_star, v2_star, dt);
 %                                                                v1_elec_new, v2_elec_new, dt);
 
