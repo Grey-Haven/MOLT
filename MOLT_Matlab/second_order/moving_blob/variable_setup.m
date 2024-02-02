@@ -152,54 +152,49 @@ w_elec = 10*(L_x*L_y)/N_p;
 % We'll assume that the ions remain stationary
 % so that we only need to update electrons.
 
+% Number of steps in the past to store.
+N_h = 6;
 
 % Make a list for tracking the electron velocity history
 % we use this to compute the temperature outside the solver
 % This variance is an average of the variance in each direction
 v_elec_var_history = [];
 
-% Electron positions
-x1_elec_old = x1_elec(:);
-x2_elec_old = x2_elec(:);
+x1_elec_hist = zeros(N_p,N_h);
+x2_elec_hist = zeros(N_p,N_h);
 
-x1_elec_new = x1_elec(:);
-x2_elec_new = x2_elec(:);
+v1_elec_hist = zeros(N_p,N_h);
+v2_elec_hist = zeros(N_p,N_h);
 
-% Electron momenta
-P1_elec_old = P1_elec(:);
-P2_elec_old = P2_elec(:);
+P1_elec_hist = zeros(N_p,N_h);
+P2_elec_hist = zeros(N_p,N_h);
 
-P1_elec_new = P1_elec(:);
-P2_elec_new = P2_elec(:);
+x1_elec_hist(:,end  ) = x1_elec;
+x2_elec_hist(:,end  ) = x2_elec;
+x1_elec_hist(:,end-1) = x1_elec;
+x2_elec_hist(:,end-1) = x2_elec;
 
-% Electron velocities
-v1_elec_old = v1_elec(:);
-v2_elec_old = v2_elec(:);
+v1_elec_hist(:,end  ) = v1_elec;
+v2_elec_hist(:,end  ) = v2_elec;
+v1_elec_hist(:,end-1) = v1_elec;
+v2_elec_hist(:,end-1) = v2_elec;
+v1_elec_hist(:,end-2) = v1_elec;
+v2_elec_hist(:,end-2) = v2_elec;
 
-v1_elec_new = v1_elec(:);
-v2_elec_new = v2_elec(:);
-
-% Velocity at time t^{n-1} used for the Taylor approx. 
-v1_elec_nm1 = v1_elec(:);
-v2_elec_nm1 = v2_elec(:);
-
-% Taylor approximated velocity
-% v_star = v^{n} + ddt(v^{n})*dt
-% which is approximated by
-% v^{n} + (v^{n} - v^{n-1})
-v1_elec_star = v1_elec(:);
-v2_elec_star = v2_elec(:);
+P1_elec_hist(:,end  ) = P1_elec;
+P2_elec_hist(:,end  ) = P2_elec;
+P1_elec_hist(:,end-1) = P1_elec;
+P2_elec_hist(:,end-1) = P2_elec;
 
 % Store the total number of particles for each species
 N_ions = length(x1_ions);
-N_elec = length(x1_elec_new);
+N_elec = length(x1_elec);
 
 % Mesh/field data
 % Need current psi, A1, and A2 and N_h-1 historical steps
 % as well as their derivatives
 %
 % We compute ddt_psi with backwards differences
-N_h = 3;
 
 psi = zeros(N_y, N_x, N_h);
 ddx_psi = zeros(N_y, N_x, N_h);
@@ -288,7 +283,7 @@ rho_ions = map_rho_to_mesh_2D(x, y, dx, dy, ...
 
 % Electrons
 rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, ...
-                              x1_elec_new, x2_elec_new, ...
+                              x1_elec_hist(:,end), x2_elec_hist(:,end), ...
                               q_elec, cell_volumes, w_elec);
 % Need to enforce periodicity for the charge on the mesh
 rho_ions = enforce_periodicity(rho_ions(:,:));
@@ -299,8 +294,8 @@ rho_mesh = zeros([size(rho_elec),N_h]);
 
 % Current
 J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
-                            x1_elec_new, x2_elec_new, ...
-                            v1_elec_old, v2_elec_old, ...
+                            x1_elec_hist(:,end), x2_elec_hist(:,end), ...
+                            v1_elec_hist(:,end), v1_elec_hist(:,end), ...
                             q_elec, cell_volumes, w_elec);
 
 % Need to enforce periodicity for the current on the mesh

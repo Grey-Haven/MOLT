@@ -115,25 +115,3 @@ improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
                                                 A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
                                                 x, y, dx, dy, q_elec, r_elec, ...
                                                 kappa, dt_half);
-
-
-% Shuffle the time history of the fields that are integer timesteps
-psi = shuffle_steps(psi);
-ddx_psi = shuffle_steps(ddx_psi);
-ddy_psi = shuffle_steps(ddy_psi);
-
-rho_mesh = shuffle_steps(rho_mesh);
-
-% % Compute the time derivative of psi using finite differences
-% ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
-% gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) + ddx_A1(:,:,end) + ddy_A2(:,:,end);
-% 
-% ddt2_psi = ( psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2) ) / dt^2;
-% laplacian_psi = compute_Laplacian_FFT(psi(:,:,end), kx_deriv_2, ky_deriv_2);
-% reconstructed_rho_ave = (1/kappa^2)*ddt2_psi - laplacian_psi;
-% subplot(1,3,1);
-% surf(x,y,psi_src);
-% subplot(1,3,2);
-% surf(x,y,reconstructed_rho_ave);
-% subplot(1,3,3);
-% surf(x,y,reconstructed_rho_ave - psi_src);
