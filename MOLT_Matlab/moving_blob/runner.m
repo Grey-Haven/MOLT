@@ -26,6 +26,7 @@ waves_update_method_vanilla = "vanilla";
 waves_update_method_FFT = "FFT";
 waves_update_method_FD6 = "FD6";
 waves_update_method_poisson_phi = "poisson_phi";
+waves_update_method_pure_FFT = "NOT AVAILABLE";
 
 run_type_vanilla_ng = "vanilla_no_gauge_cleaning";
 run_type_vanilla_gc = "vanilla_gauge_cleaning";
@@ -34,6 +35,7 @@ run_type_FFT_ng = "FFT_no_gauge_cleaning";
 run_type_FFT_gc = "FFT_gauge_cleaning";
 
 run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

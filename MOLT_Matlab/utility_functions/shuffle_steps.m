@@ -8,10 +8,13 @@ function u = shuffle_steps(u)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Identify the number of time levels
-    num_levels = size(u,3);
+    num_dimensions = ndims(u);
+    num_levels = size(u,num_dimensions);
+
+    otherdims = repmat({':'},1,num_dimensions-1);
     
     % Transfer the time history starting from the oldest available data
     for level = 1:num_levels-1
-        u(:,:,level) = u(:,:,level + 1);
+        u(otherdims{:},level) = u(otherdims{:},level + 1);
     end
 end
