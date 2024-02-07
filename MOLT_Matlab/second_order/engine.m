@@ -4,128 +4,17 @@
 % method (which must have the same parameters regardless of if they're actually
 % displayed), which can be shared by all.
 
+% Rev the engine a little
+% fixed_point; % vroom
+
+% create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
+%              gauge_residual, gauss_residual, ...
+%              x1_elec_new, x2_elec_new, t_n, ...
+%              update_method_title, tag, vidObj);
+
 steps = 0;
 
-dt_half = dt / 2;
-dt_full = dt;
-
-dt = dt_half;
-for i = 1:6
-    full_step_forward_first_order;
-    create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
-                 gauge_residual, gauss_residual, ...
-                 x1_elec_new, x2_elec_new, t_n, ...
-                 update_method_title, tag, vidObj);
-end
-dt = dt_full;
-
-
-% Situation as it is:
-% We have six steps 
-%
-% |     0     |    1/2    |     1     |    3/2    |     2     |     3/2     |
-%      ALL         ALL         ALL         ALL         ALL          ALL
-%
-% We need to stagger
-%
-% |     0     |    1/2    |     1     |    3/2    |     2     |     3/2     |
-%  {x,rho,phi}   {v,J,A}   {x,rho,phi}   {v,J,A}   {x,rho,phi}    {v,J,A}   
-
-x1_elec_0 = x1_elec_hist(:,end-5);
-x1_elec_1 = x1_elec_hist(:,end-3);
-x1_elec_2 = x1_elec_hist(:,end-1);
-x2_elec_0 = x2_elec_hist(:,end-5);
-x2_elec_1 = x2_elec_hist(:,end-3);
-x2_elec_2 = x2_elec_hist(:,end-1);
-
-rho_mesh_0 = rho_mesh(:,:,end-5);
-rho_mesh_1 = rho_mesh(:,:,end-3);
-rho_mesh_2 = rho_mesh(:,:,end-1);
-
-psi_0 = psi(:,:,end-5);
-psi_1 = psi(:,:,end-3);
-psi_2 = psi(:,:,end-1);
-
-
-v1_elec_1_2 = v1_elec_hist(:,end-4);
-v1_elec_3_2 = v1_elec_hist(:,end-2);
-v1_elec_5_2 = v1_elec_hist(:,end  );
-v2_elec_1_2 = v2_elec_hist(:,end-4);
-v2_elec_3_2 = v2_elec_hist(:,end-2);
-v2_elec_5_2 = v2_elec_hist(:,end  );
-
-J1_1_2 = J1_mesh(:,:,end-4);
-J1_3_2 = J1_mesh(:,:,end-2);
-J1_5_2 = J1_mesh(:,:,end  );
-J2_1_2 = J2_mesh(:,:,end-4);
-J2_3_2 = J2_mesh(:,:,end-2);
-J2_5_2 = J2_mesh(:,:,end  );
-
-A1_1_2 = A1(:,:,end-4);
-A1_3_2 = A1(:,:,end-2);
-A1_5_2 = A1(:,:,end  );
-A2_1_2 = A2(:,:,end-4);
-A2_3_2 = A2(:,:,end-2);
-A2_5_2 = A2(:,:,end  );
-
-
-x1_elec_hist(:,end-2) = x1_elec_0;
-x1_elec_hist(:,end-1) = x1_elec_1;
-x1_elec_hist(:,end  ) = x1_elec_2;
-x2_elec_hist(:,end-2) = x2_elec_0;
-x2_elec_hist(:,end-1) = x2_elec_1;
-x2_elec_hist(:,end  ) = x2_elec_2;
-
-rho_mesh(:,:,end-2) = rho_mesh_0;
-rho_mesh(:,:,end-1) = rho_mesh_1;
-rho_mesh(:,:,end  ) = rho_mesh_2;
-
-psi(:,:,end-2) = psi_0;
-psi(:,:,end-1) = psi_1;
-psi(:,:,end  ) = psi_2;
-
-
-v1_elec_hist(:,end-2) = v1_elec_1_2;
-v1_elec_hist(:,end-1) = v1_elec_3_2;
-v1_elec_hist(:,end  ) = v1_elec_5_2;
-v2_elec_hist(:,end-2) = v2_elec_1_2;
-v2_elec_hist(:,end-1) = v2_elec_3_2;
-v2_elec_hist(:,end  ) = v2_elec_5_2;
-
-J1_mesh(:,:,end-2) = J1_1_2;
-J1_mesh(:,:,end-1) = J1_3_2;
-J1_mesh(:,:,end  ) = J1_5_2;
-J2_mesh(:,:,end-2) = J2_1_2;
-J2_mesh(:,:,end-1) = J2_3_2;
-J2_mesh(:,:,end  ) = J2_5_2;
-
-A1(:,:,end-2) = A1_1_2;
-A1(:,:,end-1) = A1_3_2;
-A1(:,:,end  ) = A1_5_2;
-A2(:,:,end-2) = A2_1_2;
-A2(:,:,end-1) = A2_3_2;
-A2(:,:,end  ) = A2_5_2;
-
-
-create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
-             gauge_residual, gauss_residual, ...
-             x1_elec_new, x2_elec_new, t_n, ...
-             update_method_title, tag, vidObj);
-
-
 while(steps < N_steps)
-
-    if (mod(steps, plot_at) == 0)
-        if (write_csvs)
-            save_csvs;
-        end
-        if (enable_plots)
-            create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
-                         gauge_residual, gauss_residual, ...
-                         x1_elec_new, x2_elec_new, t_n, ...
-                         update_method_title, tag, vidObj);
-        end
-    end
 
     x1_elec_old = x1_elec_hist(:,end-1);
     x2_elec_old = x2_elec_hist(:,end-1);
@@ -139,6 +28,18 @@ while(steps < N_steps)
     P1_elec_old = P1_elec_hist(:,end-1);
     P2_elec_old = P2_elec_hist(:,end-1);
 
+    if (mod(steps, plot_at) == 0)
+        if (write_csvs)
+            save_csvs;
+        end
+        if (enable_plots)
+            create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
+                         gauge_residual, gauss_law_gauge_res, ...
+                         x1_elec_old, x2_elec_old, t_n, ...
+                         update_method_title, tag, vidObj);
+        end
+    end
+
     %---------------------------------------------------------------------
     % 1. Advance electron positions by dt using v^{n}
     %---------------------------------------------------------------------
@@ -146,7 +47,7 @@ while(steps < N_steps)
     v1_star = 2*v1_elec_old - v1_elec_nm1;
     v2_star = 2*v2_elec_old - v2_elec_nm1;
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
-                                                               v1_star, v2_star, dt);
+                                                               v1_star, v2_star, dt/2);
 
     
     % Apply the particle boundary conditions
@@ -163,19 +64,22 @@ while(steps < N_steps)
     if J_rho_update_method == J_rho_update_method_vanilla
         J_rho_update_vanilla;
     elseif J_rho_update_method == J_rho_update_method_FFT
-        x1_elec_store = x1_elec_new;
-        x2_elec_store = x2_elec_new;
-        x1_elec_new = (x1_elec_new + x1_elec_old)/2;
-        x2_elec_new = (x2_elec_new + x2_elec_old)/2;
         J_rho_update_fft;
-        x1_elec_new = x1_elec_store;
-        x2_elec_new = x2_elec_store;
     elseif J_rho_update_method == J_rho_update_method_FD6
         J_rho_update_FD6;
     else
         ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
         throw(ME);
     end
+
+    [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
+                                                               v1_star, v2_star, dt);
+
+    
+    % Apply the particle boundary conditions
+    % Need to include the shift function here
+    x1_elec_new = periodic_shift(x1_elec_new, x(1), L_x);
+    x2_elec_new = periodic_shift(x2_elec_new, y(1), L_y);
     
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
@@ -236,7 +140,7 @@ while(steps < N_steps)
                                                     A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
                                                     x, y, dx, dy, q_elec, r_elec, ...
                                                     kappa, dt);
-                                       
+
     %---------------------------------------------------------------------
     % 5. Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
@@ -289,12 +193,14 @@ while(steps < N_steps)
     rho_mesh = shuffle_steps(rho_mesh);
     J1_mesh = shuffle_steps(J1_mesh);
     J2_mesh = shuffle_steps(J2_mesh);
-    
+
     % Shuffle the time history of the particle data
-    v1_elec_hist = shuffle_steps(v1_elec_hist);
-    v2_elec_hist = shuffle_steps(v2_elec_hist);
     x1_elec_hist = shuffle_steps(x1_elec_hist);
     x2_elec_hist = shuffle_steps(x2_elec_hist);
+    
+    v1_elec_hist = shuffle_steps(v1_elec_hist);
+    v2_elec_hist = shuffle_steps(v2_elec_hist);
+    
     P1_elec_hist = shuffle_steps(P1_elec_hist);
     P2_elec_hist = shuffle_steps(P2_elec_hist);
 
@@ -333,3 +239,31 @@ end
 
 writematrix(gauge_error_array, csvPath + "gauge_error.csv");
 writematrix(gauss_error_array, csvPath + "gauss_error.csv");
+
+figure;
+x0=200;
+y0=100;
+width = 2400;
+height = 1200;
+set(gcf,'position',[x0,y0,width,height]);
+
+subplot(1,2,1);
+semilogy(ts,gauss_error_array(:,2))
+hold on
+semilogy(ts,gauss_error_array(:,4))
+semilogy(ts,gauss_error_array(:,6))
+hold off;
+
+potential_label = "$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+gauge_label = "$-\frac{\nabla\cdot\textbf{A}^{n+1} - \nabla\cdot\textbf{A}^{n}}{\Delta t} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+field_label = "$\nabla\cdot\textbf{E}^{n+1} - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+legend([potential_label,gauge_label,field_label],'FontSize',24,'interpreter','latex','location','east');
+title("Gauss' Law",'FontSize',32);
+
+subplot(1,2,2);
+plot(ts,gauge_error_L2)
+title("Gauge Error",'FontSize',32);
+
+sgtitle("Pure FFT Solve, Without Fixed Point Stepping " + tag,'FontSize',48);
+
+saveas(gcf,figPath + "residuals.jpg");
