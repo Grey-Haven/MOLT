@@ -232,6 +232,10 @@ ddy_E2 = zeros(N_y,N_x);
 gauge_residual = zeros(N_y,N_x);
 gauss_residual = zeros(N_y,N_x);
 
+gauss_law_potential_res = zeros(N_y,N_x);
+gauss_law_gauge_res = zeros(N_y,N_x);
+gauss_law_field_res = zeros(N_y,N_x);
+
 gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
 gauss_law_error = zeros(N_steps,1);
@@ -306,11 +310,11 @@ J1_mesh(:,:,end) = J_mesh(:,:,1);
 J2_mesh(:,:,end) = J_mesh(:,:,2);
 
 % Initial guesses for the previous two timesteps (-1/2 and -3/2)
-J1_mesh(:,:,end-1) = J_mesh(:,:,1);
-J2_mesh(:,:,end-1) = J_mesh(:,:,2);
-
-J1_mesh(:,:,end-2) = J_mesh(:,:,1);
-J2_mesh(:,:,end-2) = J_mesh(:,:,2);
+% J1_mesh(:,:,end-1) = J_mesh(:,:,1);
+% J2_mesh(:,:,end-1) = J_mesh(:,:,2);
+% 
+% J1_mesh(:,:,end-2) = J_mesh(:,:,1);
+% J2_mesh(:,:,end-2) = J_mesh(:,:,2);
 
 v_elec_var_history = zeros(N_steps, 1);
 
