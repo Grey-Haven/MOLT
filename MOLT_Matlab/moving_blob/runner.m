@@ -5,9 +5,13 @@ addpath(genpath([fileparts(pwd), '/utility_functions']));
 addpath(genpath([fileparts(pwd), '/rho_updaters']));
 addpath(genpath([fileparts(pwd), '/wave_solvers']));
 
-grid_refinement = [16]; % Run FFT BDF BDF for 64x64
+set(0,'defaulttextinterpreter','latex')
+set(0,'DefaultTextFontname', 'cmss')
+set(0,'DefaultAxesFontName', 'cmss')
+
+grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
-particle_count_multipliers = [1];
+particle_count_multipliers = [10];
 
 debug = true;
 
@@ -26,13 +30,16 @@ waves_update_method_vanilla = "vanilla";
 waves_update_method_FFT = "FFT";
 waves_update_method_FD6 = "FD6";
 waves_update_method_poisson_phi = "poisson_phi";
-waves_update_method_pure_FFT = "NOT AVAILABLE";
+waves_update_method_pure_FFT = "pure_FFT";
 
 run_type_vanilla_ng = "vanilla_no_gauge_cleaning";
 run_type_vanilla_gc = "vanilla_gauge_cleaning";
 
 run_type_FFT_ng = "FFT_no_gauge_cleaning";
 run_type_FFT_gc = "FFT_gauge_cleaning";
+
+run_type_pure_FFT_ng = "pure_FFT_no_gauge_cleaning";
+run_type_pure_FFT_gc = "pure_FFT_gauge_cleaning";
 
 run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 
@@ -42,7 +49,9 @@ run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 % THIS IS THE ONLY PARAMETER TO TWEAK
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-run_type = run_type_poisson_ng;
+% run_type = run_type_FFT_ng;
+% run_type = run_type_poisson_ng;
+run_type = run_type_pure_FFT_ng;
 
 if run_type == run_type_vanilla_ng
 
@@ -93,6 +102,24 @@ elseif run_type == run_type_poisson_ng
     waves_update_method = waves_update_method_poisson_phi;
 
     gauge_correction = gauge_correction_none;
+elseif run_type == run_type_pure_FFT_ng
+
+    update_method_title = "Second Order FFT Charge Update, FFT Potentials, FFT Derivatives";
+    update_method_folder = "FFT_charge_pure_FFT";
+
+    J_rho_update_method = J_rho_update_method_FFT;
+    waves_update_method = waves_update_method_pure_FFT;
+
+    gauge_correction = gauge_correction_none;
+elseif run_type == run_type_pure_FFT_gc
+
+    update_method_title = "Second Order FFT Charge Update, FFT Potentials, FFT Derivatives";
+    update_method_folder = "FFT_charge_BDF1_A_poisson_phi";
+
+    J_rho_update_method = J_rho_update_method_FFT;
+    waves_update_method = waves_update_method_pure_fft;
+
+    gauge_correction = gauge_correction_FFT;
 else
     ME = MException('RunException',"No Run of " + run_type + " Type");
     throw(ME);
