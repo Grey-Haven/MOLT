@@ -81,10 +81,13 @@ while(steps < N_steps)
         update_waves;
     elseif waves_update_method == waves_update_method_FFT
         update_waves_hybrid_FFT;
+        % update_waves_pure_FFT;
     elseif waves_update_method == waves_update_method_FD6
         update_waves_hybrid_FD6
     elseif waves_update_method == waves_update_method_poisson_phi
         update_waves_poisson_phi;
+    elseif waves_update_method == waves_update_method_pure_FFT
+        update_waves_pure_FFT;
     else
         ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
         throw(ME);
@@ -210,34 +213,36 @@ if enable_plots
     close(vidObj);
 end
 
-% figure;
-% subplot(1,3,1);
-% plot(ts, gauss_law_potential_err_L2);
-% xlabel("t");
-% title("$||\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
-% 
-% subplot(1,3,2);
-% plot(ts, gauss_law_gauge_err_L2);
-% xlabel("t");
-% title("$||-\frac{\nabla \cdot \textbf{A}^{n+1} - \nabla \cdot \textbf{A}^{n}}{\Delta t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}||_2$", 'FontSize', 24);
-% 
-% subplot(1,3,3);
-% plot(ts, gauss_law_field_err_L2);
-% xlabel("t");
-% title("$||\nabla \cdot \textbf{E} - \frac{\rho}{\sigma_1}||_2$", 'FontSize', 24);
-
 writematrix(gauge_error_array,csvPath + "gauge_error.csv");
 writematrix(gauss_error_array,csvPath + "gauss_error.csv");
 
-% figure;
-% plot(0:dt:(N_steps-1)*dt, gauge_error);
-% xlabel("t");
-% ylabel("Gauge Error");
-% title({'Gauge Error Over Time', update_method_title,tag + ", CFL: " + CFL});
+figure;
+x0=200;
+y0=100;
+width = 2400;
+height = 1200;
+set(gcf,'position',[x0,y0,width,height]);
 
-% filename = figPath + "gauge_error.jpg";
+subplot(1,2,1);
+semilogy(ts,gauss_error_array(:,2))
+hold on
+semilogy(ts,gauss_error_array(:,4))
+semilogy(ts,gauss_error_array(:,6))
+hold off;
 
-% saveas(gcf,filename)
+potential_label = "$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+gauge_label = "$-\frac{\nabla\cdot\textbf{A}^{n+1} - \nabla\cdot\textbf{A}^{n}}{\Delta t} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+field_label = "$\nabla\cdot\textbf{E}^{n+1} - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+legend([potential_label,gauge_label,field_label],'FontSize',24,'interpreter','latex','location','east');
+title("Gauss' Law",'FontSize',32);
+
+subplot(1,2,2);
+plot(ts,gauge_error_L2)
+title("Gauge Error",'FontSize',32);
+
+sgtitle("Pure FFT Solve, Without Fixed Point Stepping " + tag,'FontSize',48);
+
+saveas(gcf,figPath + "residuals.jpg");
 
 function r = ramp(t)
 %     r = kappa/100*exp(-((time - .05)^2)/.00025);
