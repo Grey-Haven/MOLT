@@ -63,18 +63,20 @@ LHS_field = ddx_E1(:,:) + ddy_E2(:,:);
 % METHOD 2:
 ddt2_phi = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2))/(dt^2);
 
-laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
+avg_psi = (psi(:,:,end) + psi(:,:,end-2))/2;
 
-LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
+laplacian_avg_phi_FFT = compute_Laplacian_FFT(avg_psi,kx_deriv_2,ky_deriv_2);
+
+LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_avg_phi_FFT;
 
 % METHOD 3:
 % div_A_curr = ddx_A1_ave_np_half + ddy_A2_ave_np_half;
 % div_A_prev = ddx_A1_ave_nm_half + ddy_A2_ave_nm_half;
-div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
+div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
 div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
 ddt_div_A = (div_A_curr - div_A_prev)/dt;
 
-LHS_gauge = -ddt_div_A - laplacian_phi_FFT;
+LHS_gauge = -ddt_div_A - laplacian_avg_phi_FFT;
 
 % Compute all residuals
 RHS = (1 / sigma_1) * (rho_mesh(:,:,end) + rho_mesh(:,:,end-2)) / 2;
