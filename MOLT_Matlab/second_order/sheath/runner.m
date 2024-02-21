@@ -1,11 +1,13 @@
 clear;
 close all;
-addpath(genpath([fileparts(pwd)]));
-addpath(genpath([fileparts(pwd), '/../../utility_functions']));
-addpath(genpath([fileparts(pwd), '/../../rho_updaters']));
-addpath(genpath([fileparts(pwd), '/../wave_solvers']));
+addpath(fullfile(pwd));
+addpath(fullfile(pwd, '/../'));
+addpath(fullfile(pwd, '/../../'));
+addpath(fullfile(pwd, '/../../utility_functions'));
+addpath(fullfile(pwd, '/../../source_updaters/dirichlet'));
+addpath(fullfile(pwd, '/../wave_solvers/dirichlet'));
 
-grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
+grid_refinement = [16]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
 particle_count_multipliers = [10];
 
@@ -20,10 +22,12 @@ gauge_correction_FD6 = "correct_gauge_fd6";
 
 J_rho_update_method_vanilla = "vanilla";
 J_rho_update_method_FFT = "FFT";
+J_rho_update_method_FD2 = "FD2";
 J_rho_update_method_FD6 = "FD6";
 
 waves_update_method_vanilla = "vanilla";
 waves_update_method_FFT = "FFT";
+waves_update_method_FD2 = "FD2";
 waves_update_method_FD6 = "FD6";
 waves_update_method_poisson_phi = "poisson_phi";
 
@@ -35,6 +39,9 @@ run_type_vanilla_gc = "vanilla_gauge_cleaning";
 run_type_FFT_ng = "FFT_no_gauge_cleaning";
 run_type_FFT_gc = "FFT_gauge_cleaning";
 
+run_type_FD2_ng = "FD2_no_gauge_cleaning";
+run_type_FD2_gc = "FD2_gauge_cleaning";
+
 run_type_pure_FFT_ng = "pure_FFT_no_gauge_cleaning";
 run_type_pure_FFT_gc = "pure_FFT_gauge_cleaning";
 
@@ -45,8 +52,9 @@ run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 % THIS IS THE ONLY PARAMETER TO TWEAK
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% run_type = run_type_vanilla_ng;
-run_type = run_type_pure_FFT_ng;
+run_type = run_type_vanilla_ng;
+% run_type = run_type_FD2_ng;
+% run_type = run_type_pure_FFT_ng;
 
 if run_type == run_type_vanilla_ng
 
@@ -87,6 +95,16 @@ elseif run_type == run_type_FFT_gc
     waves_update_method = waves_update_method_FFT;
 
     gauge_correction = gauge_correction_FFT;
+
+elseif run_type == run_type_FD2_ng
+
+    update_method_title = "Second Order FD2 Charge Update, BDF-2 Wave Update, FD2 Derivative";
+    update_method_folder = "FD2_charge_BDF_wave_update_FD2_derivative";
+
+    J_rho_update_method = J_rho_update_method_FD2;
+    waves_update_method = waves_update_method_FD2;
+
+    gauge_correction = gauge_correction_none;
 
 elseif run_type == run_type_poisson_ng
 
@@ -129,12 +147,12 @@ for particle_count_multiplier = particle_count_multipliers
         for g = grid_refinement
             close all;
             variable_setup;
-            engine;
+            engine_dirichlet;
         end
     end
 end
 
-function [] = create_plots_blob(x, y, phi, A1, A2, rho_mesh, gauge_residual, gauss_residual, x1_elec_new, x2_elec_new, t, update_method_title, tag, vidObj)
+function [] = create_plots_blob(x, y, phi, A1, A2, rho_mesh, J1_mesh, J2_mesh, gauge_residual, gauss_residual, x1_elec_new, x2_elec_new, t, update_method_title, tag, vidObj)
     
     subplot(2,3,1);
     scatter(x1_elec_new, x2_elec_new, 5, 'filled');
@@ -164,7 +182,7 @@ function [] = create_plots_blob(x, y, phi, A1, A2, rho_mesh, gauge_residual, gau
     axis square;
     
     subplot(2,3,4);
-    surf(x,y,double(phi(:,:,3)));
+    surf(x,y,double(phi(:,:,end)));
     xlabel("x");
     ylabel("y");
     title("$\phi$",'Interpreter','latex');
@@ -180,7 +198,7 @@ function [] = create_plots_blob(x, y, phi, A1, A2, rho_mesh, gauge_residual, gau
     xlim([x(1),x(end)]);
     ylim([y(1),y(end)]);
     axis square;
-    
+
     subplot(2,3,6);
     surf(x,y,double(A2(:,:,3)));
     xlabel("x");
@@ -189,6 +207,24 @@ function [] = create_plots_blob(x, y, phi, A1, A2, rho_mesh, gauge_residual, gau
     xlim([x(1),x(end)]);
     ylim([y(1),y(end)]);
     axis square;
+    
+    % subplot(2,3,5);
+    % surf(x,y,double(J1_mesh));
+    % xlabel("x");
+    % ylabel("y");
+    % title("$J_1$",'Interpreter','latex');
+    % xlim([x(1),x(end)]);
+    % ylim([y(1),y(end)]);
+    % axis square;
+    % 
+    % subplot(2,3,6);
+    % surf(x,y,double(J2_mesh));
+    % xlabel("x");
+    % ylabel("y");
+    % title("$J_2$",'Interpreter','latex');
+    % xlim([x(1),x(end)]);
+    % ylim([y(1),y(end)]);
+    % axis square;
     
     sgtitle({update_method_title + " method", "Grid: " + tag, "t = " + num2str(t,'%.4f')});
     

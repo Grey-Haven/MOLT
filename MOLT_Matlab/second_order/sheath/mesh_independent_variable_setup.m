@@ -68,8 +68,9 @@ sigma_2 = (n_bar*mu_0*(Q*L)^2)/M;
 
 % MOLT stability parameter
 % Set for the first-order method
-beta_BDF = 1;
+beta_BDF1 = 1;
+beta_BDF2 = 1/(2/3);
 % Set for the second-order method
 beta_CDF2 = sqrt(2);
 
-T_final = .5;
+T_final = 5;

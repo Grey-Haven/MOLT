@@ -40,13 +40,13 @@ N_steps = ceil(T_final/dt);
 
 v_ave_mag = 1;
 
-v1_drift = kappa/100;
-% v1_drift = 0;
-v2_drift = kappa/100;
-% v2_drift = 0;
+% v1_drift = kappa/100;
+v1_drift = 0;
+% v2_drift = kappa/100;
+v2_drift = 0;
 
 % Number of particles for each species
-N_p = floor(particle_count_multiplier * 2.5e3);
+N_p = floor(particle_count_multiplier * 1e4) / 2;
 % N_p = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -63,12 +63,6 @@ b_x = x(end);
 a_y = y(1);
 b_y = y(end);
 
-x1_ions = zeros(N_p,1);
-x2_ions = zeros(N_p,1);
-
-x1_elec = zeros(N_p,1);
-x2_elec = zeros(N_p,1);
-
 %%% Sampling approach for particle intialization
 % % Generate a set of uniform samples in the domain for ions and electrons
 xy_min = [a_x, a_y];
@@ -81,20 +75,26 @@ xy_max = [b_x, b_y];
 x_0 = (a_x + b_x) / 2;
 y_0 = (a_y + b_y) / 2;
 
-x_offset = (b_x - a_x)/4;
-y_offset = (b_y - a_y)/4;
-
-sig_x = .05*(b_x - a_x);
-sig_y = .05*(b_y - a_y);
-
-particle_positions_elec = sig_x*randn(N_p,2) + [x_0, y_0]; %+ [x_offset, y_offset];
-particle_positions_ions = sig_y*randn(N_p,2) + [x_0, y_0];
+particle_positions_elec = [L_x,L_y].*rand(N_p,2) + [a_x, a_y];
+particle_positions_ions = [L_x,L_y].*rand(N_p,2) + [a_x, a_y];
 
 % x1_elec = particle_positions_elec(:,1);
 % x2_elec = particle_positions_elec(:,2);
 
-x1_elec = particle_positions_ions(:,1);
-x2_elec = particle_positions_ions(:,2);
+x1_elec = zeros(N_p*2,1);
+x2_elec = zeros(N_p*2,1);
+
+v1_elec = zeros(N_p*2,1);
+v2_elec = zeros(N_p*2,1);
+
+v1_elec = zeros(N_p*2,1);
+v2_elec = zeros(N_p*2,1);
+
+x1_elec(1:N_p) = particle_positions_ions(:,1);
+x2_elec(1:N_p) = particle_positions_ions(:,2);
+
+x1_elec(N_p+1:end) = particle_positions_ions(:,1);
+x2_elec(N_p+1:end) = particle_positions_ions(:,2);
 
 x1_ions = particle_positions_ions(:,1);
 x2_ions = particle_positions_ions(:,2);
@@ -118,8 +118,11 @@ v2_ions = zeros(N_p,1);
 electron_velocities = randn(N_p,2);
 
 % Electrons have drift velocity in addition to a thermal velocity
-v1_elec = v_ave_mag*electron_velocities(:,1) + v1_drift;
-v2_elec = v_ave_mag*electron_velocities(:,2) + v2_drift;
+v1_elec(1:N_p) = v_ave_mag*electron_velocities(:,1) + v1_drift;
+v2_elec(1:N_p) = v_ave_mag*electron_velocities(:,2) + v2_drift;
+
+v1_elec(N_p+1:end) = -v1_elec(1:N_p);
+v2_elec(N_p+1:end) = -v2_elec(1:N_p);
 
 % Convert velocity to generalized momentum (A = 0 since the total current is zero)
 % This is equivalent to the classical momentum
@@ -131,8 +134,11 @@ P2_elec = v2_elec*r_elec;
 
 % Compute the normalized particle weights
 % L_x and L_y are the non-dimensional domain lengths
-w_ions = 10*(L_x*L_y)/N_p;
-w_elec = 10*(L_x*L_y)/N_p;
+w_ions = (L_x*L_y)/N_p;
+w_elec = (L_x*L_y)/(2*N_p);
+
+% Now tracking number of electron macroparticles.
+N_p = N_p*2;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters
@@ -160,14 +166,14 @@ N_h = 6;
 % This variance is an average of the variance in each direction
 v_elec_var_history = [];
 
-x1_elec_hist = zeros(N_p,N_h);
-x2_elec_hist = zeros(N_p,N_h);
+x1_elec_hist = zeros(N_p,3);
+x2_elec_hist = zeros(N_p,3);
 
-v1_elec_hist = zeros(N_p,N_h);
-v2_elec_hist = zeros(N_p,N_h);
+v1_elec_hist = zeros(N_p,3);
+v2_elec_hist = zeros(N_p,3);
 
-P1_elec_hist = zeros(N_p,N_h);
-P2_elec_hist = zeros(N_p,N_h);
+P1_elec_hist = zeros(N_p,3);
+P2_elec_hist = zeros(N_p,3);
 
 x1_elec_hist(:,end  ) = x1_elec;
 x2_elec_hist(:,end  ) = x2_elec;
@@ -290,8 +296,8 @@ rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, ...
                               x1_elec_hist(:,end), x2_elec_hist(:,end), ...
                               q_elec, cell_volumes, w_elec);
 % Need to enforce periodicity for the charge on the mesh
-rho_ions = enforce_periodicity(rho_ions(:,:));
-rho_elec = enforce_periodicity(rho_elec(:,:));
+rho_ions = enforce_dirichlet(rho_ions(:,:),0,0,0,0);
+rho_elec = enforce_dirichlet(rho_elec(:,:),0,0,0,0);
 
 % rho_mesh = rho_ions + rho_elec;
 rho_mesh = zeros([size(rho_elec),N_h]);
@@ -303,8 +309,8 @@ J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
                             q_elec, cell_volumes, w_elec);
 
 % Need to enforce periodicity for the current on the mesh
-J_mesh(:,:,1) = enforce_periodicity(J_mesh(:,:,1));
-J_mesh(:,:,2) = enforce_periodicity(J_mesh(:,:,2));
+J_mesh(:,:,1) = enforce_dirichlet(J_mesh(:,:,1),0,0,0,0);
+J_mesh(:,:,2) = enforce_dirichlet(J_mesh(:,:,2),0,0,0,0);
 
 J1_mesh(:,:,end) = J_mesh(:,:,1);
 J2_mesh(:,:,end) = J_mesh(:,:,2);
