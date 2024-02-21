@@ -1,10 +1,10 @@
-function inverse = get_L_y_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
+function inverse = get_L_x_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
     
     N_x = length(x);
     N_y = length(y);
     
     alpha = beta/(c*dt);
-    mu_x = exp(-alpha*( y(end) - y(1) ) );
+    mu_x = exp(-alpha*( x(end) - x(1) ) );
     
     % Create arrays for right and left-moving operators
     rite_moving_op = zeros(N_y, N_x);
@@ -22,6 +22,7 @@ function inverse = get_L_y_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
             operand_ext(j+2,i+2) = operand(j,i);
         end
     end
+
     % Extend the data for the integrand along y
     % Corners are not needed
     for j = 1:N_y

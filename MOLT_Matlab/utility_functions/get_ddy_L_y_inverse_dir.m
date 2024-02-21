@@ -1,4 +1,4 @@
-function inverse = get_L_y_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
+function ddy_inverse = get_ddy_L_y_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
     
     N_x = length(x);
     N_y = length(y);
@@ -12,9 +12,9 @@ function inverse = get_L_y_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
     
     % Extend the data for the integrand along y
     % Corners are not needed
-    operand_ext = zeros(N_y+4, N_x+4);
+    operand_ext = zeros(N_y+4, N_y+4);
 
-    inverse = zeros(N_y,N_x);
+    ddy_inverse = zeros(N_y,N_x);
     
     % Transfer the mesh data
     for i = 1:N_x
@@ -28,8 +28,10 @@ function inverse = get_L_y_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
     for i = 1:N_x
         operand_ext(:,i+2) = polynomial_extension(operand_ext(:,i+2));
     end
-            
-    % Invert the y operator and apply to the operand
+    
+    %==========================================================================
+    % Invert the 1-D Helmholtz operator in the y-direction
+    %==========================================================================
     for i = 1:N_x
         
         % Get the local integrals 
@@ -42,22 +44,31 @@ function inverse = get_L_y_inverse_dir(operand, x, y, dx, dy, dt, c, beta)
         % FC step in for y operator
         [rite_moving_op(:,i), left_moving_op(:,i)] = fast_convolution(rite_moving_op(:,i), left_moving_op(:,i), alpha, dy);
 
-        % Combine the integrals into the right-moving operator
-        % This gives the convolution integral
-        rite_moving_op(:,i) = .5*(left_moving_op(:,i) + rite_moving_op(:,i));
+        % Get the A and B values for Dirichlet
+        % Assumes both ends of the line use Dirichlet
+        %
+        % See the paper "METHOD OF LINES TRANSPOSE: AN EFFICIENT A-STABLE SOLVER FOR WAVE PROPAGATION"
+        % By Causley, et al. 2015
+
+        I_a = 0.5*( rite_moving_op(1,i) + left_moving_op(1,i) );
+        I_b = 0.5*( rite_moving_op(end,i) + left_moving_op(end,i) );
         
-        I_a = rite_moving_op(1  ,i);
-        I_b = rite_moving_op(end,i);
-        
+        % w_a_dir = I_a - u_along_xa(t) - ( u_along_xa(t+dt) - 2*u_along_xa(t) + u_along_xa(t-dt) )/(beta**2)
+        % w_b_dir = I_b - u_along_xb(t) - ( u_along_xb(t+dt) - 2*u_along_xb(t) + u_along_xb(t-dt) )/(beta**2)
+
         % Assume homogeneous BCs (same expression for BDF and central schemes)
         w_a_dir = I_a;
         w_b_dir = I_b;
         
         A_y = -( w_a_dir - mu_y*w_b_dir )/(1 - mu_y^2);
         B_y = -( w_b_dir - mu_y*w_a_dir )/(1 - mu_y^2);
-        
+
         % Sweep the y boundary data into the operator
-        inverse(:,i) = apply_A_and_B(rite_moving_op(:,i), y, alpha, A_y, B_y);
+        for j = 1:N_y
+            ddy_inverse(j,i) = -0.5*alpha*rite_moving_op(j,i) + 0.5*alpha*left_moving_op(j,i) ...
+                               - alpha*A_y*exp(-alpha*(y(j  ) - y(1))) ...
+                               + alpha*B_y*exp(-alpha*(y(end) - y(j)));
+        end
     end
     
 end
