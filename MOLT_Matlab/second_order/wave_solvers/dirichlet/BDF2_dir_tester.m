@@ -4,6 +4,8 @@ clear;
 grids = [16,32,64,128,256];
 
 diffs = zeros(length(grids),1);
+ddx_diffs = zeros(length(grids),1);
+ddy_diffs = zeros(length(grids),1);
 dxs = zeros(length(grids),1);
 
 dx_min = 2 / max(grids);
@@ -82,10 +84,9 @@ for r = 1:length(grids)
     end
 
     u_analytic = analytic(x,y,t_n,Lx,Ly,alpha,beta,gamma);
-    
-    laplacian_u_FFT = compute_Laplacian_FFT(u(:,:,end),kx_deriv_2,ky_deriv_2);
-    ddt2_u = (u(:,:,end) - 2*u(:,:,end-1) + u(:,:,end-2))/(dt^2);
-    LHS = 1/kappa^2*ddt2_u - laplacian_u_FFT;
+    ddx_u_analytic = ddx_analytic(x,y,t_n,Lx,Ly,alpha,beta,gamma);
+    ddy_u_analytic = ddy_analytic(x,y,t_n,Lx,Ly,alpha,beta,gamma);
+
     subplot(1,3,1);
     surf(x,y,u(:,:,end));
     title("u_{BDF2}");
@@ -100,11 +101,21 @@ for r = 1:length(grids)
     drawnow;
     
 %     diffs(r) = max(max(abs(u(:,:,3)) - analytic(x,y,t_n,Lx,Ly,alpha,beta,gamma)));
-    diffs(r) = norm(norm(u(:,:,end)) - u_analytic)/(Nx*Ny);
+    % diffs(r) = norm(norm(u(:,:,end) - u_analytic))/(Nx*Ny);
+    % ddx_diffs(r) = norm(norm(ddx_u(:,:,end) - ddx_u_analytic))/(Nx*Ny);
+    % ddy_diffs(r) = norm(norm(ddy_u(:,:,end) - ddy_u_analytic))/(Nx*Ny);
+    diffs(r) = norm(norm(u(:,:,end) - u_analytic, 'inf'), 'inf');
+    ddx_diffs(r) = norm(norm(ddx_u(:,:,end) - ddx_u_analytic, 'inf'), 'inf');
+    ddy_diffs(r) = norm(norm(ddy_u(:,:,end) - ddy_u_analytic, 'inf'), 'inf');
     dxs(r) = dx;
 end
 figure;
 plot(dxs,diffs);
+hold on;
+plot(dxs,ddx_diffs);
+plot(dxs,ddy_diffs);
+hold off;
+legend("u","dudx","dudy");
 xlabel("dx");
 ylabel("l2 norm");
 
@@ -118,6 +129,32 @@ function u = analytic(x,y,t,Lx,Ly,alpha,beta,gamma)
         for j = 1:length(y)
             y_j = y(j);
             u(j,i) = sin((alpha/2)*x_i)*sin((beta/2)*y_j)*sin(gamma*t);
+        end
+    end
+end
+
+function u = ddx_analytic(x,y,t,Lx,Ly,alpha,beta,gamma)
+    Nx = length(x);
+    Ny = length(y);
+    u = zeros(Nx,Ny);
+    for i = 1:length(x)
+        x_i = x(i);
+        for j = 1:length(y)
+            y_j = y(j);
+            u(j,i) = (alpha/2)*cos((alpha/2)*x_i)*sin((beta/2)*y_j)*sin(gamma*t);
+        end
+    end
+end
+
+function u = ddy_analytic(x,y,t,Lx,Ly,alpha,beta,gamma)
+    Nx = length(x);
+    Ny = length(y);
+    u = zeros(Nx,Ny);
+    for i = 1:length(x)
+        x_i = x(i);
+        for j = 1:length(y)
+            y_j = y(j);
+            u(j,i) = (beta/2)*sin((alpha/2)*x_i)*cos((beta/2)*y_j)*sin(gamma*t);
         end
     end
 end
