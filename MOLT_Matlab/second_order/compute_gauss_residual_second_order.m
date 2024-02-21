@@ -39,7 +39,7 @@ E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
 E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
 
 % Want to ensure the spatial derivatives we're taking are consistent.
-if waves_update_method == waves_update_method_vanilla
+if ismember(waves_update_method, [waves_update_method_vanilla, waves_update_method_FD2])
     ddx_E1 = compute_ddx_FD(E1, dx);
     ddy_E2 = compute_ddy_FD(E2, dy);
 elseif waves_update_method == waves_update_method_FFT
