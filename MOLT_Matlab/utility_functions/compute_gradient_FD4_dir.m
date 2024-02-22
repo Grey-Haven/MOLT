@@ -1,4 +1,4 @@
-function [dudx_FD4,dudy_FD4] = compute_derivative_FD4_dir(u,dx,dy)
+function [dudx_FD4,dudy_FD4] = compute_gradient_FD4_dir(u,dx,dy)
 
     % u is passed in as the domain proper. We first need to extend the
     % boundaries by extrapolating to ghost points so we can compute all the
