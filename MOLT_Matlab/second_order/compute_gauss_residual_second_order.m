@@ -45,6 +45,9 @@ if ismember(waves_update_method, [waves_update_method_vanilla, waves_update_meth
 elseif waves_update_method == waves_update_method_FFT
     ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
     ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
+elseif waves_update_method == waves_update_method_FD4
+    [ddx_E1,ddy_E1__] = compute_gradient_FD4_dir(E1,dx,dy);
+    [ddx_E2__,ddy_E2] = compute_gradient_FD4_dir(E2,dx,dy);
 elseif waves_update_method == waves_update_method_FD6
     ME = MException('WaveException',"FD6 Derivative not implemented yet.");
     throw(ME);

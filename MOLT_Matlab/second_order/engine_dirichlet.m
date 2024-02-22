@@ -67,6 +67,8 @@ while(steps < N_steps)
         J_rho_update_fft;
     elseif J_rho_update_method == J_rho_update_method_FD2
         J_rho_update_FD2;
+    elseif J_rho_update_method == J_rho_update_method_FD4
+        J_rho_update_FD4;
     else
         ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
         throw(ME);
@@ -92,6 +94,8 @@ while(steps < N_steps)
         update_waves_vanilla_second_order;
     elseif waves_update_method == waves_update_method_FD2
         update_waves_hybrid_FD2;
+    elseif waves_update_method == waves_update_method_FD4
+        update_waves_hybrid_FD4;
     else
         ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
         throw(ME);
