@@ -67,6 +67,8 @@ while(steps < N_steps)
         J_rho_update_fft;
     elseif J_rho_update_method == J_rho_update_method_FD6
         J_rho_update_FD6;
+    elseif J_rho_update_method == J_rho_update_method_DIRK2
+        J_rho_update_DIRK2;
     else
         ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
         throw(ME);
@@ -84,9 +86,13 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
     %---------------------------------------------------------------------
-    psi_src(:,:) = (1/sigma_1)*(rho_mesh(:,:,end) + rho_mesh(:,:,end-2));
-    A1_src(:,:)  =     sigma_2*(J1_mesh(:,:,end)  + J1_mesh(:,:,end-2) );
-    A2_src(:,:)  =     sigma_2*(J2_mesh(:,:,end)  + J2_mesh(:,:,end-2) );
+    psi_src_prev = psi_src;
+    A1_src_prev  = A1_src;
+    A2_src_prev  = A2_src;
+
+    psi_src(:,:) = (1/sigma_1)*(rho_mesh(:,:,end));
+    A1_src(:,:)  =     sigma_2*(J1_mesh(:,:,end));
+    A2_src(:,:)  =     sigma_2*(J2_mesh(:,:,end));
 
     %---------------------------------------------------------------------
     % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
@@ -101,6 +107,8 @@ while(steps < N_steps)
         update_waves_poisson_phi_second_order;
     elseif waves_update_method == waves_update_method_pure_FFT
         update_waves_pure_FFT_second_order;
+    elseif waves_update_method == waves_update_method_DIRK2
+        update_waves_DIRK2;
     else
         ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
         throw(ME);
@@ -254,9 +262,12 @@ semilogy(ts,gauss_error_array(:,4))
 semilogy(ts,gauss_error_array(:,6))
 hold off;
 
-potential_label = "$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
-gauge_label = "$-\frac{\nabla\cdot\textbf{A}^{n+1} - \nabla\cdot\textbf{A}^{n}}{\Delta t} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
-field_label = "$\nabla\cdot\textbf{E}^{n+1} - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+% potential_label = "$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+% gauge_label = "$-\frac{\nabla\cdot\textbf{A}^{n+\frac{1}{2}} - \nabla\cdot\textbf{A}^{n-\frac{1}{2}}}{\Delta t} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+% field_label = "$\nabla\cdot\textbf{E}^{n+1} - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
+potential_label = "$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$";
+gauge_label = "$-\frac{\nabla\cdot\textbf{A}^{n+1} - \nabla\cdot\textbf{A}^{n}}{\Delta t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$";
+field_label = "$\nabla\cdot\textbf{E}^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$";
 legend([potential_label,gauge_label,field_label],'FontSize',24,'interpreter','latex','location','east');
 title("Gauss' Law",'FontSize',32);
 
@@ -264,6 +275,11 @@ subplot(1,2,2);
 plot(ts,gauge_error_L2)
 title("Gauge Error",'FontSize',32);
 
-sgtitle("Pure FFT Solve, Without Fixed Point Stepping " + tag,'FontSize',48);
+quarter_len = floor(length(ts) / 4);
+
+axes('Position',[.7 .6 .2 .2]);
+plot(ts(quarter_len:end),gauge_error_L2(quarter_len:end));
+
+sgtitle(update_method_title + " " + tag,'FontSize',48);
 
 saveas(gcf,figPath + "residuals.jpg");

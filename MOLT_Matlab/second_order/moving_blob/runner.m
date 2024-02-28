@@ -2,10 +2,14 @@ clear;
 close all;
 addpath(genpath([fileparts(pwd)]));
 addpath(genpath([fileparts(pwd), '/../../utility_functions']));
-addpath(genpath([fileparts(pwd), '/../../rho_updaters']));
+addpath(genpath([fileparts(pwd), '/../../source_updaters']));
 addpath(genpath([fileparts(pwd), '/../wave_solvers']));
 
-grid_refinement = [16]; % Run FFT BDF BDF for 64x64
+set(0,'defaulttextinterpreter','latex')
+set(0,'DefaultTextFontname', 'cmss')
+set(0,'DefaultAxesFontName', 'cmss')
+
+grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
 particle_count_multipliers = [10];
 
@@ -21,10 +25,13 @@ gauge_correction_FD6 = "correct_gauge_fd6";
 J_rho_update_method_vanilla = "vanilla";
 J_rho_update_method_FFT = "FFT";
 J_rho_update_method_FD6 = "FD6";
+J_rho_update_method_DIRK2 = "DIRK2";
 
 waves_update_method_vanilla = "vanilla";
 waves_update_method_FFT = "FFT";
+waves_update_method_FD2 = "FD2";
 waves_update_method_FD6 = "FD6";
+waves_update_method_DIRK2 = "DIRK2";
 waves_update_method_poisson_phi = "poisson_phi";
 
 waves_update_method_pure_FFT = "pure_fft";
@@ -40,13 +47,18 @@ run_type_pure_FFT_gc = "pure_FFT_gauge_cleaning";
 
 run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 
+run_type_DIRK2_ng = "DIRK_FFT_deriv_no_gauge_cleaning";
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % THIS IS THE ONLY PARAMETER TO TWEAK
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % run_type = run_type_vanilla_ng;
-run_type = run_type_pure_FFT_ng;
+% run_type = run_type_pure_FFT_ng;
+% run_type = run_type_FFT_ng;
+% run_type = run_type_poisson_ng;
+run_type = run_type_DIRK2_ng;
 
 if run_type == run_type_vanilla_ng
 
@@ -100,7 +112,7 @@ elseif run_type == run_type_poisson_ng
 elseif run_type == run_type_pure_FFT_ng
 
     update_method_title = "Second Order FFT Charge Update, FFT Potentials, FFT Derivatives";
-    update_method_folder = "FFT_charge_BDF1_A_poisson_phi";
+    update_method_folder = "FFT_charge_pure_FFT";
 
     J_rho_update_method = J_rho_update_method_FFT;
     waves_update_method = waves_update_method_pure_FFT;
@@ -115,6 +127,15 @@ elseif run_type == run_type_pure_FFT_gc
     waves_update_method = waves_update_method_pure_fft;
 
     gauge_correction = gauge_correction_FFT;
+elseif run_type == run_type_DIRK2_ng
+
+    update_method_title = "DIRK-2 Wave and Charge Update, FFT Derivatives, No Gauge Correction";
+    update_method_folder = "DIRK2_Charge_Waves_FFT_Derivatives_ng";
+
+    J_rho_update_method = J_rho_update_method_DIRK2;
+    waves_update_method = waves_update_method_DIRK2;
+
+    gauge_correction = gauge_correction_none;
 else
     ME = MException('RunException',"No Run of " + run_type + " Type");
     throw(ME);
@@ -133,6 +154,8 @@ for particle_count_multiplier = particle_count_multipliers
         end
     end
 end
+
+
 
 function [] = create_plots_blob(x, y, phi, A1, A2, rho_mesh, gauge_residual, gauss_residual, x1_elec_new, x2_elec_new, t, update_method_title, tag, vidObj)
     
@@ -153,6 +176,24 @@ function [] = create_plots_blob(x, y, phi, A1, A2, rho_mesh, gauge_residual, gau
     xlim([x(1),x(end)]);
     ylim([y(1),y(end)]);
     axis square;
+
+    % subplot(2,3,1);
+    % surf(x,y,rho_mesh);
+    % xlabel("x");
+    % ylabel("y");
+    % title("$\rho$",'Interpreter','latex');
+    % xlim([x(1),x(end)]);
+    % ylim([y(1),y(end)]);
+    % axis square;
+    % 
+    % subplot(2,3,2);
+    % surf(x,y,gauss_residual);
+    % xlabel("x");
+    % ylabel("y");
+    % title("Gauss Error");
+    % xlim([x(1),x(end)]);
+    % ylim([y(1),y(end)]);
+    % axis square;
     
     subplot(2,3,3);
     surf(x,y,gauge_residual);
