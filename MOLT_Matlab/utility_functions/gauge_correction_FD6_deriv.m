@@ -9,4 +9,4 @@ psi(:,:,end) = psi_C + psi_A;
 
 psi_next = psi(1:end-1,1:end-1,end);
 
-[ddx_psi,ddy_psi] = compute_derivative_FD6_periodic(psi_next,dx,dy);
+[ddx_psi,ddy_psi] = compute_gradient_FD6_per(psi_next,dx,dy);

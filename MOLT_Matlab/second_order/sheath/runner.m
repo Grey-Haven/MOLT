@@ -23,11 +23,13 @@ gauge_correction_FD6 = "correct_gauge_fd6";
 J_rho_update_method_vanilla = "vanilla";
 J_rho_update_method_FFT = "FFT";
 J_rho_update_method_FD2 = "FD2";
+J_rho_update_method_FD4 = "FD4";
 J_rho_update_method_FD6 = "FD6";
 
 waves_update_method_vanilla = "vanilla";
 waves_update_method_FFT = "FFT";
 waves_update_method_FD2 = "FD2";
+waves_update_method_FD4 = "FD4";
 waves_update_method_FD6 = "FD6";
 waves_update_method_poisson_phi = "poisson_phi";
 
@@ -42,6 +44,9 @@ run_type_FFT_gc = "FFT_gauge_cleaning";
 run_type_FD2_ng = "FD2_no_gauge_cleaning";
 run_type_FD2_gc = "FD2_gauge_cleaning";
 
+run_type_FD4_ng = "FD4_no_gauge_cleaning";
+run_type_FD4_gc = "FD4_gauge_cleaning";
+
 run_type_pure_FFT_ng = "pure_FFT_no_gauge_cleaning";
 run_type_pure_FFT_gc = "pure_FFT_gauge_cleaning";
 
@@ -52,8 +57,9 @@ run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 % THIS IS THE ONLY PARAMETER TO TWEAK
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-run_type = run_type_vanilla_ng;
+% run_type = run_type_vanilla_ng;
 % run_type = run_type_FD2_ng;
+run_type = run_type_FD4_ng;
 % run_type = run_type_pure_FFT_ng;
 
 if run_type == run_type_vanilla_ng
@@ -103,6 +109,16 @@ elseif run_type == run_type_FD2_ng
 
     J_rho_update_method = J_rho_update_method_FD2;
     waves_update_method = waves_update_method_FD2;
+
+    gauge_correction = gauge_correction_none;
+
+elseif run_type == run_type_FD4_ng
+
+    update_method_title = "Second Order FD4 Charge Update, BDF-2 Wave Update, FD4 Derivative";
+    update_method_folder = "FD4_charge_BDF_wave_update_FD4_derivative";
+
+    J_rho_update_method = J_rho_update_method_FD4;
+    waves_update_method = waves_update_method_FD4;
 
     gauge_correction = gauge_correction_none;
 

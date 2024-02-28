@@ -13,5 +13,5 @@ for i = 2:N_x-1
     end
 end
 
-% rho_mesh(:,:,end) = 0.5*( 5*rho_mesh(:,:,end-1) - 4*rho_mesh(:,:,end-2) + rho_mesh(:,:,end-3) ) - dt*(ddx_J1_FD2 + ddy_J2_FD2);
-rho_mesh(:,:,end) = rho_mesh(:,:,end-1) - dt*(ddx_J1_FD2 + ddy_J2_FD2);
+rho_mesh(:,:,end) = (4/3)*rho_mesh(:,:,end-1) - (1/3)*rho_mesh(:,:,end-2) - (2/3)*dt*(ddx_J1_FD2 + ddy_J2_FD2);
+% rho_mesh(:,:,end) = rho_mesh(:,:,end-1) - dt*(ddx_J1_FD2 + ddy_J2_FD2);

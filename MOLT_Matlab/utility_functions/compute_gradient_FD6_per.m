@@ -1,4 +1,4 @@
-function [dudx,dudy] = compute_derivative_FD6_periodic(u,dx,dy)
+function [dudx,dudy] = compute_gradient_FD6_per(u,dx,dy)
 
     % Assumes the right and upper boundary are within the boundary
     % That is, if the domain is [ax,bx]X[ay,by], the rightmost column of

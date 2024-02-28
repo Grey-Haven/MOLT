@@ -1,4 +1,4 @@
-function [dudx_FD2,dudy_FD2] = compute_derivative_FD2_dir(u,dx,dy)
+function [dudx_FD2,dudy_FD2] = compute_gradient_FD2_dir(u,dx,dy)
 
     % Assumes the right and upper boundary are within the boundary
     % That is, if the domain is [ax,bx]X[ay,by], the rightmost column of
