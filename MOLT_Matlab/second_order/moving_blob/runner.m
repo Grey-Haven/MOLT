@@ -9,7 +9,7 @@ set(0,'defaulttextinterpreter','latex')
 set(0,'DefaultTextFontname', 'cmss')
 set(0,'DefaultAxesFontName', 'cmss')
 
-grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
+grid_refinement = [16]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
 particle_count_multipliers = [10];
 
@@ -28,7 +28,6 @@ J_rho_update_method_DIRK2 = "DIRK2";
 J_rho_update_method_FD2 = "FD2";
 J_rho_update_method_FD4 = "FD4";
 J_rho_update_method_FD6 = "FD6";
-J_rho_update_method_DIRK2 = "DIRK2";
 
 waves_update_method_vanilla = "vanilla";
 waves_update_method_FFT = "FFT";
@@ -36,7 +35,6 @@ waves_update_method_DIRK2 = "DIRK2";
 waves_update_method_FD2 = "FD2";
 waves_update_method_FD4 = "FD4";
 waves_update_method_FD6 = "FD6";
-waves_update_method_DIRK2 = "DIRK2";
 waves_update_method_poisson_phi = "poisson_phi";
 
 waves_update_method_pure_FFT = "pure_fft";
