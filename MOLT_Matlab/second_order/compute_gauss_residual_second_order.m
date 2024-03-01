@@ -69,7 +69,7 @@ ddt2_phi = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2))/(dt^2);
 % avg_psi = (psi(:,:,end) + psi(:,:,end-2))/2;
 
 % laplacian_avg_phi_FFT = compute_Laplacian_FFT(avg_psi,kx_deriv_2,ky_deriv_2);
-laplacian_avg_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
+laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
 
 LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
 
