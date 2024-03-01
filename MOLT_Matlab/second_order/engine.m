@@ -68,10 +68,12 @@ while(steps < N_steps)
         J_rho_update_fft;
     elseif J_rho_update_method == J_rho_update_method_DIRK2
         J_rho_update_DIRK2;
+    elseif J_rho_update_method == J_rho_update_method_FD2
+        J_rho_update_FD2;
+    elseif J_rho_update_method == J_rho_update_method_FD4
+        J_rho_update_FD4;
     elseif J_rho_update_method == J_rho_update_method_FD6
         J_rho_update_FD6;
-    elseif J_rho_update_method == J_rho_update_method_DIRK2
-        J_rho_update_DIRK2;
     else
         ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
         throw(ME);
@@ -110,14 +112,16 @@ while(steps < N_steps)
         update_waves_hybrid_FFT_second_order;
     elseif waves_update_method == waves_update_method_DIRK2
         update_waves_hybrid_DIRK2;
+    elseif waves_update_method == waves_update_method_FD2
+        update_waves_hybrid_FD2_second_order;
+    elseif waves_update_method == waves_update_method_FD4
+        update_waves_hybrid_FD4_second_order;
     elseif waves_update_method == waves_update_method_FD6
         update_waves_hybrid_FD6_second_order;
     elseif waves_update_method == waves_update_method_poisson_phi
         update_waves_poisson_phi_second_order;
     elseif waves_update_method == waves_update_method_pure_FFT
         update_waves_pure_FFT_second_order;
-    elseif waves_update_method == waves_update_method_DIRK2
-        update_waves_DIRK2;
     else
         ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
         throw(ME);
@@ -161,17 +165,35 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5. Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
-    
+
     % Compute the time derivative of psi using finite differences
     ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
 
+    b1 = 1/2;
+    b2 = 1/2;
+
+    c1 = 1/4;
+    c2 = 3/4;
+
+    div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
+    div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
+
+    div_A_1 = (1-c1)*div_A_prev + c1*div_A_curr;
+    div_A_2 = (1-c2)*div_A_prev + c2*div_A_curr;
+
+    phi_1 = -div_A_1;
+    phi_2 = -div_A_2;
+
 %     ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1)) / 2;
 %     ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1)) / 2;
-    
+
     % Compute the residual in the Lorenz gauge 
 %     gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) + ddx_A1_ave(:,:,end) + ddy_A2_ave(:,:,end);
-    gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) + ddx_A1(:,:,end) + ddy_A2(:,:,end);
-    
+    % gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) + ddx_A1(:,:,end) + ddy_A2(:,:,end);
+    % gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) + ddx_A1(:,:,end) + ddy_A2(:,:,end);
+    % gauge_residual(:,:) = (1/kappa^2)*ddt_psi(:,:,end) - (b1*phi_1 + b2*phi_2);
+    gauge_residual(:,:) = (1/kappa^2)*ddt_psi - (b1*phi_1 + b2*phi_2);
+
     gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(:,:), ...
                                             zeros(size(gauge_residual(:,:))), ...
                                             dx*dy);
@@ -282,10 +304,10 @@ subplot(1,2,2);
 plot(ts,gauge_error_L2)
 title("Gauge Error",'FontSize',32);
 
-quarter_len = floor(length(ts) / 4);
-
-axes('Position',[.7 .6 .2 .2]);
-plot(ts(quarter_len:end),gauge_error_L2(quarter_len:end));
+% quarter_len = floor(length(ts) / 4);
+% 
+% axes('Position',[.7 .6 .2 .2]);
+% plot(ts(quarter_len:end),gauge_error_L2(quarter_len:end));
 
 sgtitle(update_method_title + " " + tag,'FontSize',48);
 

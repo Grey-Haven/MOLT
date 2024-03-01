@@ -14,11 +14,6 @@
 %     | 1/2  1/2
 %
 %%
-
-function [u_next,v_next] = DIRK2_advance_per(u, v, src_data, c, h, kx_deriv_2, ky_deriv_2)
-    
-    % Assuming the source function from S^{n} to S^{n+1} is a linear
-    % update, we have S^{n+a} = (1-a)S^{n} + aS^{n+1}.
 function [u_next, v_next] = DIRK2_advance_per(u, v, src, c, h, kx_deriv_2, ky_deriv_2)
 
     a11 = 1/4;
@@ -38,8 +33,7 @@ function [u_next, v_next] = DIRK2_advance_per(u, v, src, c, h, kx_deriv_2, ky_de
     S_prev = src(:,:,1);
     S_curr = src(:,:,2);
 
-    % f^{n+c} = (1-c)f^{n} + cf^{n+1}, c in [0,1]
-
+    % f^{n+c} = (1-c)f^{n} + cf^{n+1}, c in [0,1], assuming f is linear
     S_1 = (1-c1)*S_prev + c1*S_curr;
     S_2 = (1-c2)*S_prev + c2*S_curr;
 
