@@ -200,6 +200,7 @@ psi = zeros(N_y, N_x, N_h);
 ddx_psi = zeros(N_y, N_x, N_h);
 ddy_psi = zeros(N_y, N_x, N_h);
 psi_src = zeros(N_y, N_x);
+psi_src_hist = zeros([N_y,N_x,2]);
 psi_A = zeros(N_y, N_x);
 psi_C = zeros(N_y, N_x);
 
@@ -207,11 +208,13 @@ A1 = zeros(N_y, N_x, N_h);
 ddx_A1 = zeros(N_y, N_x, N_h);
 ddy_A1 = zeros(N_y, N_x, N_h);
 A1_src = zeros(N_y, N_x);
+A1_src_hist = zeros([N_y,N_x,2]);
 
 A2 = zeros(N_y, N_x, N_h);
 ddx_A2 = zeros(N_y, N_x, N_h);
 ddy_A2 = zeros(N_y, N_x, N_h);
 A2_src = zeros(N_y, N_x);
+A2_src_hist = zeros([N_y,N_x,2]);
 
 % Other data needed for the evaluation of 
 % the gauge and Gauss' law
