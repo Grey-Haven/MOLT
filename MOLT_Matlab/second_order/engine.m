@@ -33,8 +33,9 @@ while(steps < N_steps)
             save_csvs;
         end
         if (enable_plots)
-            create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
-                         gauge_residual, gauss_law_gauge_res, ...
+            create_plots(x, y, psi, A1, A2, ...
+                         rho_mesh(:,:,end), J1_mesh(:,:,end), J2_mesh(:,:,end), ...
+                         gauge_residual, gauss_residual, ...
                          x1_elec_old, x2_elec_old, t_n, ...
                          update_method_title, tag, vidObj);
         end
@@ -65,6 +66,8 @@ while(steps < N_steps)
         J_rho_update_vanilla;
     elseif J_rho_update_method == J_rho_update_method_FFT
         J_rho_update_fft;
+    elseif J_rho_update_method == J_rho_update_method_DIRK2
+        J_rho_update_DIRK2;
     elseif J_rho_update_method == J_rho_update_method_FD6
         J_rho_update_FD6;
     elseif J_rho_update_method == J_rho_update_method_DIRK2
@@ -86,13 +89,17 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
     %---------------------------------------------------------------------
-    psi_src_prev = psi_src;
-    A1_src_prev  = A1_src;
-    A2_src_prev  = A2_src;
+    psi_src_hist(:,:,1) = psi_src;
+    A1_src_hist(:,:,1)  = A1_src;
+    A2_src_hist(:,:,1)  = A2_src;
 
-    psi_src(:,:) = (1/sigma_1)*(rho_mesh(:,:,end));
-    A1_src(:,:)  =     sigma_2*(J1_mesh(:,:,end));
-    A2_src(:,:)  =     sigma_2*(J2_mesh(:,:,end));
+    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:,end);
+    A1_src(:,:)  =     sigma_2*J1_mesh(:,:,end);
+    A2_src(:,:)  =     sigma_2*J2_mesh(:,:,end);
+
+    psi_src_hist(:,:,2) = psi_src;
+    A1_src_hist(:,:,2)  = A1_src;
+    A2_src_hist(:,:,2)  = A2_src;
 
     %---------------------------------------------------------------------
     % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
@@ -101,6 +108,8 @@ while(steps < N_steps)
         update_waves_vanilla_second_order;
     elseif waves_update_method == waves_update_method_FFT
         update_waves_hybrid_FFT_second_order;
+    elseif waves_update_method == waves_update_method_DIRK2
+        update_waves_hybrid_DIRK2;
     elseif waves_update_method == waves_update_method_FD6
         update_waves_hybrid_FD6_second_order;
     elseif waves_update_method == waves_update_method_poisson_phi
@@ -136,14 +145,14 @@ while(steps < N_steps)
     % Fields are taken implicitly and we use the "lagged" velocity
     %
     % This will give us new momenta and velocities for the next step
-    ddx_psi_ave = (ddx_psi(:,:,end) + ddx_psi(:,:,end-1))/2;
-    ddy_psi_ave = (ddy_psi(:,:,end) + ddy_psi(:,:,end-1))/2;
+%     ddx_psi_ave = (ddx_psi(:,:,end) + ddx_psi(:,:,end-1))/2;
+%     ddy_psi_ave = (ddy_psi(:,:,end) + ddy_psi(:,:,end-1))/2;
     [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
     improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
                                                     P1_elec_old, P2_elec_old, ...
                                                     v1_elec_old, v2_elec_old, ...
                                                     v1_elec_nm1, v2_elec_nm1, ...
-                                                    ddx_psi_ave, ddy_psi_ave, ...
+                                                    ddx_psi(:,:,end), ddy_psi(:,:,end), ...
                                                     A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
                                                     A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
                                                     x, y, dx, dy, q_elec, r_elec, ...
@@ -238,7 +247,8 @@ if (write_csvs)
     save_csvs;
 end
 if enable_plots
-    create_plots(x, y, psi, A1, A2, rho_mesh(:,:,end), ...
+    create_plots(x, y, psi, A1, A2, ...
+                 rho_mesh(:,:,end), J1_mesh(:,:,end), J2_mesh(:,:,end), ...
                  gauge_residual, gauss_residual, ...
                  x1_elec_new, x2_elec_new, t_n, ...
                  update_method_title, tag, vidObj);
@@ -262,9 +272,6 @@ semilogy(ts,gauss_error_array(:,4))
 semilogy(ts,gauss_error_array(:,6))
 hold off;
 
-% potential_label = "$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
-% gauge_label = "$-\frac{\nabla\cdot\textbf{A}^{n+\frac{1}{2}} - \nabla\cdot\textbf{A}^{n-\frac{1}{2}}}{\Delta t} - \Delta \left(\phi^{n+1} + \phi^{n-1}\right) - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
-% field_label = "$\nabla\cdot\textbf{E}^{n+1} - \frac{1}{\sigma_1}\frac{\rho^{n+1} + \rho^{n-1}}{2}$";
 potential_label = "$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$";
 gauge_label = "$-\frac{\nabla\cdot\textbf{A}^{n+1} - \nabla\cdot\textbf{A}^{n}}{\Delta t} - \Delta \phi^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$";
 field_label = "$\nabla\cdot\textbf{E}^{n+1} - \frac{\rho^{n+1}}{\sigma_1}$";

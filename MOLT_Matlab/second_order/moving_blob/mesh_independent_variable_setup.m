@@ -72,4 +72,4 @@ beta_BDF = 1;
 % Set for the second-order method
 beta_CDF2 = sqrt(2);
 
-T_final = .5;
+T_final = 5;
