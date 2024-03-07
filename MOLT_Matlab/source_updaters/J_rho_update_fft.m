@@ -28,7 +28,23 @@ J2_star_deriv = ifft(sqrt(-1)*ky_deriv_1'.*J2_star_FFTy,N_y-1,1);
 % J1_deriv_clean(1:end-1,1:end-1) = J1_star_deriv;
 % J2_deriv_clean(1:end-1,1:end-1) = J2_star_deriv;
 
-rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end) - dt*(J1_star_deriv + J2_star_deriv);
+if J_rho_update_method == J_rho_update_method_BDF1_FFT
+    rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end-1) - dt*(J1_star_deriv + J2_star_deriv);
+elseif J_rho_update_method == J_rho_update_method_BDF2_FFT
+    rho_mesh(1:end-1,1:end-1,end) = 4/3*rho_mesh(1:end-1,1:end-1,end-1) - 1/3*rho_mesh(1:end-1,1:end-1,end-2) - ((2/3)*dt)*(J1_star_deriv + J2_star_deriv);
+elseif J_rho_update_method == J_rho_update_method_BDF3_FFT
+    rho_mesh(1:end-1,1:end-1,end) = 18/11*rho_mesh(1:end-1,1:end-1,end-1) - 9/11*rho_mesh(1:end-1,1:end-1,end-2) + 2/11*rho_mesh(1:end-1,1:end-1,end-3) - ((6/11)*dt)*(J1_star_deriv + J2_star_deriv);
+elseif J_rho_update_method == J_rho_update_method_BDF4_FFT
+    rho_mesh(1:end-1,1:end-1,end) = 48/25*rho_mesh(1:end-1,1:end-1,end-1) - 36/25*rho_mesh(1:end-1,1:end-1,end-2) + 16/25*rho_mesh(1:end-1,1:end-1,end-3) - 3/25*rho_mesh(1:end-1,1:end-1,end-4) - ((12/25)*dt)*(J1_star_deriv + J2_star_deriv);
+else
+    ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
+    throw(ME);
+end
+% rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end-1) - dt*(J1_star_deriv + J2_star_deriv);
+% rho_mesh(1:end-1,1:end-1,end) = 4/3*rho_mesh(1:end-1,1:end-1,end-1) - 1/3*rho_mesh(1:end-1,1:end-1,end-2) - ((2/3)*dt)*(J1_star_deriv + J2_star_deriv);
+% rho_mesh(1:end-1,1:end-1,end) = 18/11*rho_mesh(1:end-1,1:end-1,end-1) - 9/11*rho_mesh(1:end-1,1:end-1,end-2) + 2/11*rho_mesh(1:end-1,1:end-1,end-3) - ((6/11)*dt)*(J1_star_deriv + J2_star_deriv);
+% rho_mesh(1:end-1,1:end-1,end) = 48/25*rho_mesh(1:end-1,1:end-1,end-1) - 36/25*rho_mesh(1:end-1,1:end-1,end-2) + 16/25*rho_mesh(1:end-1,1:end-1,end-3) - 3/25*rho_mesh(1:end-1,1:end-1,end-4) - ((12/25)*dt)*(J1_star_deriv + J2_star_deriv);
+
 rho_mesh(:,:,end) = copy_periodic_boundaries(rho_mesh(:,:,end));
 
 J1_mesh(1:end-1,1:end-1,end) = J1_star;
