@@ -2,21 +2,25 @@
 % 5.2.1. Advance the waves
 %---------------------------------------------------------------------
 
-ddt_psi = (psi(:,:,end-1) - psi(:,:,end-2)) / dt;
-ddt_A1  = (A1(:,:,end-1)  - A1(:,:,end-2) ) / dt;
-ddt_A2  = (A2(:,:,end-1)  - A2(:,:,end-2) ) / dt;
+ddt_psi_curr = (psi(:,:,end-1) - psi(:,:,end-2)) / dt;
+ddt_A1_curr  = (A1(:,:,end-1)  - A1(:,:,end-2))  / dt;
+ddt_A2_curr  = (A2(:,:,end-1)  - A2(:,:,end-2))  / dt;
 
 psi_curr = psi(:,:,end-1);
 A1_curr  = A1(:,:,end-1);
 A2_curr  = A2(:,:,end-1);
 
-[psi_next, ddt_psi_next] = DIRK2_advance_per(psi_curr, ddt_psi, psi_src_hist, kappa, dt, kx_deriv_2, ky_deriv_2);
-[A1_next , ddt_A1_next ] = DIRK2_advance_per(A1_curr , ddt_A1,  A1_src_hist , kappa, dt, kx_deriv_2, ky_deriv_2);
-[A2_next , ddt_A2_next ] = DIRK2_advance_per(A2_curr , ddt_A2,  A2_src_hist , kappa, dt, kx_deriv_2, ky_deriv_2);
+[psi_next, ddt_psi_next] = DIRK2_advance_per(psi_curr, ddt_psi_curr, psi_src_hist, kappa, dt, kx_deriv_2, ky_deriv_2);
+[A1_next , ddt_A1_next ] = DIRK2_advance_per(A1_curr , ddt_A1_curr , A1_src_hist , kappa, dt, kx_deriv_2, ky_deriv_2);
+[A2_next , ddt_A2_next ] = DIRK2_advance_per(A2_curr , ddt_A2_curr , A2_src_hist , kappa, dt, kx_deriv_2, ky_deriv_2);
 
 psi(:,:,end) = psi_next;
 A1(:,:,end)  = A1_next;
 A2(:,:,end)  = A2_next;
+
+ddt_psi_hist(:,:,end) = ddt_psi_next;
+ddt_A1_hist(:,:,end)  = ddt_A1_next;
+ddt_A2_hist(:,:,end)  = ddt_A2_next;
 
 %---------------------------------------------------------------------
 % 5.2.1. Compute their derivatives using the FFT

@@ -218,9 +218,12 @@ A2_src_hist = zeros([N_y,N_x,2]);
 
 % Other data needed for the evaluation of 
 % the gauge and Gauss' law
-ddt_psi = zeros(N_y,N_x);
-ddt_A1 = zeros(N_y,N_x);
-ddt_A2 = zeros(N_y,N_x);
+ddt_psi_hist = zeros(N_y,N_x,N_h);
+ddt_A1_hist = zeros(N_y,N_x,N_h);
+ddt_A2_hist = zeros(N_y,N_x,N_h);
+
+div_A_prev = zeros(N_y,N_x);
+div_A_curr = zeros(N_y,N_x);
 
 E1 = zeros(N_y,N_x);
 E2 = zeros(N_y,N_x);

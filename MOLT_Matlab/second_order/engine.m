@@ -33,9 +33,9 @@ while(steps < N_steps)
             save_csvs;
         end
         if (enable_plots)
-            create_plots(x, y, double(psi), double(A1), double(A2), ...
-                         double(rho_mesh(:,:,end)), double(J1_mesh(:,:,end)), double(J2_mesh(:,:,end)), ...
-                         double(gauge_residual), double(gauss_residual), ...
+            create_plots(x, y, psi, A1, A2, ...
+                         rho_mesh(:,:,end), J1_mesh(:,:,end), J2_mesh(:,:,end), ...
+                         gauge_residual, gauss_residual, ...
                          x1_elec_old, x2_elec_old, t_n, ...
                          update_method_title, tag, vidObj);
         end
@@ -64,7 +64,7 @@ while(steps < N_steps)
 
     if J_rho_update_method == J_rho_update_method_vanilla
         J_rho_update_vanilla;
-    elseif ismember(J_rho_update_method, J_rho_BDF_Family)
+    elseif ismember(J_rho_update_method, J_rho_BDF_FFT_Family)
         J_rho_update_fft;
     elseif J_rho_update_method == J_rho_update_method_DIRK2
         J_rho_update_DIRK2;
@@ -108,19 +108,20 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     if waves_update_method == waves_update_method_vanilla
         update_waves_vanilla_second_order;
-    elseif ismember(waves_update_method, waves_BDF_Family)
-        if waves_update_method == waves_update_method_BDF1_FFT
-            update_waves_hybrid_FFT;
-        elseif waves_update_method == waves_update_method_BDF2_FFT
-            update_waves_hybrid_FFT_BDF2;
-        elseif waves_update_method == waves_update_method_BDF3_FFT
-            update_waves_hybrid_FFT_BDF3;
-        elseif waves_update_method == waves_update_method_BDF4_FFT
-            update_waves_hybrid_FFT_BDF4;
-        else
-            ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
-            throw(ME);
-        end
+    elseif ismember(waves_update_method, waves_BDF_FFT_Family)
+        % if waves_update_method == waves_update_method_BDF1_FFT
+        %     update_waves_hybrid_FFT;
+        % elseif waves_update_method == waves_update_method_BDF2_FFT
+        %     update_waves_hybrid_FFT_BDF2;
+        % elseif waves_update_method == waves_update_method_BDF3_FFT
+        %     update_waves_hybrid_FFT_BDF3;
+        % elseif waves_update_method == waves_update_method_BDF4_FFT
+        %     update_waves_hybrid_FFT_BDF4;
+        % else
+        %     ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
+        %     throw(ME);
+        % end
+        update_waves_pure_FFT_second_order;
     elseif waves_update_method == waves_update_method_DIRK2
         update_waves_hybrid_DIRK2;
     elseif waves_update_method == waves_update_method_FD2
@@ -212,7 +213,7 @@ while(steps < N_steps)
 %     ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1)) / 2;
 %     ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1)) / 2;
 
-    if ismember(J_rho_update_method, J_rho_BDF_Family)
+    if ismember(J_rho_update_method, J_rho_BDF_FFT_Family)
         if J_rho_update_method == J_rho_update_method_BDF1_FFT
             % ddt_psi = (psi(:,:,end) - psi(:,:,end-1))/dt;
             ddt_psi(:,:) = BDF1_d(psi,dt);

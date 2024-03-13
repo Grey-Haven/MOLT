@@ -43,7 +43,7 @@ E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
 if ismember(waves_update_method, [waves_update_method_vanilla, waves_update_method_FD2])
     ddx_E1 = compute_ddx_FD(E1, dx);
     ddy_E2 = compute_ddy_FD(E2, dy);
-elseif ismember(waves_update_method, [waves_BDF_Family, waves_update_method_FFT, waves_update_method_DIRK2])
+elseif ismember(waves_update_method, [waves_BDF_FFT_Family, waves_update_method_FFT, waves_update_method_DIRK2])
     ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
     ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
 elseif waves_update_method == waves_update_method_FD4
@@ -99,13 +99,7 @@ if waves_update_method == waves_update_method_DIRK2
 
     div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
     div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-    div_A_nm1  = ddx_A1(:,:,end-2) + ddy_A2(:,:,end-2);
-    % ddt_div_A = (div_A_curr - div_A_prev)/dt;
-    
-    % ddx_ddt_A1 = compute_ddx_FFT(ddt_A1_hist(:,:,end), kx_deriv_1);
-    % ddy_ddt_A2 = compute_ddx_FFT(ddt_A2_hist(:,:,end), ky_deriv_1);
-    % 
-    % ddt_div_A = ddx_ddt_A1 + ddy_ddt_A2;
+    % div_A_nm1  = ddx_A1(:,:,end-2) + ddy_A2(:,:,end-2);
     
     div_A_curr_1 = (1-c1)*div_A_prev + c1*div_A_curr;
     div_A_curr_2 = (1-c2)*div_A_prev + c2*div_A_curr;
@@ -124,28 +118,22 @@ if waves_update_method == waves_update_method_DIRK2
 
 else
     % METHOD 2:
-    if waves_update_method == waves_update_method_BDF1_FFT
-        ddt2_phi = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2))/(dt^2);
-        % ddt2_phi = (psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2));
+    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
+        ddt2_phi = BDF1_d2(psi, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT
-        ddt2_phi = (psi(:,:,end) - 8/3*psi(:,:,end-1) + 22/9*psi(:,:,end-2) - 8/9*psi(:,:,end-3) + 1/9*psi(:,:,end-4))/((2/3)*dt)^2;
-        % ddt2_phi = (psi(:,:,end) - 8/3*psi(:,:,end-1) + 22/9*psi(:,:,end-2) - 8/9*psi(:,:,end-3) + 1/9*psi(:,:,end-4));
+        ddt2_phi = BDF2_d2(psi, dt);
     else
         ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
         throw(ME);
     end
     
     % METHOD 3:
-    div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
-    div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-    div_A_nm1  = ddx_A1(:,:,end-2) + ddy_A2(:,:,end-2);
+    div_A_hist = ddx_A1 + ddy_A2;
 
-    if waves_update_method == waves_update_method_BDF1_FFT
-        ddt_div_A = (div_A_curr - div_A_prev) / dt;
-        % ddt_div_A = (div_A_curr - div_A_prev);
+    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
+        ddt_div_A = BDF1_d(div_A_hist, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT
-        ddt_div_A = (div_A_curr - 4/3*div_A_prev + 1/3*div_A_nm1) / ((2/3) * dt);
-        % ddt_div_A = (div_A_curr - 4/3*div_A_prev + 1/3*div_A_nm1);
+        ddt_div_A = BDF2_d(div_A_hist, dt);
     else
         ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
         throw(ME);
@@ -154,21 +142,14 @@ else
     laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
 
     LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
-    % LHS_potential = ddt2_phi - ((2/3)*kappa*dt)^2*laplacian_phi_FFT;
-
-    % ddt_gauge = (1/kappa^2)*ddt2_psi + ddt_div_A;
-
-    % ddt_div_A = (div_A_curr - div_A_prev) / dt;
-    % ddt_div_A = (div_A_curr - 4/3*div_A_prev + 1/3*div_A_nm1) / ((2/3) * dt);
 
     LHS_gauge = -ddt_div_A - laplacian_phi_FFT;
-    % LHS_gauge = -ddt_div_A - ((2/3)*dt)*laplacian_phi_FFT;
 
     RHS = rho_mesh(:,:,end) / sigma_1;
 
     % Compute all residuals
-    gauss_law_potential_res = LHS_potential - ((2/3)*kappa*dt)^2*RHS;
-    gauss_law_gauge_res     = LHS_gauge     - ((2/3)*dt)*RHS;
+    gauss_law_potential_res = LHS_potential - RHS;
+    gauss_law_gauge_res     = LHS_gauge     - RHS;
     gauss_law_field_res     = div_E         - RHS;
 
 end

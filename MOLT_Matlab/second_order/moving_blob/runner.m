@@ -5,6 +5,7 @@ addpath(genpath([fileparts(pwd), '/../../utility_functions']));
 addpath(genpath([fileparts(pwd), '/../../source_updaters']));
 addpath(genpath([fileparts(pwd), '/../../derivatives']));
 addpath(genpath([fileparts(pwd), '/../wave_solvers']));
+% addpath(genpath([fileparts(pwd), '/../']));
 
 set(0,'defaulttextinterpreter','latex')
 set(0,'DefaultTextFontname', 'cmss')
@@ -35,6 +36,10 @@ J_rho_update_method_FD6 = "FD6";
 
 waves_update_method_vanilla = "vanilla";
 waves_update_method_FFT = "NA";
+waves_update_method_BDF1_MOLT_Hybrid = "BDF1-MOLT";
+waves_update_method_BDF2_MOLT_Hybrid = "BDF2-MOLT";
+waves_update_method_BDF3_MOLT_Hybrid = "BDF3-MOLT";
+waves_update_method_BDF4_MOLT_Hybrid = "BDF4-MOLT";
 waves_update_method_BDF1_FFT = "BDF1-FFT";
 waves_update_method_BDF2_FFT = "BDF2-FFT";
 waves_update_method_BDF3_FFT = "BDF3-FFT";
@@ -62,8 +67,11 @@ run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 
 run_type_DIRK2_ng = "DIRK_FFT_deriv_no_gauge_cleaning";
 
-J_rho_BDF_Family = [J_rho_update_method_BDF1_FFT, J_rho_update_method_BDF2_FFT, J_rho_update_method_BDF3_FFT, J_rho_update_method_BDF4_FFT];
-waves_BDF_Family = [waves_update_method_BDF1_FFT, waves_update_method_BDF2_FFT, waves_update_method_BDF3_FFT, waves_update_method_BDF4_FFT];
+J_rho_BDF_FFT_Family = [J_rho_update_method_BDF1_FFT, J_rho_update_method_BDF2_FFT, J_rho_update_method_BDF3_FFT, J_rho_update_method_BDF4_FFT];
+waves_BDF_FFT_Family = [waves_update_method_BDF1_FFT, waves_update_method_BDF2_FFT, waves_update_method_BDF3_FFT, waves_update_method_BDF4_FFT];
+
+% MOLT for the wave, FFT for the derivatives
+waves_BDF_Hybrid_Family = [waves_update_method_BDF1_MOLT_Hybrid, waves_update_method_BDF2_MOLT_Hybrid, waves_update_method_BDF3_MOLT_Hybrid, waves_update_method_BDF4_MOLT_Hybrid];
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
