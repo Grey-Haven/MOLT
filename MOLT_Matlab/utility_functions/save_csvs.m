@@ -1,4 +1,4 @@
-writeCsvFiles(psi,A1,A2,J1_mesh,J2_mesh,ddx_A1,ddy_A2,ddt_psi,x1_elec_new,x2_elec_new,v1_elec_new,v2_elec_new,x,y,steps,csvPath);
+writeCsvFiles(psi,A1,A2,J1_mesh,J2_mesh,ddx_A1,ddy_A2,ddt_psi,x1_elec_hist(:,end),x2_elec_hist(:,end),v1_elec_hist(:,end),v2_elec_hist(:,end),x,y,steps,csvPath);
 
 function writeCsvFiles(psi,A1,A2,J1,J2,ddx_A1,ddy_A2,ddt_psi,p_x,p_y,p_vx,p_vy,x,y,s,csv_path)
     

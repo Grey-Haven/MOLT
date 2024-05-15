@@ -36,6 +36,20 @@ elseif J_rho_update_method == J_rho_update_method_BDF3_FFT
     rho_mesh(1:end-1,1:end-1,end) = 18/11*rho_mesh(1:end-1,1:end-1,end-1) - 9/11*rho_mesh(1:end-1,1:end-1,end-2) + 2/11*rho_mesh(1:end-1,1:end-1,end-3) - ((6/11)*dt)*(J1_star_deriv + J2_star_deriv);
 elseif J_rho_update_method == J_rho_update_method_BDF4_FFT
     rho_mesh(1:end-1,1:end-1,end) = 48/25*rho_mesh(1:end-1,1:end-1,end-1) - 36/25*rho_mesh(1:end-1,1:end-1,end-2) + 16/25*rho_mesh(1:end-1,1:end-1,end-3) - 3/25*rho_mesh(1:end-1,1:end-1,end-4) - ((12/25)*dt)*(J1_star_deriv + J2_star_deriv);
+elseif J_rho_update_method == J_rho_update_method_CDF1_FFT
+
+    J1_nm1 = J1_mesh(1:end-1,1:end-1,end-2);
+    J2_nm1 = J2_mesh(1:end-1,1:end-1,end-2);
+
+    J1_nm1_deriv = ifft(sqrt(-1)*kx_deriv_1 .*fft(J1_nm1,N_x-1,2),N_x-1,2);
+    J2_nm1_deriv = ifft(sqrt(-1)*ky_deriv_1'.*fft(J2_nm1,N_y-1,1),N_y-1,1);
+
+    div_J_nm1  = J1_nm1_deriv + J2_nm1_deriv;
+    div_J_curr = J1_star_deriv + J2_star_deriv;
+
+    div_J_ave = (div_J_nm1 + div_J_curr) / 2;
+
+    rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end-1) - dt*div_J_ave;
 else
     ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
     throw(ME);

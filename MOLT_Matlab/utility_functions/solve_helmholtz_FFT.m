@@ -20,4 +20,15 @@ function u = solve_helmholtz_FFT(RHS, alpha, kx_deriv_2, ky_deriv_2)
     u = zeros(N_y,N_x);
     u(1:end-1,1:end-1) = ifft(u_inner_y, N_y-1, 1);
     u = copy_periodic_boundaries(u);
+    
+    imaginary_component_u = imag(u);
+
+    imag_u_inf_norm = max(max(abs(imaginary_component_u)));
+
+    if (imag_u_inf_norm < 1e-12)
+        u = real(u);
+    else
+        ME = MException('HelmholtzSolverException','Imaginary component above machine precision');
+        throw(ME);
+    end
 end

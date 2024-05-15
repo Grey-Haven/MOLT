@@ -1,29 +1,37 @@
 %---------------------------------------------------------------------
 % 5.2.1. Advance the waves
 %---------------------------------------------------------------------
-
-
 if waves_update_method == waves_update_method_BDF1_FFT
 
     alpha = beta_BDF1/(kappa*dt);
-    psi_source_with_prev = BDF1_d2_update(psi(:,:,1:end-1), psi_src, alpha);
-    A1_source_with_prev  = BDF1_d2_update(A1(:,:,1:end-1), A1_src, alpha);
-    A2_source_with_prev  = BDF1_d2_update(A2(:,:,1:end-1), A2_src, alpha);
+    psi_source_with_prev = BDF1_d2_update(psi(:,:,1:end-1), psi_src_hist(:,:,end), alpha);
+    A1_source_with_prev  = BDF1_d2_update(A1(:,:,1:end-1), A1_src_hist(:,:,end), alpha);
+    A2_source_with_prev  = BDF1_d2_update(A2(:,:,1:end-1), A2_src_hist(:,:,end), alpha);
 
 elseif waves_update_method == waves_update_method_BDF2_FFT
 
     alpha = beta_BDF2/(kappa*dt);
-    psi_source_with_prev = BDF2_d2_update(psi(:,:,1:end-1), psi_src, alpha);
-    A1_source_with_prev  = BDF2_d2_update(A1(:,:,1:end-1), A1_src, alpha);
-    A2_source_with_prev  = BDF2_d2_update(A2(:,:,1:end-1), A2_src, alpha);
+    psi_source_with_prev = BDF2_d2_update(psi(:,:,1:end-1), psi_src_hist(:,:,end), alpha);
+    A1_source_with_prev  = BDF2_d2_update(A1(:,:,1:end-1), A1_src_hist(:,:,end), alpha);
+    A2_source_with_prev  = BDF2_d2_update(A2(:,:,1:end-1), A2_src_hist(:,:,end), alpha);
 
 elseif waves_update_method == waves_update_method_BDF3_FFT
 
     alpha = beta_BDF3/(kappa*dt);
-    psi_source_with_prev = BDF3_d2_update(psi(:,:,1:end-1), psi_src, alpha);
-    A1_source_with_prev  = BDF3_d2_update(A1(:,:,1:end-1), A1_src, alpha);
-    A2_source_with_prev  = BDF3_d2_update(A2(:,:,1:end-1), A2_src, alpha);
+    psi_source_with_prev = BDF3_d2_update(psi(:,:,1:end-1), psi_src_hist(:,:,end), alpha);
+    A1_source_with_prev  = BDF3_d2_update(A1(:,:,1:end-1), A1_src_hist(:,:,end), alpha);
+    A2_source_with_prev  = BDF3_d2_update(A2(:,:,1:end-1), A2_src_hist(:,:,end), alpha);
 
+elseif waves_update_method == waves_update_method_CDF1_FFT
+    a = 1/(kappa*dt);
+    alpha = beta_CDF1/a;
+    laplacian_psi_prev = compute_Laplacian_FFT(psi(:,:,end-2), kx_deriv_2, ky_deriv_2);
+    laplacian_A1_prev  = compute_Laplacian_FFT(A1(:,:,end-2) , kx_deriv_2, ky_deriv_2);
+    laplacian_A2_prev  = compute_Laplacian_FFT(A2(:,:,end-2) , kx_deriv_2, ky_deriv_2);
+
+    psi_source_with_prev = 1/a^2 * ((rho_mesh(:,:,end) + rho_mesh(:,:,end-1))/(2*sigma_1) + 1/2*laplacian_psi_prev + 2*psi(:,:,end-1) - psi(:,:,end-2));
+    A1_source_with_prev  = 1/a^2 * (sigma_2*(J1_mesh(:,:,end) + J1_mesh(:,:,end-1))/2 + 1/2*laplacian_A1_prev + 2*A1(:,:,end-1) - A1(:,:,end-2));
+    A2_source_with_prev  = 1/a^2 * (sigma_2*(J2_mesh(:,:,end) + J2_mesh(:,:,end-1))/2 + 1/2*laplacian_A2_prev + 2*A2(:,:,end-1) - A2(:,:,end-2));
 else
     ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
     throw(ME);

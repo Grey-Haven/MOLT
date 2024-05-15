@@ -11,9 +11,8 @@ set(0,'defaulttextinterpreter','latex')
 set(0,'DefaultTextFontname', 'cmss')
 set(0,'DefaultAxesFontName', 'cmss')
 
-grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
+grid_refinement = [192]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
-particle_count_multipliers = [10];
 
 debug = true;
 
@@ -29,6 +28,7 @@ J_rho_update_method_BDF1_FFT = "BDF1-FFT";
 J_rho_update_method_BDF2_FFT = "BDF2-FFT";
 J_rho_update_method_BDF3_FFT = "BDF3-FFT";
 J_rho_update_method_BDF4_FFT = "BDF4-FFT";
+J_rho_update_method_CDF1_FFT = "CDF1-FFT";
 J_rho_update_method_DIRK2 = "DIRK2";
 J_rho_update_method_FD2 = "FD2";
 J_rho_update_method_FD4 = "FD4";
@@ -44,6 +44,7 @@ waves_update_method_BDF1_FFT = "BDF1-FFT";
 waves_update_method_BDF2_FFT = "BDF2-FFT";
 waves_update_method_BDF3_FFT = "BDF3-FFT";
 waves_update_method_BDF4_FFT = "BDF4-FFT";
+waves_update_method_CDF1_FFT = "CDF1-FFT";
 waves_update_method_DIRK2 = "DIRK2";
 waves_update_method_FD2 = "FD2";
 waves_update_method_FD4 = "FD4";
@@ -60,6 +61,8 @@ run_type_FFT_BDF1_gc = "BDF1_FFT_gauge_cleaning";
 run_type_FFT_BDF2_ng = "BDF2_FFT_no_gauge_cleaning";
 run_type_FFT_BDF2_gc = "BDF2_FFT_gauge_cleaning";
 
+run_type_FFT_CDF1_ng = "CDF1_FFT_no_gauge_cleaning";
+
 run_type_pure_FFT_ng = "pure_FFT_no_gauge_cleaning";
 run_type_pure_FFT_gc = "pure_FFT_gauge_cleaning";
 
@@ -73,7 +76,7 @@ waves_BDF_FFT_Family = [waves_update_method_BDF1_FFT, waves_update_method_BDF2_F
 % MOLT for the wave, FFT for the derivatives
 waves_BDF_Hybrid_Family = [waves_update_method_BDF1_MOLT_Hybrid, waves_update_method_BDF2_MOLT_Hybrid, waves_update_method_BDF3_MOLT_Hybrid, waves_update_method_BDF4_MOLT_Hybrid];
 
-for iter = 1:3
+for iter = 4:4
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
@@ -94,6 +97,8 @@ for iter = 1:3
     elseif iter == 3
         run_type = run_type_DIRK2_ng;
     elseif iter == 4
+        run_type = run_type_CDF1_ng;
+    elseif iter == 5
         run_type = run_type_vanilla_ng;
     end
 
@@ -184,10 +189,19 @@ for iter = 1:3
         waves_update_method = waves_update_method_pure_fft;
     
         gauge_correction = gauge_correction_FFT;
+    elseif run_type == run_type_CDF1_ng
+
+        update_method_title = "Second Order FFT Charge Update, BDF-1 Wave Update, Time Centered, FFT Derivative";
+        update_method_folder = "FFT_charge_CDF1_wave_update_FFT_derivative";
+    
+        J_rho_update_method = J_rho_update_method_CDF1_FFT;
+        waves_update_method = waves_update_method_CDF1_FFT;
+    
+        gauge_correction = gauge_correction_none;
+
     elseif run_type == run_type_DIRK2_ng
     
         update_method_title = "DIRK-2 Wave and Charge Update, FFT Derivatives, No Gauge Correction";
-        % update_method_title = {"DIRK-2 Wave and Charge Update, FFT Derivatives", "No Gauge Correction"};
         update_method_folder = "DIRK2_Charge_Waves_FFT_Derivatives_ng";
     
         J_rho_update_method = J_rho_update_method_DIRK2;
@@ -203,14 +217,12 @@ for iter = 1:3
     
     create_plots = @create_plots_weibel;
     
-    for particle_count_multiplier = particle_count_multipliers
-        for CFL = CFLs
-            for g = grid_refinement
-                close all;
-                variable_setup;
-                % make_vpa;
-                engine;
-            end
+    for CFL = CFLs
+        for g = grid_refinement
+            close all;
+            variable_setup;
+            % make_vpa;
+            engine;
         end
     end
 end

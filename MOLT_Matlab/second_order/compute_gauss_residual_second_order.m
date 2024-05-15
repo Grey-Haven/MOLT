@@ -129,7 +129,7 @@ if waves_update_method == waves_update_method_DIRK2
 
 else
     % METHOD 2:
-    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
+    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT || waves_update_method == waves_update_method_CDF1_FFT
         ddt2_phi = BDF1_d2(psi, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT
         ddt2_phi = BDF2_d2(psi, dt);
@@ -143,7 +143,7 @@ else
     % METHOD 3:
     div_A_hist = ddx_A1 + ddy_A2;
 
-    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
+    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_CDF1_FFT || waves_update_method == waves_update_method_pure_FFT
         ddt_div_A = BDF1_d(div_A_hist, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT
         ddt_div_A = BDF2_d(div_A_hist, dt);

@@ -56,7 +56,7 @@ function ddx = BDF1_ddx_advance_per(v, src_data, x, y, t, ...
 end
 
 function ddy = BDF1_ddy_advance_per(v, src_data, x, y, t, ...
-                                  dx, dy, dt, c, beta)
+                                    dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculates the ddy of the solution to the wave equation using the first-order BDF method. 
     % This function accepts the mesh data v and src_fcn.

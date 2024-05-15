@@ -120,7 +120,7 @@ y = linspace(a_y, b_y, N_y);
 % dt = 5*dx/kappa
 % dt = CFL*dx/(sqrt(2)*kappa);
 % N_steps = ceil(T_final/dt);
-N_steps = 40000;
+N_steps = 50000;
 dt = T_final / N_steps;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -234,6 +234,8 @@ ddy_E2 = zeros(N_y,N_x);
 gauge_residual = zeros(N_y,N_x);
 gauss_residual = zeros(N_y,N_x);
 
+Bz_magnitude_hist = zeros(N_steps,1);
+
 gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
 gauss_law_error = zeros(N_steps,1);
@@ -342,8 +344,8 @@ tag = (length(x)-1) + "x" + (length(y)-1);
 filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
-resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
-              "/CFL_" + CFL + "/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
+resultsPath = projectRoot + "/results/conserving/" + ...
+              "CFL_" + CFL + "/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
 figPath = resultsPath + "figures/";
 csvPath = resultsPath + "csv_files/";
 disp(resultsPath);
@@ -378,13 +380,6 @@ if (write_csvs)
     save_csvs;
 end
 if (enable_plots)
-    figure;
-    x0=200;
-    y0=100;
-    width = 1800;
-    height = 1200;
-    set(gcf,'position',[x0,y0,width,height]);
-
     vidName = "weibel_instability" + ".mp4";
     vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
     open(vidObj);

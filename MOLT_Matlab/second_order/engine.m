@@ -33,7 +33,15 @@ while(steps < N_steps)
             save_csvs;
         end
         if (enable_plots)
-            create_plots(x, y, psi, A1, A2, ...
+
+            ddt_A1  = (A1(:,:,end)  - A1(:,:,end-1))  / dt;
+            ddt_A2  = (A2(:,:,end)  - A2(:,:,end-1))  / dt;
+
+            E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
+            E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
+            B3(:,:) = ddx_A2(:,:,end) - ddy_A1(:,:,end);
+
+            create_plots(x, y, psi, A1, A2, E1, E2, B3, ...
                          rho_mesh(:,:,end), J1_mesh(:,:,end), J2_mesh(:,:,end), ...
                          gauge_residual, gauss_residual, ...
                          x1_elec_old, x2_elec_old, t_n, ...
@@ -91,17 +99,13 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
     %---------------------------------------------------------------------
-    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:,end);
-    A1_src(:,:)  =     sigma_2*J1_mesh(:,:,end);
-    A2_src(:,:)  =     sigma_2*J2_mesh(:,:,end);
-
     psi_src_hist(:,:,end-1) = (1/sigma_1)*rho_mesh(:,:,end-1);
     A1_src_hist(:,:,end-1)  = sigma_2*J1_mesh(:,:,end-1);
     A2_src_hist(:,:,end-1)  = sigma_2*J2_mesh(:,:,end-1);
 
-    psi_src_hist(:,:,end) = psi_src;
-    A1_src_hist(:,:,end)  = A1_src;
-    A2_src_hist(:,:,end)  = A2_src;
+    psi_src_hist(:,:,end) = (1/sigma_1)*rho_mesh(:,:,end);
+    A1_src_hist(:,:,end)  = sigma_2*J1_mesh(:,:,end);
+    A2_src_hist(:,:,end)  = sigma_2*J2_mesh(:,:,end);
 
     %---------------------------------------------------------------------
     % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
@@ -109,18 +113,6 @@ while(steps < N_steps)
     if waves_update_method == waves_update_method_vanilla
         update_waves_vanilla_second_order;
     elseif ismember(waves_update_method, waves_BDF_FFT_Family)
-        % if waves_update_method == waves_update_method_BDF1_FFT
-        %     update_waves_hybrid_FFT;
-        % elseif waves_update_method == waves_update_method_BDF2_FFT
-        %     update_waves_hybrid_FFT_BDF2;
-        % elseif waves_update_method == waves_update_method_BDF3_FFT
-        %     update_waves_hybrid_FFT_BDF3;
-        % elseif waves_update_method == waves_update_method_BDF4_FFT
-        %     update_waves_hybrid_FFT_BDF4;
-        % else
-        %     ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
-        %     throw(ME);
-        % end
         update_waves_pure_FFT_second_order;
     elseif waves_update_method == waves_update_method_DIRK2
         update_waves_hybrid_DIRK2;
@@ -161,86 +153,70 @@ while(steps < N_steps)
     % Fields are taken implicitly and we use the "lagged" velocity
     %
     % This will give us new momenta and velocities for the next step
-%     ddx_psi_ave = (ddx_psi(:,:,end) + ddx_psi(:,:,end-1))/2;
-%     ddy_psi_ave = (ddy_psi(:,:,end) + ddy_psi(:,:,end-1))/2;
-    [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
-    improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
-                                                    P1_elec_old, P2_elec_old, ...
-                                                    v1_elec_old, v2_elec_old, ...
-                                                    v1_elec_nm1, v2_elec_nm1, ...
-                                                    ddx_psi(:,:,end), ddy_psi(:,:,end), ...
-                                                    A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
-                                                    A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
-                                                    x, y, dx, dy, q_elec, r_elec, ...
-                                                    kappa, dt);
+    if waves_update_method == waves_update_method_CDF1_FFT
+        A1_ave = (A1(:,:,end) + A1(:,:,end-1))/2;
+        ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1))/2;
+        ddy_A1_ave = (ddy_A1(:,:,end) + ddy_A1(:,:,end-1))/2;
+        A2_ave = (A1(:,:,end) + A2(:,:,end-1))/2;
+        ddx_A2_ave = (ddx_A2(:,:,end) + ddx_A2(:,:,end-1))/2;
+        ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1))/2;
+        [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
+        improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
+                                                        P1_elec_old, P2_elec_old, ...
+                                                        v1_elec_old, v2_elec_old, ...
+                                                        v1_elec_nm1, v2_elec_nm1, ...
+                                                        ddx_psi(:,:,end), ddy_psi(:,:,end), ...
+                                                        A1_ave, ddx_A1_ave, ddy_A1_ave, ...
+                                                        A2_ave, ddx_A2_ave, ddy_A2_ave, ...
+                                                        x, y, dx, dy, q_elec, r_elec, ...
+                                                        kappa, dt);        
+    else
+        [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
+        improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
+                                                        P1_elec_old, P2_elec_old, ...
+                                                        v1_elec_old, v2_elec_old, ...
+                                                        v1_elec_nm1, v2_elec_nm1, ...
+                                                        ddx_psi(:,:,end), ddy_psi(:,:,end), ...
+                                                        A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
+                                                        A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
+                                                        x, y, dx, dy, q_elec, r_elec, ...
+                                                        kappa, dt);
+    end
 
     %---------------------------------------------------------------------
     % 5. Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
 
-    % Compute the time derivative of psi using finite differences
-    ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
-    ddt2_psi(:,:) = ( psi(:,:,end) - 2*psi(:,:,end-1) + psi(:,:,end-2) ) / dt^2;
-    % 
-    % b1 = 1/2;
-    % b2 = 1/2;
-    % 
-    % c1 = 1/4;
-    % c2 = 3/4;
-
-    % div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
-    % div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-    % div_A_nm1  = ddx_A1(:,:,end-2) + ddy_A2(:,:,end-2);
-    % 
-    % div_A_1 = (1-c1)*div_A_prev + c1*div_A_curr;
-    % div_A_2 = (1-c2)*div_A_prev + c2*div_A_curr;
-    % 
-    % div_A_1_prev = (1-c1)*div_A_nm1 + c1*div_A_prev;
-    % div_A_2_prev = (1-c2)*div_A_nm1 + c2*div_A_prev;
-    % 
-    % phi_1 = -div_A_1;
-    % phi_2 = -div_A_2;
-    % 
-    % phi_1_prev = -div_A_1_prev;
-    % phi_2_prev = -div_A_2_prev;
-    % 
-    % RHS_curr = b1*phi_1 + b2*phi_2;
-    % RHS_prev = b1*phi_1_prev + b2*phi_2_prev;
-    % 
-    % ddt_div_A = (RHS_curr - RHS_prev) / dt;
-    % ddt_gauge = (1/kappa^2)*ddt2_psi - ddt_div_A;
-
-%     ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1)) / 2;
-%     ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1)) / 2;
-
-    if ismember(J_rho_update_method, J_rho_BDF_FFT_Family)
-        if J_rho_update_method == J_rho_update_method_BDF1_FFT
-            % ddt_psi = (psi(:,:,end) - psi(:,:,end-1))/dt;
+    if ismember(waves_update_method, waves_BDF_FFT_Family)
+        if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_CDF1_FFT
             ddt_psi(:,:) = BDF1_d(psi,dt);
-        elseif J_rho_update_method == J_rho_update_method_BDF2_FFT
-            % ddt_psi(:,:) = ( psi(:,:,end) - 4/3*psi(:,:,end-1) + 1/3*psi(:,:,end-2) ) / ((2/3)*dt);
+        elseif waves_update_method == waves_update_method_BDF2_FFT
             ddt_psi(:,:) = BDF2_d(psi,dt);
-        elseif J_rho_update_method == J_rho_update_method_BDF3_FFT
-            % ddt_psi(:,:) = (psi(:,end) - 18/11*psi(:,end-1) + 9/11*psi(:,end-2) - 2/11*psi(:,end-3)) / ((6/11)*dt);
+        elseif waves_update_method == waves_update_method_BDF3_FFT
             ddt_psi(:,:) = BDF3_d(psi,dt);
-        elseif J_rho_update_method == J_rho_update_method_BDF4_FFT
-            % ddt_psi(:,:) = (psi(:,end) - 48/25*psi(:,end-1) + 36/25*psi(:,end-2) - 16/25*psi(:,end-3) + 3/25*psi(:,end-4)) / ((12/25)*dt);
+        elseif waves_update_method == waves_update_method_BDF4_FFT
             ddt_psi(:,:) = BDF4_d(psi,dt);
         end
-        div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
-    elseif J_rho_update_method == J_rho_update_method_DIRK2
+        if waves_update_method == waves_update_method_CDF1_FFT
+            div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
+            div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
+            div_A = (div_A_curr + div_A_prev)/2;
+        else
+            div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
+        end
+    elseif waves_update_method == waves_update_method_DIRK2
         ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
+        % ddt_psi = ddt_psi_hist(:,:,end);
 
         div_A_curr = ddx_A1(:,:,end  ) + ddy_A2(:,:,end  );
         div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-        div_A_nm1  = ddx_A1(:,:,end-2) + ddy_A2(:,:,end-2);
-    
-        div_A_1 = (1-c1)*div_A_prev + c1*div_A_curr;
-        div_A_2 = (1-c2)*div_A_prev + c2*div_A_curr;
-    
-        div_A = b1*div_A_1 + b2*div_A_2;
+
+        div_A = DIRK2_d_RHS(div_A_curr, div_A_prev);
+    elseif waves_update_method == waves_update_method_vanilla
+        ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
+        div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
     else
-        ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
+        ME = MException('SourceException','Wave Method ' + waves_update_method + " not an option");
         throw(ME);
     end
 
@@ -263,6 +239,8 @@ while(steps < N_steps)
     rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
     compute_gauss_residual_second_order;
+
+    Bz_magnitude_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
 
     
     %---------------------------------------------------------------------
@@ -329,20 +307,25 @@ gauss_error_array(:,5) = gauss_law_gauge_err_inf;
 gauss_error_array(:,6) = gauss_law_field_err_L2;
 gauss_error_array(:,7) = gauss_law_field_err_inf;
 
+Bz_L2_array = zeros(length(ts),2);
+Bz_L2_array(:,1) = ts;
+Bz_L2_array(:,2) = Bz_magnitude_hist;
+
 if (write_csvs)
     save_csvs;
 end
 if enable_plots
-    create_plots(x, y, psi, A1, A2, ...
+    create_plots(x, y, psi, A1, A2, E1, E2, B3, ...
                  rho_mesh(:,:,end), J1_mesh(:,:,end), J2_mesh(:,:,end), ...
                  gauge_residual, gauss_residual, ...
-                 x1_elec_new, x2_elec_new, t_n, ...
+                 x1_elec_old, x2_elec_old, t_n, ...
                  update_method_title, tag, vidObj);
     close(vidObj);
 end
 
 writematrix(gauge_error_array, csvPath + "gauge_error.csv");
 writematrix(gauss_error_array, csvPath + "gauss_error.csv");
+writematrix(Bz_L2_array, csvPath + "Bz_magnitude.csv");
 
 figure;
 x0=200;
@@ -383,7 +366,7 @@ ylabel("$||\frac{1}{\kappa^2}\frac{\partial \phi}{\partial t} - \nabla\cdot\text
 title("Gauge Error",'FontSize',32);
 subtitle(update_method_title + " " + tag,'FontSize',24);
 
-saveas(gcf,figPath + "_gauge_residuals.jpg");
+saveas(gcf,figPath + tag + "_gauge_residuals.jpg");
 
 % quarter_len = floor(length(ts) / 4);
 % 

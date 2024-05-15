@@ -72,6 +72,6 @@ beta_BDF1 = 1;
 beta_BDF2 = 1/(2/3);
 beta_BDF3 = 1/(6/11);
 % Set for the second-order method
-beta_CDF2 = sqrt(2);
+beta_CDF1 = sqrt(2);
 
-T_final = .5;
+T_final = 2.5;
