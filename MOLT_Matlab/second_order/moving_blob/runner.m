@@ -11,7 +11,7 @@ set(0,'defaulttextinterpreter','latex')
 set(0,'DefaultTextFontname', 'cmss')
 set(0,'DefaultAxesFontName', 'cmss')
 
-grid_refinement = [16,32,64]; % Run FFT BDF BDF for 64x64
+grid_refinement = [16,32,64,192]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
 particle_count_multipliers = [10];
 
@@ -25,6 +25,7 @@ gauge_correction_FFT = "correct_gauge_fft";
 gauge_correction_FD6 = "correct_gauge_fd6";
 
 J_rho_update_method_vanilla = "vanilla";
+J_rho_update_method_staggered_vanilla = "staggered-vanilla";
 J_rho_update_method_BDF1_FFT = "BDF1-FFT";
 J_rho_update_method_BDF2_FFT = "BDF2-FFT";
 J_rho_update_method_BDF3_FFT = "BDF3-FFT";
@@ -80,7 +81,7 @@ waves_BDF_FFT_Family = [waves_update_method_BDF1_FFT, waves_update_method_BDF2_F
 % MOLT for the wave, FFT for the derivatives
 waves_BDF_Hybrid_Family = [waves_update_method_BDF1_MOLT_Hybrid, waves_update_method_BDF2_MOLT_Hybrid, waves_update_method_BDF3_MOLT_Hybrid, waves_update_method_BDF4_MOLT_Hybrid];
 
-for iter = 5:5
+for iter = 4:6
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
@@ -219,7 +220,7 @@ for iter = 5:5
         update_method_title = "Vanilla Charge Update, BDF-1 Wave Update, Time Centered, FFT Derivative";
         update_method_folder = "vanilla_charge_CDF1_wave_update_FFT_derivative";
     
-        J_rho_update_method = J_rho_update_method_vanilla;
+        J_rho_update_method = J_rho_update_method_staggered_vanilla;
         waves_update_method = waves_update_method_CDF1_FFT;
     
         gauge_correction = gauge_correction_none;

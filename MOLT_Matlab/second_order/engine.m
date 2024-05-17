@@ -56,7 +56,7 @@ while(steps < N_steps)
     v1_star = 2*v1_elec_old - v1_elec_nm1;
     v2_star = 2*v2_elec_old - v2_elec_nm1;
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
-                                                               v1_star, v2_star, dt/2);
+                                                               v1_star, v2_star, dt);
 
     
     % Apply the particle boundary conditions
@@ -72,6 +72,8 @@ while(steps < N_steps)
 
     if J_rho_update_method == J_rho_update_method_vanilla
         J_rho_update_vanilla;
+    elseif J_rho_update_method == J_rho_update_method_staggered_vanilla
+        J_rho_update_vanilla_staggered;
     elseif ismember(J_rho_update_method, J_rho_BDF_FFT_Family)
         J_rho_update_fft;
     elseif J_rho_update_method == J_rho_update_method_DIRK2
@@ -86,15 +88,6 @@ while(steps < N_steps)
         ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
         throw(ME);
     end
-
-    [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
-                                                               v1_star, v2_star, dt);
-
-    
-    % Apply the particle boundary conditions
-    % Need to include the shift function here
-    x1_elec_new = periodic_shift(x1_elec_new, x(1), L_x);
-    x2_elec_new = periodic_shift(x2_elec_new, y(1), L_y);
     
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
@@ -154,20 +147,22 @@ while(steps < N_steps)
     %
     % This will give us new momenta and velocities for the next step
     if waves_update_method == waves_update_method_CDF1_FFT
-        A1_ave = (A1(:,:,end) + A1(:,:,end-1))/2;
-        ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1))/2;
-        ddy_A1_ave = (ddy_A1(:,:,end) + ddy_A1(:,:,end-1))/2;
-        A2_ave = (A1(:,:,end) + A2(:,:,end-1))/2;
-        ddx_A2_ave = (ddx_A2(:,:,end) + ddx_A2(:,:,end-1))/2;
-        ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1))/2;
+        % A1_ave = (A1(:,:,end) + A1(:,:,end-1))/2;
+        % ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1))/2;
+        % ddy_A1_ave = (ddy_A1(:,:,end) + ddy_A1(:,:,end-1))/2;
+        % A2_ave = (A1(:,:,end) + A2(:,:,end-1))/2;
+        % ddx_A2_ave = (ddx_A2(:,:,end) + ddx_A2(:,:,end-1))/2;
+        % ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1))/2;
+        ddx_psi_ave = (ddx_psi(:,:,end) + ddx_psi(:,:,end-1))/2;
+        ddy_psi_ave = (ddy_psi(:,:,end) + ddy_psi(:,:,end-1))/2;
         [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
         improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
                                                         P1_elec_old, P2_elec_old, ...
                                                         v1_elec_old, v2_elec_old, ...
                                                         v1_elec_nm1, v2_elec_nm1, ...
-                                                        ddx_psi(:,:,end), ddy_psi(:,:,end), ...
-                                                        A1_ave, ddx_A1_ave, ddy_A1_ave, ...
-                                                        A2_ave, ddx_A2_ave, ddy_A2_ave, ...
+                                                        ddx_psi_ave, ddy_psi_ave, ...
+                                                        A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
+                                                        A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
                                                         x, y, dx, dy, q_elec, r_elec, ...
                                                         kappa, dt);        
     else
@@ -197,11 +192,6 @@ while(steps < N_steps)
         elseif waves_update_method == waves_update_method_BDF4_FFT
             ddt_psi(:,:) = BDF4_d(psi,dt);
         end
-%         if waves_update_method == waves_update_method_CDF1_FFT
-%             div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
-%             div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-%             div_A = (div_A_curr + div_A_prev)/2;
-%         else
         div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
     elseif waves_update_method == waves_update_method_DIRK2
         ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
