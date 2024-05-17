@@ -143,7 +143,12 @@ else
     % METHOD 3:
     div_A_hist = ddx_A1 + ddy_A2;
 
-    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_CDF1_FFT || waves_update_method == waves_update_method_pure_FFT
+    if waves_update_method == waves_update_method_CDF1_FFT
+%         div_A_ave_curr = (div_A_hist(:,:,end  ) + div_A_hist(:,:,end-1)) / 2;
+%         div_A_ave_prev = (div_A_hist(:,:,end-1) + div_A_hist(:,:,end-2)) / 2;
+%         ddt_div_A = (div_A_ave_curr - div_A_ave_prev) / dt;
+        ddt_div_A = BDF1_d(div_A_hist, dt); % Double check, but this should line up with theory
+    elseif waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
         ddt_div_A = BDF1_d(div_A_hist, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT
         ddt_div_A = BDF2_d(div_A_hist, dt);
@@ -154,13 +159,17 @@ else
         throw(ME);
     end
 
-    laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
+    if waves_update_method == waves_update_method_CDF1_FFT
+        RHS = (rho_mesh(:,:,end) + rho_mesh(:,:,end-2)) / (2*sigma_1);
+        laplacian_phi_FFT = compute_Laplacian_FFT((psi(:,:,end) + psi(:,:,end-2))/2,kx_deriv_2,ky_deriv_2);
+    else
+        RHS = rho_mesh(:,:,end) / sigma_1;
+        laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
+    end
 
     LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
 
     LHS_gauge = -ddt_div_A - laplacian_phi_FFT;
-
-    RHS = rho_mesh(:,:,end) / sigma_1;
 
     % Compute all residuals
     gauss_law_potential_res = LHS_potential - RHS;

@@ -28,7 +28,7 @@ Q = 1.602e-19;
 
 % Compute the average macroscopic number density for the plasma [m^{-3}]
 % n_bar = 10^12; % number density in [m^-3]
-n_bar = 1e10
+n_bar = 1e10;
 
 % Compute the average macroscopic temperature [K] using lam_D and n_bar
 % T_bar = 2e6; % temperature in Kelvin [K]

@@ -197,13 +197,12 @@ while(steps < N_steps)
         elseif waves_update_method == waves_update_method_BDF4_FFT
             ddt_psi(:,:) = BDF4_d(psi,dt);
         end
-        if waves_update_method == waves_update_method_CDF1_FFT
-            div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
-            div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
-            div_A = (div_A_curr + div_A_prev)/2;
-        else
-            div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
-        end
+%         if waves_update_method == waves_update_method_CDF1_FFT
+%             div_A_curr = ddx_A1(:,:,end) + ddy_A2(:,:,end);
+%             div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
+%             div_A = (div_A_curr + div_A_prev)/2;
+%         else
+        div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
     elseif waves_update_method == waves_update_method_DIRK2
         ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
         % ddt_psi = ddt_psi_hist(:,:,end);
