@@ -6,6 +6,7 @@
 #include <sstream>
 #include <complex.h>
 #include <fftw3.h>
+#include <sys/time.h>
 
 class MOLTEngine {
 
@@ -89,6 +90,40 @@ class MOLTEngine {
 
             this->ddx_J1 = ddx_J1;
             this->ddy_J2 = ddy_J2;
+
+            std::vector<double> kx_deriv_1 = compute_wave_numbers(Nx, x[Nx-1] - x[0], true);
+            std::vector<double> ky_deriv_1 = compute_wave_numbers(Ny, y[Ny-1] - y[0], true);
+
+            std::vector<double> kx_deriv_2 = compute_wave_numbers(Nx, x[Nx-1] - x[0], false);
+            std::vector<double> ky_deriv_2 = compute_wave_numbers(Ny, y[Ny-1] - y[0], false);
+
+            this->kx_deriv_1 = kx_deriv_1;
+            this->ky_deriv_1 = ky_deriv_1;
+
+            this->kx_deriv_2 = kx_deriv_2;
+            this->ky_deriv_2 = ky_deriv_2;
+
+            this->forwardIn   = new std::complex<double>[(Nx-1) * (Ny-1)];
+            this->forwardOut  = new std::complex<double>[(Nx-1) * (Ny-1)];
+            this->backwardIn  = new std::complex<double>[(Nx-1) * (Ny-1)];
+            this->backwardOut = new std::complex<double>[(Nx-1) * (Ny-1)];
+
+            this->timeComponent1 = 0;
+            this->timeComponent2 = 0;
+            this->timeComponent3 = 0;
+            this->timeComponent4 = 0;
+            this->timeComponent5 = 0;
+            this->timeComponent6 = 0;
+
+            // Create FFTW plans for the forward and inverse FFT
+            forward_plan = fftw_plan_dft_2d(Nx-1, Ny-1,
+                reinterpret_cast<fftw_complex*>(forwardIn), 
+                reinterpret_cast<fftw_complex*>(forwardOut), 
+                FFTW_FORWARD, FFTW_ESTIMATE);
+            inverse_plan = fftw_plan_dft_2d(Nx-1, Ny-1,
+                reinterpret_cast<fftw_complex*>(backwardIn), 
+                reinterpret_cast<fftw_complex*>(backwardOut), 
+                FFTW_BACKWARD, FFTW_ESTIMATE);
         }
         void step();
         void print();
@@ -97,6 +132,7 @@ class MOLTEngine {
         double getGaugeL2();
         double gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field);
         void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
+        void printTimeDiagnostics();
 
     private:
         int Nx;
@@ -125,10 +161,6 @@ class MOLTEngine {
         double elec_charge;
         double elec_mass;
         double w_elec;
-        double* kx_deriv_1;
-        double* ky_deriv_1;
-        double* kx_deriv_2;
-        double* ky_deriv_2;
         std::vector<std::vector<std::vector<std::complex<double>>>> phi;
         std::vector<std::vector<std::vector<std::complex<double>>>> ddx_phi;
         std::vector<std::vector<std::vector<std::complex<double>>>> ddy_phi;
@@ -143,6 +175,16 @@ class MOLTEngine {
         std::vector<std::vector<std::vector<std::complex<double>>>> J2;
         std::vector<std::vector<std::complex<double>>> ddx_J1;
         std::vector<std::vector<std::complex<double>>> ddy_J2;
+        std::vector<double> kx_deriv_1, ky_deriv_1;
+        std::vector<double> kx_deriv_2, ky_deriv_2;
+        std::complex<double>* forwardIn;
+        std::complex<double>* forwardOut;
+        std::complex<double>* backwardIn;
+        std::complex<double>* backwardOut;
+        fftw_plan forward_plan, inverse_plan;
+
+        double timeComponent1, timeComponent2, timeComponent3, timeComponent4, timeComponent5, timeComponent6;
+
         void computeGaugeL2();
         void updateParticleLocations();
         void updateParticleVelocities();
@@ -180,5 +222,17 @@ class MOLTEngine {
                                 int Nx, int Ny, double Lx, double Ly) {
                                     compute_second_derivative(input_field, derivative_field, false);
                                 }
-
+        // Helper function to compute the wave numbers in one dimension
+        std::vector<double> compute_wave_numbers(int N, double L, bool first_derivative = true) {
+            std::vector<double> k(N);
+            double dk = 2 * M_PI / L;
+            for (int i = 0; i < N / 2; ++i) {
+                k[i] = i * dk;
+            }
+            k[N / 2] = first_derivative ? 0 : (N/2)*dk;
+            for (int i = N / 2 + 1; i < N; ++i) {
+                k[i] = (i - N) * dk;
+            }
+            return k;
+        }
 };

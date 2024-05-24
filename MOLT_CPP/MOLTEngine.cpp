@@ -7,6 +7,7 @@
 #include <complex.h>
 #include <fftw3.h>
 #include <vector>
+#include <sys/time.h>
 
 using std::complex;
 
@@ -25,6 +26,7 @@ class MOLTEngine {
         double getGaugeL2();
         double gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field);
         void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
+        void printTimeDiagnostics();
 
     private:
         int Nx;
@@ -53,10 +55,6 @@ class MOLTEngine {
         double elec_charge;
         double elec_mass;
         double w_elec;
-        double* kx_deriv_1;
-        double* ky_deriv_1;
-        double* kx_deriv_2;
-        double* ky_deriv_2;
         std::vector<std::vector<std::vector<std::complex<double>>>> phi;
         std::vector<std::vector<std::vector<std::complex<double>>>> ddx_phi;
         std::vector<std::vector<std::vector<std::complex<double>>>> ddy_phi;
@@ -71,6 +69,16 @@ class MOLTEngine {
         std::vector<std::vector<std::vector<std::complex<double>>>> J2;
         std::vector<std::vector<std::complex<double>>> ddx_J1;
         std::vector<std::vector<std::complex<double>>> ddy_J2;
+        std::vector<double> kx_deriv_1, ky_deriv_1;
+        std::vector<double> kx_deriv_2, ky_deriv_2;
+        std::complex<double>* forwardIn;
+        std::complex<double>* forwardOut;
+        std::complex<double>* backwardIn;
+        std::complex<double>* backwardOut;
+        fftw_plan forward_plan, inverse_plan;
+
+        double timeComponent1, timeComponent2, timeComponent3, timeComponent4, timeComponent5, timeComponent6;
+
         void computeGaugeL2();
         void updateParticleLocations();
         void updateParticleVelocities();
@@ -109,20 +117,6 @@ class MOLTEngine {
         std::complex<double> to_std_complex(const fftw_complex& fc) {
             return std::complex<double>(fc[0], fc[1]);
         }
-
-        // Helper function to compute the wave numbers in one dimension
-        std::vector<double> compute_wave_numbers(int N, double L, bool first_derivative = true) {
-            std::vector<double> k(N);
-            double dk = 2 * M_PI / L;
-            for (int i = 0; i < N / 2; ++i) {
-                k[i] = i * dk;
-            }
-            k[N / 2] = first_derivative ? 0 : (N/2)*dk;
-            for (int i = N / 2 + 1; i < N; ++i) {
-                k[i] = (i - N) * dk;
-            }
-            return k;
-        }
 };
 
 /**
@@ -136,29 +130,51 @@ class MOLTEngine {
  * Dependencies: scatterFields, shuffleSteps, updateParticleLocations, updateParticleVelocities, updateWaves
  */
 void MOLTEngine::step() {
-    // for (int i = 0; i < 10; i++) {
-    //     std::cout << x_elec[lastStepIndex-1][i] << ", " << y_elec[lastStepIndex-1][i] << ", " << vx_elec[lastStepIndex-1][i] << ", " << vy_elec[lastStepIndex-1][i] << std::endl;
-    // }
     // std::cout << "Updating Particle Locations" << std::endl;
+    struct timeval begin1, end1, begin2, end2, begin3, end3, begin4, end4, begin5, end5, begin6, end6;
+    gettimeofday( &begin1, NULL );
     updateParticleLocations();
-    // for (int i = 0; i < 10; i++) {
-    //     std::cout << x_elec[lastStepIndex][i] << ", " << y_elec[lastStepIndex][i] << ", " << vx_elec[lastStepIndex][i] << ", " << vy_elec[lastStepIndex][i] << std::endl;
-    // }
+    gettimeofday( &end1, NULL );
     // std::cout << "Scattering Fields" << std::endl;
+    gettimeofday( &begin2, NULL );
     scatterFields();
+    gettimeofday( &end2, NULL );
     // std::cout << "Updating Waves" << std::endl;
+    gettimeofday( &begin3, NULL );
     updateWaves();
+    gettimeofday( &end3, NULL );
     // std::cout << "Updating Particle Velocities" << std::endl;
+    gettimeofday( &begin4, NULL );
     updateParticleVelocities();
+    gettimeofday( &end4, NULL );
     // std::cout << "Shuffling Steps" << std::endl;
+    gettimeofday( &begin5, NULL );
     computeGaugeL2();
+    gettimeofday( &end5, NULL );
+    gettimeofday( &begin6, NULL );
     shuffleSteps();
+    gettimeofday( &end6, NULL );
     // std::cout << "Rinse, Repeat" << std::endl;
     if (n % 100 == 0) {
         print();
     }
+    timeComponent1 += 1.0 * ( end1.tv_sec - begin1.tv_sec ) + 1.0e-6 * ( end1.tv_usec - begin1.tv_usec );
+    timeComponent2 += 1.0 * ( end2.tv_sec - begin2.tv_sec ) + 1.0e-6 * ( end2.tv_usec - begin2.tv_usec );
+    timeComponent3 += 1.0 * ( end3.tv_sec - begin3.tv_sec ) + 1.0e-6 * ( end3.tv_usec - begin3.tv_usec );
+    timeComponent4 += 1.0 * ( end4.tv_sec - begin4.tv_sec ) + 1.0e-6 * ( end4.tv_usec - begin4.tv_usec );
+    timeComponent5 += 1.0 * ( end5.tv_sec - begin5.tv_sec ) + 1.0e-6 * ( end5.tv_usec - begin5.tv_usec );
+    timeComponent6 += 1.0 * ( end6.tv_sec - begin6.tv_sec ) + 1.0e-6 * ( end6.tv_usec - begin6.tv_usec );
     n++;
     t += dt;
+}
+
+void MOLTEngine::printTimeDiagnostics() {
+    std::cout << "updateParticleLocations(): " << timeComponent1 << std::endl;
+    std::cout << "scatterFields(): " << timeComponent2 << std::endl;
+    std::cout << "updateWaves(): " << timeComponent3 << std::endl;
+    std::cout << "updateParticleVelocities(): " << timeComponent4 << std::endl;
+    std::cout << "computeGaugeL2(): " << timeComponent5 << std::endl;
+    std::cout << "shuffleSteps(): " << timeComponent6 << std::endl;
 }
 
 double MOLTEngine::getTime() {
@@ -244,9 +260,12 @@ void MOLTEngine::updateParticleLocations() {
     double Lx = x[Nx-1] - x[0];
     double Ly = y[Ny-1] - y[0];
 
+    double vx_star;
+    double vy_star;
+
     for (int i = 0; i < this->Np; i++) {
-        double vx_star = 2.0*this->vx_elec[lastStepIndex-1][i] - this->vx_elec[lastStepIndex-2][i];
-        double vy_star = 2.0*this->vy_elec[lastStepIndex-1][i] - this->vy_elec[lastStepIndex-2][i];
+        vx_star = 2.0*this->vx_elec[lastStepIndex-1][i] - this->vx_elec[lastStepIndex-2][i];
+        vy_star = 2.0*this->vy_elec[lastStepIndex-1][i] - this->vy_elec[lastStepIndex-2][i];
 
         this->x_elec[lastStepIndex][i] = this->x_elec[lastStepIndex-1][i] + dt*vx_star;
         this->y_elec[lastStepIndex][i] = this->y_elec[lastStepIndex-1][i] + dt*vy_star;
@@ -254,18 +273,6 @@ void MOLTEngine::updateParticleLocations() {
         this->x_elec[lastStepIndex][i] = this->x_elec[lastStepIndex][i] - Lx*floor((this->x_elec[lastStepIndex][i] - this->x[0]) / Lx);
         this->y_elec[lastStepIndex][i] = this->y_elec[lastStepIndex][i] - Ly*floor((this->y_elec[lastStepIndex][i] - this->y[0]) / Ly);
     }
-    // for (int i = 0; i < 100; i++) {
-    //     double vx_star = 2.0*this->vx_elec[lastStepIndex-1][i] - this->vx_elec[lastStepIndex-2][i];
-    //     double vy_star = 2.0*this->vy_elec[lastStepIndex-1][i] - this->vy_elec[lastStepIndex-2][i];
-    //     std::cout << vx_star << ", " << vy_star << std::endl;
-    // }
-    // std::cout << "===========" << std::endl;
-    // for (int i = 0; i < 100; i++) {
-    //     std::cout << vx_elec[lastStepIndex-1][i] << ", " << vx_elec[lastStepIndex-2][i] << std::endl;
-    // }
-    // for (int i = 0; i < 100; i++) {
-    //     std::cout << x_elec[lastStepIndex][i] << ", " << y_elec[lastStepIndex][i] << std::endl;
-    // }
 }
 
 void MOLTEngine::updateWaves() {
@@ -285,39 +292,9 @@ void MOLTEngine::updateWaves() {
         }
     }
 
-    // std::cout << alpha << std::endl;
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; i++) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; j++) {
-    //         std::cout << rho[lastStepIndex][i][j].real() << ", ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
-    // std::cout << "====================" << std::endl;
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; i++) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; j++) {
-    //         std::cout << phi_src[i][j].real() << ", ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
-
     solveHelmholtzEquation(phi_src, this->phi[lastStepIndex], alpha);
     solveHelmholtzEquation(A1_src,  this->A1[lastStepIndex], alpha);
     solveHelmholtzEquation(A2_src,  this->A2[lastStepIndex], alpha);
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; i++) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; j++) {
-    //         std::cout << A2[lastStepIndex][i][j].real() << " + " << A2[lastStepIndex][i][j].imag() << "i, ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
 
     compute_ddx(this->phi[lastStepIndex], this->ddx_phi[lastStepIndex]);
     compute_ddy(this->phi[lastStepIndex], this->ddy_phi[lastStepIndex]);
@@ -356,9 +333,6 @@ void MOLTEngine::updateParticleVelocities() {
         vx_elec[lastStepIndex][i] = (kappa*(Px_elec[lastStepIndex][i] - elec_charge*A1_p)) / denom;
         vy_elec[lastStepIndex][i] = (kappa*(Py_elec[lastStepIndex][i] - elec_charge*A2_p)) / denom;
     }
-    // for (int i = 0; i < 10; i++) {
-    //     std::cout << Px_elec[lastStepIndex][i] << " " << Py_elec[lastStepIndex][i] << std::endl;
-    // }
 }
 
 void MOLTEngine::solveHelmholtzEquation(std::vector<std::vector<std::complex<double>>>& RHS,
@@ -366,46 +340,25 @@ void MOLTEngine::solveHelmholtzEquation(std::vector<std::vector<std::complex<dou
 
     int Nx = this->Nx - 1;
     int Ny = this->Ny - 1;
-    double Lx = this->x[Nx-1] - this->x[0];
-    double Ly = this->y[Ny-1] - this->y[0];
-
-    // Flatten the 2D input field into a 1D array for FFTW
-    std::vector<std::complex<double>> in(Nx * Ny);
-    std::vector<std::complex<double>> out(Nx * Ny);
-    std::vector<std::complex<double>> derivative(Nx * Ny);
 
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            in[i * Ny + j] = RHS[i][j];
+            forwardIn[i * Ny + j] = RHS[i][j];
         }
     }
-
-    // Create FFTW plans for the forward and inverse FFT
-    fftw_plan forward_plan = fftw_plan_dft_2d(Nx, Ny, 
-        reinterpret_cast<fftw_complex*>(in.data()), 
-        reinterpret_cast<fftw_complex*>(out.data()), 
-        FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan inverse_plan = fftw_plan_dft_2d(Nx, Ny, 
-        reinterpret_cast<fftw_complex*>(out.data()), 
-        reinterpret_cast<fftw_complex*>(derivative.data()), 
-        FFTW_BACKWARD, FFTW_ESTIMATE);
         
     // Execute the forward FFT
     fftw_execute(forward_plan);
-
-    // Compute the wave numbers in the appropriate direction
-    std::vector<double> kx = compute_wave_numbers(Nx, Lx, false); 
-    std::vector<double> ky = compute_wave_numbers(Ny, Ly, false);
 
     // Apply the second derivative operator in the frequency domain
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
             int index = i * Ny + j;
-            std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(out.data())[index]);
-            double k_val =  kx[i]*kx[i] + ky[j]*ky[j];
+            std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(forwardOut)[index]);
+            double k_val =  kx_deriv_2[i]*kx_deriv_2[i] + ky_deriv_2[j]*ky_deriv_2[j];
             freq_component /= (1 + 1/(alpha*alpha) * k_val); // Invert the helmholtz operator (I - (d^2/dx^2 + d^2/dy^2)) ==Fourier==> (I + (kx^2 + ky^2)))
-            reinterpret_cast<fftw_complex*>(out.data())[index][0] = freq_component.real();
-            reinterpret_cast<fftw_complex*>(out.data())[index][1] = freq_component.imag();
+            reinterpret_cast<fftw_complex*>(backwardIn)[index][0] = freq_component.real();
+            reinterpret_cast<fftw_complex*>(backwardIn)[index][1] = freq_component.imag();
         }
     }
 
@@ -415,8 +368,7 @@ void MOLTEngine::solveHelmholtzEquation(std::vector<std::vector<std::complex<dou
     // Normalize the inverse FFT output
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            derivative[i * Ny + j] /= (Nx * Ny);
-            LHS[i][j] = derivative[i * Ny + j];
+            LHS[i][j] = backwardOut[i * Ny + j] / double(Nx * Ny);
         }
     }
     for (int i = 0; i < this->Nx; i++) {
@@ -425,29 +377,23 @@ void MOLTEngine::solveHelmholtzEquation(std::vector<std::vector<std::complex<dou
     for (int j = 0; j < this->Ny; j++) {
         LHS[this->Nx-1][j] = LHS[0][j];
     }
-
-    // Clean up FFTW plans
-    fftw_destroy_plan(forward_plan);
-    fftw_destroy_plan(inverse_plan);
 }
 
 void MOLTEngine::scatterFields() {
-
     for (int i = 0; i < Nx; i++) {
-        for (int j = 0; j < Ny; j++) {
-            J1[lastStepIndex][i][j] = 0;
-            J2[lastStepIndex][i][j] = 0;
-        }
+        std::fill(J1[lastStepIndex][i].begin(), J1[lastStepIndex][i].end(), 0.0);
+        std::fill(J2[lastStepIndex][i].begin(), J2[lastStepIndex][i].end(), 0.0);
     }
 
     for (int i = 0; i < Np; i++) {
-        double vx_star = 2.0*this->vx_elec[lastStepIndex-1][i] - this->vx_elec[lastStepIndex-2][i];
-        double vy_star = 2.0*this->vy_elec[lastStepIndex-1][i] - this->vy_elec[lastStepIndex-2][i];
+        // double vx_star = 2.0*this->vx_elec[lastStepIndex-1][i] - this->vx_elec[lastStepIndex-2][i];
+        // double vy_star = 2.0*this->vy_elec[lastStepIndex-1][i] - this->vy_elec[lastStepIndex-2][i];
 
-        double x_value = this->elec_charge*vx_star*this->w_elec;
-        double y_value = this->elec_charge*vy_star*this->w_elec;
+        // double x_value = this->elec_charge*vx_star*this->w_elec;
+        // double y_value = this->elec_charge*vy_star*this->w_elec;
 
-        // std::cout << x_elec[lastStepIndex][i] << std::endl;
+        double x_value = this->elec_charge*vx_elec[lastStepIndex-1][i]*this->w_elec;
+        double y_value = this->elec_charge*vy_elec[lastStepIndex-1][i]*this->w_elec;
 
         scatterField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], x_value, this->J1[lastStepIndex]);
         scatterField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], y_value, this->J2[lastStepIndex]);
@@ -458,17 +404,6 @@ void MOLTEngine::scatterFields() {
             J2[lastStepIndex][i][j] /= dx*dy;
         }
     }
-    // std::cout << this->elec_charge*this->w_elec << std::endl;
-    // std::cout << dx*dy << std::endl;
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; i++) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; j++) {
-    //         std::cout << J1[lastStepIndex][i][j].real() << ", ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
 
     // Enforce periodicity
     for (int i = 0; i < this->Nx; i++) {
@@ -492,67 +427,33 @@ void MOLTEngine::scatterFields() {
 
     for (int i = 0; i < this->Nx; i++) {
         for (int j = 0; j < this->Ny; j++) {
-            // div_J[i][j] = ddx_J1[i][j] + ddy_J2[i][j];
             rho[lastStepIndex][i][j] = this->rho[lastStepIndex-1][i][j] - dt*(ddx_J1[i][j] + ddy_J2[i][j]);
         }
     }
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; i++) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; j++) {
-    //         // std::cout << std::setprecision (15) << rho[lastStepIndex][i][j].real() << " + " << rho[lastStepIndex][i][j].imag() << "i, ";
-    //         std::cout << std::setprecision (15) << rho[lastStepIndex][i][j].real() << ", ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; i++) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; j++) {
-    //         std::cout << ddx_J1[i][j].real() << " + " << ddx_J1[i][j].imag() << "i, ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; i++) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; j++) {
-    //         std::cout << ddy_J2[i][j].real() << " + " << ddy_J2[i][j].imag() << "i, ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
 }
 
 void MOLTEngine::shuffleSteps() {
     for (int h = 0; h < lastStepIndex; h++) {
-        for (int i = 0; i < Np; i++) {
-            this->x_elec[h][i] = this->x_elec[h+1][i];
-            this->y_elec[h][i] = this->y_elec[h+1][i];
-            this->vx_elec[h][i] = this->vx_elec[h+1][i];
-            this->vy_elec[h][i] = this->vy_elec[h+1][i];
-            this->Px_elec[h][i] = this->Px_elec[h+1][i];
-            this->Py_elec[h][i] = this->Py_elec[h+1][i];
-        }
-        for (int i = 0; i < Nx; i++) {
-            for (int j = 0; j < Ny; j++) {
-                this->phi[h][i][j] = this->phi[h+1][i][j];
-                this->ddx_phi[h][i][j] = this->ddx_phi[h+1][i][j];
-                this->ddy_phi[h][i][j] = this->ddy_phi[h+1][i][j];
-                this->A1[h][i][j] = this->A1[h+1][i][j];
-                this->ddx_A1[h][i][j] = this->ddx_A1[h+1][i][j];
-                this->ddy_A1[h][i][j] = this->ddy_A1[h+1][i][j];
-                this->A2[h][i][j] = this->A2[h+1][i][j];
-                this->ddx_A2[h][i][j] = this->ddx_A2[h+1][i][j];
-                this->ddy_A2[h][i][j] = this->ddy_A2[h+1][i][j];
+        x_elec[h].assign(x_elec[h+1].begin(), x_elec[h+1].end());
+        y_elec[h].assign(y_elec[h+1].begin(), y_elec[h+1].end());
+        vx_elec[h].assign(vx_elec[h+1].begin(), vx_elec[h+1].end());
+        vy_elec[h].assign(vy_elec[h+1].begin(), vy_elec[h+1].end());
+        Px_elec[h].assign(Px_elec[h+1].begin(), Px_elec[h+1].end());
+        Py_elec[h].assign(Py_elec[h+1].begin(), Py_elec[h+1].end());
 
-                this->rho[h][i][j] = this->rho[h+1][i][j];
-                this->J1[h][i][j] = this->J1[h+1][i][j];
-                this->J2[h][i][j] = this->J2[h+1][i][j];
-            }
-        }
+        phi[h].assign(phi[h+1].begin(), phi[h+1].end());
+        ddx_phi[h].assign(ddx_phi[h+1].begin(), ddx_phi[h+1].end());
+        ddy_phi[h].assign(ddy_phi[h+1].begin(), ddy_phi[h+1].end());
+        A1[h].assign(A1[h+1].begin(), A1[h+1].end());
+        ddx_A1[h].assign(ddx_A1[h+1].begin(), ddx_A1[h+1].end());
+        ddy_A1[h].assign(ddy_A1[h+1].begin(), ddy_A1[h+1].end());
+        A2[h].assign(A2[h+1].begin(), A2[h+1].end());
+        ddx_A2[h].assign(ddx_A2[h+1].begin(), ddx_A2[h+1].end());
+        ddy_A2[h].assign(ddy_A2[h+1].begin(), ddy_A2[h+1].end());
+
+        rho[h].assign(rho[h+1].begin(), rho[h+1].end());
+        J1[h].assign(J1[h+1].begin(), J1[h+1].end());
+        J2[h].assign(J2[h+1].begin(), J2[h+1].end());
     }
 }
 
@@ -607,35 +508,11 @@ void MOLTEngine::scatterField(double p_x, double p_y, double value, std::vector<
     double fx = (p_x - xNode)/dx;
     double fy = (p_y - yNode)/dy;
 
-    // std::cout << p_x << ", " << p_y << std::endl;
-    // std::cout << lc_x << ", " << lc_y << std::endl;
-    // std::cout << fx << ", " << fy << std::endl;
-    // std::cout << xNode << ", " << yNode << std::endl;
-    // std::cout << p_x << " - " << xNode << " = " << (p_x - xNode) << ", " << p_y << " - " << yNode << " = " << (p_y - yNode) << std::endl;
-    // std::cout << "=================" << std::endl;
-
     // Now we acquire the particle value and add it to the corresponding field
     field[lc_x][lc_y]     += (1-fx)*(1-fy)*value;
     field[lc_x][lc_y+1]   += (1-fx)*(fy)*value;
     field[lc_x+1][lc_y]   += (fx)*(1-fy)*value;
     field[lc_x+1][lc_y+1] += (fx)*(fy)*value;
-}
-
-std::complex<double> to_std_complex(const fftw_complex& fc) {
-    return std::complex<double>(fc[0], fc[1]);
-}
-
-// Helper function to compute the wave numbers in one dimension
-std::vector<double> compute_wave_numbers(int N, double L) {
-    std::vector<double> k(N);
-    double dk = 2 * M_PI / L;
-    for (int i = 0; i <= N / 2; ++i) {
-        k[i] = i * dk;
-    }
-    for (int i = N / 2 + 1; i < N; ++i) {
-        k[i] = (i - N) * dk;
-    }
-    return k;
 }
 
 void MOLTEngine::compute_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
@@ -644,78 +521,52 @@ void MOLTEngine::compute_derivative(const std::vector<std::vector<std::complex<d
 
     int Nx = this->Nx - 1;
     int Ny = this->Ny - 1;
-    double Lx = this->x[Nx-1] - this->x[0];
-    double Ly = this->y[Ny-1] - this->y[0];
 
     // Flatten the 2D input field into a 1D array for FFTW
-    std::vector<std::complex<double>> in(Nx * Ny);
-    std::vector<std::complex<double>> out(Nx * Ny);
-    std::vector<std::complex<double>> derivative(Nx * Ny);
+    // std::vector<std::complex<double>> in(Nx * Ny);
+    // std::vector<std::complex<double>> out(Nx * Ny);
+    // std::vector<std::complex<double>> derivative(Nx * Ny);
 
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            in[i * Ny + j] = input_field[i][j];
+            forwardIn[i * Ny + j] = input_field[i][j];
         }
     }
 
     // Create FFTW plans for the forward and inverse FFT
-    fftw_plan forward_plan = fftw_plan_dft_2d(Nx, Ny, 
-        reinterpret_cast<fftw_complex*>(in.data()), 
-        reinterpret_cast<fftw_complex*>(out.data()), 
-        FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan inverse_plan = fftw_plan_dft_2d(Nx, Ny, 
-        reinterpret_cast<fftw_complex*>(out.data()), 
-        reinterpret_cast<fftw_complex*>(derivative.data()), 
-        FFTW_BACKWARD, FFTW_ESTIMATE);
-
-    // std::cout << "BEFORE" << std::endl;
-    
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; ++i) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; ++j) {
-    //         double re = input_field.data()[i][j].real();
-    //         double im = input_field.data()[i][j].imag();
-    //         std::cout << re << " + " << im << "i" << ", ";
-    //     }
-    //     std::cout << "];" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
+    // fftw_plan forward_plan = fftw_plan_dft_2d(Nx, Ny, 
+    //     reinterpret_cast<fftw_complex*>(in.data()), 
+    //     reinterpret_cast<fftw_complex*>(out.data()), 
+    //     FFTW_FORWARD, FFTW_ESTIMATE);
+    // fftw_plan inverse_plan = fftw_plan_dft_2d(Nx, Ny, 
+    //     reinterpret_cast<fftw_complex*>(out.data()), 
+    //     reinterpret_cast<fftw_complex*>(derivative.data()), 
+    //     FFTW_BACKWARD, FFTW_ESTIMATE);
 
     // Execute the forward FFT
     fftw_execute(forward_plan);
 
-    // std::cout << "Transformed: " << std::endl;
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; ++i) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; ++j) {
-    //         int index = i * Ny + j;
-    //         double re = reinterpret_cast<fftw_complex*>(out.data())[index][0];
-    //         double im = reinterpret_cast<fftw_complex*>(out.data())[index][1];
-    //         std::cout << re << " + " << im << "i" << ", ";
-    //     }
-    //     std::cout << "];" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
-
     // Compute the wave numbers in the appropriate direction
-    std::vector<double> k = derivative_in_x ? compute_wave_numbers(Nx, Lx) : compute_wave_numbers(Ny, Ly);
+    std::vector<double> k = derivative_in_x ? kx_deriv_1 : ky_deriv_1;
 
     // Apply the derivative operator in the frequency domain
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
             int index = i * Ny + j;
-            std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(out.data())[index]);
+            std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(forwardOut)[index]);
             if (derivative_in_x) {
                 freq_component *= std::complex<double>(0, k[i]); // Multiply by i * kx
             } else {
                 freq_component *= std::complex<double>(0, k[j]); // Multiply by i * ky
             }
-            reinterpret_cast<fftw_complex*>(out.data())[index][0] = freq_component.real();
-            reinterpret_cast<fftw_complex*>(out.data())[index][1] = freq_component.imag();
+            reinterpret_cast<fftw_complex*>(backwardIn)[index][0] = freq_component.real();
+            reinterpret_cast<fftw_complex*>(backwardIn)[index][1] = freq_component.imag();
         }
     }
+
+    // for (int i = 0; i < Nx*Ny; ++i) {
+    //     backwardIn[i] = forwardOut[i];
+    // }
 
     // Execute the inverse FFT
     fftw_execute(inverse_plan);
@@ -723,8 +574,7 @@ void MOLTEngine::compute_derivative(const std::vector<std::vector<std::complex<d
     // Normalize the inverse FFT output
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            derivative[i * Ny + j] /= (Nx * Ny);
-            derivative_field[i][j] = derivative[i * Ny + j];
+            derivative_field[i][j] = backwardOut[i * Ny + j] / double(Nx * Ny);
         }
     }
 
@@ -735,23 +585,9 @@ void MOLTEngine::compute_derivative(const std::vector<std::vector<std::complex<d
         derivative_field[this->Nx-1][j] = derivative_field[0][j];
     }
 
-    // std::cout << "Derivative: " << std::endl;
-    // std::cout << "[";
-    // for (int i = 0; i < Nx; ++i) {
-    //     std::cout << "[";
-    //     for (int j = 0; j < Ny; ++j) {
-    //         int index = i * Ny + j;
-    //         double re = derivative_field[i][j].real();
-    //         double im = derivative_field[i][j].imag();
-    //         std::cout << re << " + " << im << "i" << ", ";
-    //     }
-    //     std::cout << "];" << std::endl;
-    // }
-    // std::cout << "]" << std::endl;
-
     // Clean up FFTW plans
-    fftw_destroy_plan(forward_plan);
-    fftw_destroy_plan(inverse_plan);
+    // fftw_destroy_plan(forward_plan);
+    // fftw_destroy_plan(inverse_plan);
 }
 
 void MOLTEngine::compute_second_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
@@ -760,47 +596,49 @@ void MOLTEngine::compute_second_derivative(const std::vector<std::vector<std::co
 
     int Nx = this->Nx - 1;
     int Ny = this->Ny - 1;
-    double Lx = this->x[Nx-1] - this->x[0];
-    double Ly = this->y[Ny-1] - this->y[0];
 
     // Flatten the 2D input field into a 1D array for FFTW
-    std::vector<std::complex<double>> in(Nx * Ny);
-    std::vector<std::complex<double>> out(Nx * Ny);
-    std::vector<std::complex<double>> derivative(Nx * Ny);
+    // std::vector<std::complex<double>> in(Nx * Ny);
+    // std::vector<std::complex<double>> out(Nx * Ny);
+    // std::vector<std::complex<double>> derivative(Nx * Ny);
 
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            in[i * Ny + j] = input_field[i][j];
+            forwardIn[i * Ny + j] = input_field[i][j];
         }
     }
 
     // Create FFTW plans for the forward and inverse FFT
-    fftw_plan forward_plan = fftw_plan_dft_2d(Nx, Ny, 
-        reinterpret_cast<fftw_complex*>(in.data()), 
-        reinterpret_cast<fftw_complex*>(out.data()), 
-        FFTW_FORWARD, FFTW_ESTIMATE);
-    fftw_plan inverse_plan = fftw_plan_dft_2d(Nx, Ny, 
-        reinterpret_cast<fftw_complex*>(out.data()), 
-        reinterpret_cast<fftw_complex*>(derivative.data()), 
-        FFTW_BACKWARD, FFTW_ESTIMATE);
+    // fftw_plan forward_plan = fftw_plan_dft_2d(Nx, Ny, 
+    //     reinterpret_cast<fftw_complex*>(in.data()), 
+    //     reinterpret_cast<fftw_complex*>(out.data()), 
+    //     FFTW_FORWARD, FFTW_ESTIMATE);
+    // fftw_plan inverse_plan = fftw_plan_dft_2d(Nx, Ny, 
+    //     reinterpret_cast<fftw_complex*>(out.data()), 
+    //     reinterpret_cast<fftw_complex*>(derivative.data()), 
+    //     FFTW_BACKWARD, FFTW_ESTIMATE);
 
     // Execute the forward FFT
     fftw_execute(forward_plan);
 
     // Compute the wave numbers in the appropriate direction
-    std::vector<double> k = derivative_in_x ? compute_wave_numbers(Nx, Lx, false) : compute_wave_numbers(Ny, Ly, false);
+    std::vector<double> k = derivative_in_x ? kx_deriv_2 : ky_deriv_2;
 
     // Apply the second derivative operator in the frequency domain
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
             int index = i * Ny + j;
-            std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(out.data())[index]);
+            std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(forwardOut)[index]);
             double k_val = derivative_in_x ? k[i] : k[j];
             freq_component *= -k_val * k_val; // Multiply by -k^2
-            reinterpret_cast<fftw_complex*>(out.data())[index][0] = freq_component.real();
-            reinterpret_cast<fftw_complex*>(out.data())[index][1] = freq_component.imag();
+            reinterpret_cast<fftw_complex*>(backwardIn)[index][0] = freq_component.real();
+            reinterpret_cast<fftw_complex*>(backwardIn)[index][1] = freq_component.imag();
         }
     }
+    
+    // for (int i = 0; i < Nx*Ny; ++i) {
+    //     backwardIn[i] = forwardOut[i];
+    // }
 
     // Execute the inverse FFT
     fftw_execute(inverse_plan);
@@ -808,8 +646,7 @@ void MOLTEngine::compute_second_derivative(const std::vector<std::vector<std::co
     // Normalize the inverse FFT output
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            derivative[i * Ny + j] /= (Nx * Ny);
-            derivative_field[i][j] = derivative[i * Ny + j];
+            derivative_field[i][j] = backwardOut[i * Ny + j] / double(Nx * Ny);
         }
     }
 
@@ -821,6 +658,6 @@ void MOLTEngine::compute_second_derivative(const std::vector<std::vector<std::co
     }
 
     // Clean up FFTW plans
-    fftw_destroy_plan(forward_plan);
-    fftw_destroy_plan(inverse_plan);
+    // fftw_destroy_plan(forward_plan);
+    // fftw_destroy_plan(inverse_plan);
 }

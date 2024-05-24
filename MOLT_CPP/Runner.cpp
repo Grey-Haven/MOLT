@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     const double c = 299792458;
     const double mu_0 = 1.25663706e-6;
     const double eps_0 = 8.854187817e-12;
-    const double k_B = 1.380649e-23; // Boltzmann constant
+    const double k_B = 1.38064852e-23; // Boltzmann constant
 
     // Nondimensionalized units
     const double M = M_electron; // [kg]
@@ -36,6 +36,18 @@ int main(int argc, char *argv[])
     const double V = L / T;    // In [m/s] (thermal velocity lam_D*w_p)
 
     const double kappa = c/V;  // Nondimensional wave speed [m/s]
+
+    // std::cout << std::setprecision(15) << "(n_bar * pow(Q, 2)) = " << (n_bar * pow(Q, 2)) << std::endl;
+    // std::cout << std::setprecision(15) << "(M * eps_0) = " << (M * eps_0) << std::endl;
+    // std::cout << std::setprecision(15) << "(n_bar * pow(Q, 2)) / (M * eps_0) = " << (n_bar * pow(Q, 2)) / (M * eps_0) << std::endl;
+    // std::cout << std::setprecision(15) << "sqrt((n_bar * pow(Q, 2)) / (M * eps_0)) = " << sqrt((n_bar * pow(Q, 2)) / (M * eps_0)) << std::endl;
+    // std::cout << std::setprecision(15) << "w_p = " << w_p << std::endl;
+
+    // std::cout << std::setprecision(15) << "eps_0*k_B*T_bar = " << (eps_0 * k_B * T_bar) << std::endl;
+    // std::cout << std::setprecision(15) << "n_bar*(Q*Q) = " << (n_bar*(Q*Q)) << std::endl;
+    // std::cout << std::setprecision(15) << "(eps_0 * k_B * T_bar)/(n_bar*(Q*Q)) = " << (eps_0 * k_B * T_bar)/(n_bar*(Q*Q)) << std::endl;
+    // std::cout << std::setprecision(15) << "lambda_D = " << lambda_D << std::endl;
+    // std::cout << std::setprecision(15) << "L = " << L << " T = " << T << " V = L/T = " << V << std::endl;
 
     // const double phi_0 = (M*pow(V,2))/Q;
     // const double A_0 = (M*V)/Q;
@@ -155,6 +167,10 @@ int main(int argc, char *argv[])
     // dxs[g] = dx;
     double dt = dx / (sqrt(2) * kappa);
 
+    // std::cout << std::setprecision(15) << "dx = " << dx << " kappa = " << kappa << std::endl;
+    // std::cout << std::setprecision(15) << "sqrt(2)*kappa = " << sqrt(2)*kappa << std::endl;
+    // std::cout << std::setprecision(15) << "dt = " << dt << std::endl;
+
     int N_steps = floor(T_final / dt);
    
     std::string nxn = std::to_string(Nx-1) + "x" + std::to_string(Ny-1);
@@ -210,9 +226,10 @@ int main(int argc, char *argv[])
     
     // Kokkos::Timer timer;
 
-    // N_steps = 1;
+    // N_steps = 100;
 
-    std::vector<double> gauge_L2(N_steps);
+    std::vector<double> gauge_L2(N_steps+1);
+    gauge_L2[0] = molt.getGaugeL2();
 
     for (int n = 0; n < N_steps; n++) {
         // if (n % 100 == 0) {
@@ -223,18 +240,22 @@ int main(int argc, char *argv[])
             std::cout << "Step: " << n << "/" << N_steps << " = " << 100*(double(n)/double(N_steps)) << "\% complete" << std::endl;
         }
         molt.step();
-        gauge_L2[n] = molt.getGaugeL2();
+        gauge_L2[n+1] = molt.getGaugeL2();
     }
     std::cout << "Done running!" << std::endl;
     gettimeofday( &end, NULL );
     double time = 1.0 * ( end.tv_sec - begin.tv_sec ) + 1.0e-6 * ( end.tv_usec - begin.tv_usec );
     // double time = timer.seconds();
     std::cout << "Grid size: " << Nx << "x" << Ny << " ran for " << time << " seconds." << std::endl;
-    std::cout << "L2 over time: " << std::endl;
-    for (int i = 0; i < N_steps; i++) {
-        std::cout << gauge_L2[i] << ", ";
-    }
     // }
+    molt.printTimeDiagnostics();
+
+    std::ofstream gaugeFile;
+    gaugeFile.open("./results/gauge_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        gaugeFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauge_L2[n] << std::endl;
+    }
+    gaugeFile.close();
 
     return 0;
 }
