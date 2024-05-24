@@ -24,8 +24,6 @@ class MOLTEngine {
         double getTime();
         int getStep();
         double getGaugeL2();
-        double gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field);
-        void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
         void printTimeDiagnostics();
 
     private:
@@ -69,6 +67,7 @@ class MOLTEngine {
         std::vector<std::vector<std::vector<std::complex<double>>>> J2;
         std::vector<std::vector<std::complex<double>>> ddx_J1;
         std::vector<std::vector<std::complex<double>>> ddy_J2;
+        std::vector<std::vector<std::vector<std::complex<double>>>> currentFields;
         std::vector<double> kx_deriv_1, ky_deriv_1;
         std::vector<double> kx_deriv_2, ky_deriv_2;
         std::complex<double>* forwardIn;
@@ -88,6 +87,9 @@ class MOLTEngine {
         void updatePhi();
         void updateA1();
         void updateA2();
+        double gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field);
+        void gatherFields(double p_x, double p_y, std::vector<std::vector<std::vector<std::complex<double>>>>& fields, std::vector<double>& fields_out);
+        void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
 
         void compute_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
                         std::vector<std::vector<std::complex<double>>>& derivative_field, bool derivative_in_x);
@@ -305,17 +307,19 @@ void MOLTEngine::updateWaves() {
 }
 
 void MOLTEngine::updateParticleVelocities() {
+    std::vector<double> fields_p(8);
+    double ddx_phi_p, ddy_phi_p, A1_p, ddx_A1_p, ddy_A1_p, A2_p, ddx_A2_p, ddy_A2_p;
     for (int i = 0; i < Np; i++) {
-        double ddx_phi_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], ddx_phi[lastStepIndex]);
-        double ddy_phi_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], ddy_phi[lastStepIndex]);
 
-        double A1_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], A1[lastStepIndex]);
-        double ddx_A1_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], ddx_A1[lastStepIndex]);
-        double ddy_A1_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], ddy_A1[lastStepIndex]);
-
-        double A2_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], A2[lastStepIndex]);
-        double ddx_A2_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], ddx_A2[lastStepIndex]);
-        double ddy_A2_p = gatherField(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], ddy_A2[lastStepIndex]);
+        gatherFields(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], currentFields, fields_p);
+        ddx_phi_p = fields_p[0];
+        ddy_phi_p = fields_p[1];
+        A1_p = fields_p[2];
+        ddx_A1_p = fields_p[3];
+        ddy_A1_p = fields_p[4];
+        A2_p = fields_p[5];
+        ddx_A2_p = fields_p[6];
+        ddy_A2_p = fields_p[7];
 
         double vx_star = 2.0*vx_elec[lastStepIndex-1][i] - vx_elec[lastStepIndex-2][i];
         double vy_star = 2.0*vy_elec[lastStepIndex-1][i] - vy_elec[lastStepIndex-2][i];
@@ -379,6 +383,73 @@ void MOLTEngine::solveHelmholtzEquation(std::vector<std::vector<std::complex<dou
     }
 }
 
+void MOLTEngine::shuffleSteps() {
+    for (int h = 0; h < lastStepIndex; h++) {
+        x_elec[h].assign(x_elec[h+1].begin(), x_elec[h+1].end());
+        y_elec[h].assign(y_elec[h+1].begin(), y_elec[h+1].end());
+        vx_elec[h].assign(vx_elec[h+1].begin(), vx_elec[h+1].end());
+        vy_elec[h].assign(vy_elec[h+1].begin(), vy_elec[h+1].end());
+        Px_elec[h].assign(Px_elec[h+1].begin(), Px_elec[h+1].end());
+        Py_elec[h].assign(Py_elec[h+1].begin(), Py_elec[h+1].end());
+
+        phi[h].assign(phi[h+1].begin(), phi[h+1].end());
+        ddx_phi[h].assign(ddx_phi[h+1].begin(), ddx_phi[h+1].end());
+        ddy_phi[h].assign(ddy_phi[h+1].begin(), ddy_phi[h+1].end());
+        A1[h].assign(A1[h+1].begin(), A1[h+1].end());
+        ddx_A1[h].assign(ddx_A1[h+1].begin(), ddx_A1[h+1].end());
+        ddy_A1[h].assign(ddy_A1[h+1].begin(), ddy_A1[h+1].end());
+        A2[h].assign(A2[h+1].begin(), A2[h+1].end());
+        ddx_A2[h].assign(ddx_A2[h+1].begin(), ddx_A2[h+1].end());
+        ddy_A2[h].assign(ddy_A2[h+1].begin(), ddy_A2[h+1].end());
+
+        rho[h].assign(rho[h+1].begin(), rho[h+1].end());
+        J1[h].assign(J1[h+1].begin(), J1[h+1].end());
+        J2[h].assign(J2[h+1].begin(), J2[h+1].end());
+    }
+    currentFields[0] = ddx_phi[lastStepIndex];
+    currentFields[1] = ddy_phi[lastStepIndex];
+    currentFields[2] = A1[lastStepIndex];
+    currentFields[3] = ddx_A1[lastStepIndex];
+    currentFields[4] = ddy_A1[lastStepIndex];
+    currentFields[5] = A2[lastStepIndex];
+    currentFields[6] = ddx_A2[lastStepIndex];
+    currentFields[7] = ddy_A2[lastStepIndex];
+}
+
+void MOLTEngine::gatherFields(double p_x, double p_y, std::vector<std::vector<std::vector<std::complex<double>>>>& fields, std::vector<double>& fields_out) {
+    // We convert from cartesian to logical space
+    const double x0 = this->x[0];
+    const double y0 = this->y[0];
+    const int lc_x = floor((p_x - x0)/dx);
+    const int lc_y = floor((p_y - y0)/dy);
+
+    const double xNode = this->x[lc_x];
+    const double yNode = this->y[lc_y];
+
+    // We compute the fractional distance of a particle from
+    // the nearest node.
+    // eg x=[0,.1,.2,.3], particleX = [.225]
+    // The particle's fractional is 1/4
+    const double fx = (p_x - xNode)/dx;
+    const double fy = (p_y - yNode)/dy;
+
+    const int N = fields.size();
+
+    double field_00, field_01, field_10, field_11;
+
+    for (int i = 0; i < N; i++) {
+        // Now we acquire the field values at the surrounding nodes
+        field_00 = fields[i][lc_x][lc_y].real();
+        field_01 = fields[i][lc_x][lc_y+1].real();
+        field_10 = fields[i][lc_x+1][lc_y].real();
+        field_11 = fields[i][lc_x+1][lc_y+1].real();
+
+        // Returning the combined total of all the fields in proportion
+        // with the fractional distance
+        fields_out[i] = (1-fx)*(1-fy)*field_00 + (1-fx)*(fy)*field_01 + (fx)*(1-fy)*field_10 + (fx)*(fy)*field_11;
+    }
+}
+
 void MOLTEngine::scatterFields() {
     for (int i = 0; i < Nx; i++) {
         std::fill(J1[lastStepIndex][i].begin(), J1[lastStepIndex][i].end(), 0.0);
@@ -429,31 +500,6 @@ void MOLTEngine::scatterFields() {
         for (int j = 0; j < this->Ny; j++) {
             rho[lastStepIndex][i][j] = this->rho[lastStepIndex-1][i][j] - dt*(ddx_J1[i][j] + ddy_J2[i][j]);
         }
-    }
-}
-
-void MOLTEngine::shuffleSteps() {
-    for (int h = 0; h < lastStepIndex; h++) {
-        x_elec[h].assign(x_elec[h+1].begin(), x_elec[h+1].end());
-        y_elec[h].assign(y_elec[h+1].begin(), y_elec[h+1].end());
-        vx_elec[h].assign(vx_elec[h+1].begin(), vx_elec[h+1].end());
-        vy_elec[h].assign(vy_elec[h+1].begin(), vy_elec[h+1].end());
-        Px_elec[h].assign(Px_elec[h+1].begin(), Px_elec[h+1].end());
-        Py_elec[h].assign(Py_elec[h+1].begin(), Py_elec[h+1].end());
-
-        phi[h].assign(phi[h+1].begin(), phi[h+1].end());
-        ddx_phi[h].assign(ddx_phi[h+1].begin(), ddx_phi[h+1].end());
-        ddy_phi[h].assign(ddy_phi[h+1].begin(), ddy_phi[h+1].end());
-        A1[h].assign(A1[h+1].begin(), A1[h+1].end());
-        ddx_A1[h].assign(ddx_A1[h+1].begin(), ddx_A1[h+1].end());
-        ddy_A1[h].assign(ddy_A1[h+1].begin(), ddy_A1[h+1].end());
-        A2[h].assign(A2[h+1].begin(), A2[h+1].end());
-        ddx_A2[h].assign(ddx_A2[h+1].begin(), ddx_A2[h+1].end());
-        ddy_A2[h].assign(ddy_A2[h+1].begin(), ddy_A2[h+1].end());
-
-        rho[h].assign(rho[h+1].begin(), rho[h+1].end());
-        J1[h].assign(J1[h+1].begin(), J1[h+1].end());
-        J2[h].assign(J2[h+1].begin(), J2[h+1].end());
     }
 }
 

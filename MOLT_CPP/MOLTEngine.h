@@ -82,6 +82,9 @@ class MOLTEngine {
             this->ddx_A2 = ddx_A2;
             this->ddy_A2 = ddy_A2;
 
+            std::vector<std::vector<std::vector<std::complex<double>>>> fields{ddx_phi[lastStepIndex], ddy_phi[lastStepIndex], A1[lastStepIndex], ddx_A1[lastStepIndex], ddy_A1[lastStepIndex], A2[lastStepIndex], ddx_A2[lastStepIndex], ddy_A2[lastStepIndex]};
+            this->currentFields = fields;
+
             this->gaugeL2 = 0;
 
             this->rho = rho;
@@ -130,8 +133,6 @@ class MOLTEngine {
         double getTime();
         int getStep();
         double getGaugeL2();
-        double gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field);
-        void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
         void printTimeDiagnostics();
 
     private:
@@ -175,6 +176,7 @@ class MOLTEngine {
         std::vector<std::vector<std::vector<std::complex<double>>>> J2;
         std::vector<std::vector<std::complex<double>>> ddx_J1;
         std::vector<std::vector<std::complex<double>>> ddy_J2;
+        std::vector<std::vector<std::vector<std::complex<double>>>> currentFields;
         std::vector<double> kx_deriv_1, ky_deriv_1;
         std::vector<double> kx_deriv_2, ky_deriv_2;
         std::complex<double>* forwardIn;
@@ -190,7 +192,9 @@ class MOLTEngine {
         void updateParticleVelocities();
         void scatterFields();
         void updateWaves();
-        void gatherFields();
+        double gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field);
+        void gatherFields(double p_x, double p_y, std::vector<std::vector<std::vector<std::complex<double>>>>& fields, std::vector<double>& fields_out);
+        void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
         void shuffleSteps();
         void updatePhi();
         void updateA1();
