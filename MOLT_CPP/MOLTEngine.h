@@ -185,7 +185,7 @@ class MOLTEngine {
         std::complex<double>* backwardOut;
         fftw_plan forward_plan, inverse_plan;
 
-        double timeComponent1, timeComponent2, timeComponent3, timeComponent4, timeComponent5, timeComponent6;
+        double timeComponent1, timeComponent2, timeComponent3, timeComponent4, timeComponent5, timeComponent6, timeComponent7;
 
         void computeGaugeL2();
         void updateParticleLocations();
