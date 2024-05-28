@@ -201,30 +201,30 @@ class MOLTEngine {
         void updateA2();
         std::complex<double> to_std_complex(const fftw_complex& fc);
         std::vector<double> compute_wave_numbers(int N, double L);
-        void compute_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
+        void computeFirstDerivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
                         std::vector<std::vector<std::complex<double>>>& derivative_field, bool derivative_in_x);
-        void compute_second_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
+        void computeSecondDerivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
                 std::vector<std::vector<std::complex<double>>>& derivative_field, bool derivative_in_x);
 
         void compute_ddx(const std::vector<std::vector<std::complex<double>>>& input_field, 
                                 std::vector<std::vector<std::complex<double>>>& derivative_field,
                                 int Nx, int Ny, double Lx, double Ly) {
-                                    compute_derivative(input_field, derivative_field, true);
+                                    computeFirstDerivative(input_field, derivative_field, true);
                                 }
         void compute_ddy(const std::vector<std::vector<std::complex<double>>>& input_field, 
                                 std::vector<std::vector<std::complex<double>>>& derivative_field,
                                 int Nx, int Ny, double Lx, double Ly) {
-                                    compute_derivative(input_field, derivative_field, false);
+                                    computeFirstDerivative(input_field, derivative_field, false);
                                 }
         void compute_d2dx(const std::vector<std::vector<std::complex<double>>>& input_field, 
                                 std::vector<std::vector<std::complex<double>>>& derivative_field,
                                 int Nx, int Ny, double Lx, double Ly) {
-                                    compute_second_derivative(input_field, derivative_field, true);
+                                    computeSecondDerivative(input_field, derivative_field, true);
                                 }
         void compute_d2dy(const std::vector<std::vector<std::complex<double>>>& input_field, 
                                 std::vector<std::vector<std::complex<double>>>& derivative_field,
                                 int Nx, int Ny, double Lx, double Ly) {
-                                    compute_second_derivative(input_field, derivative_field, false);
+                                    computeSecondDerivative(input_field, derivative_field, false);
                                 }
         // Helper function to compute the wave numbers in one dimension
         std::vector<double> compute_wave_numbers(int N, double L, bool first_derivative = true) {

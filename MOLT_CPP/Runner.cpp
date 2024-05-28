@@ -8,6 +8,9 @@
 #include <random>
 #include "MOLTEngine.h"
 
+#include <stdio.h>
+#include <omp.h>
+
 int main(int argc, char *argv[])
 {
     // Physical constants
@@ -77,7 +80,8 @@ int main(int argc, char *argv[])
     // End physical grid parameters
 
     // Particle Setup
-    const int numParticles = 2.5e4;
+    // const int numParticles = 2.5e4;
+    const int numParticles = 32*32*100;
 
     // const double v1_drift = kappa / 100;
     // const double v2_drift = kappa / 100;
@@ -94,7 +98,7 @@ int main(int argc, char *argv[])
     // End Particle Setup
 
         // Set up nondimensional grid
-    const int N = 17;    
+    const int N = 32 + 1;    
     const int Nx = N;
     const int Ny = N;
     const double dx = (b_x-a_x)/(Nx-1);
@@ -122,48 +126,50 @@ int main(int argc, char *argv[])
     std::vector<std::vector<double>> P2_elec_hist(N_h, std::vector<double>(numParticles));
 
     // Distribute particles across phase space
-    // for (int i = 0; i < numParticles; i++) {
+    double v1_drift = kappa/100;
+    double v2_drift = kappa/100;
+    for (int i = 0; i < numParticles; i++) {
 
-    //     double x_p = location_distribution(generator);
-    //     double y_p = location_distribution(generator);
+        double x_p = location_distribution(generator);
+        double y_p = location_distribution(generator);
 
-    //     if (x_p < 0) {
-    //         x_p += L_x;
-    //     }
-    //     if (x_p > L_x) {
-    //         x_p -= L_x;
-    //     }
-    //     if (y_p < 0) {
-    //         y_p += L_y;
-    //     }
-    //     if (y_p > L_y) {
-    //         y_p -= L_y;
-    //     }
+        if (x_p < 0) {
+            x_p += L_x;
+        }
+        if (x_p > L_x) {
+            x_p -= L_x;
+        }
+        if (y_p < 0) {
+            y_p += L_y;
+        }
+        if (y_p > L_y) {
+            y_p -= L_y;
+        }
 
-    //     x1_elec_hist[N_h - 1][i] = x_p;
-    //     x2_elec_hist[N_h - 1][i] = y_p;
-    //     x1_elec_hist[N_h - 2][i] = x_p;
-    //     x2_elec_hist[N_h - 2][i] = y_p;
-    //     x1_ion[i] = x_p;
-    //     x2_ion[i] = y_p;
+        x1_elec_hist[N_h - 1][i] = x_p;
+        x2_elec_hist[N_h - 1][i] = y_p;
+        x1_elec_hist[N_h - 2][i] = x_p;
+        x2_elec_hist[N_h - 2][i] = y_p;
+        x1_ion[i] = x_p;
+        x2_ion[i] = y_p;
 
-    //     double vx_p = velocity_distribution(generator) + v1_drift;
-    //     double vy_p = velocity_distribution(generator) + v2_drift;
+        double vx_p = velocity_distribution(generator) + v1_drift;
+        double vy_p = velocity_distribution(generator) + v2_drift;
 
-    //     v1_elec_hist[N_h - 1][i] = vx_p;
-    //     v2_elec_hist[N_h - 1][i] = vy_p;
-    //     v1_elec_hist[N_h - 2][i] = vx_p;
-    //     v2_elec_hist[N_h - 2][i] = vy_p;
-    //     v1_elec_hist[N_h - 3][i] = vx_p;
-    //     v2_elec_hist[N_h - 3][i] = vy_p;
+        v1_elec_hist[N_h - 1][i] = vx_p;
+        v2_elec_hist[N_h - 1][i] = vy_p;
+        v1_elec_hist[N_h - 2][i] = vx_p;
+        v2_elec_hist[N_h - 2][i] = vy_p;
+        v1_elec_hist[N_h - 3][i] = vx_p;
+        v2_elec_hist[N_h - 3][i] = vy_p;
 
-    //     P1_elec_hist[N_h - 1][i] = m_elec*vx_p;
-    //     P2_elec_hist[N_h - 1][i] = m_elec*vy_p;
-    //     P1_elec_hist[N_h - 2][i] = m_elec*vx_p;
-    //     P2_elec_hist[N_h - 2][i] = m_elec*vy_p;
-    //     P1_elec_hist[N_h - 3][i] = m_elec*vx_p;
-    //     P2_elec_hist[N_h - 3][i] = m_elec*vy_p;
-    // }
+        P1_elec_hist[N_h - 1][i] = m_elec*vx_p;
+        P2_elec_hist[N_h - 1][i] = m_elec*vy_p;
+        P1_elec_hist[N_h - 2][i] = m_elec*vx_p;
+        P2_elec_hist[N_h - 2][i] = m_elec*vy_p;
+        P1_elec_hist[N_h - 3][i] = m_elec*vx_p;
+        P2_elec_hist[N_h - 3][i] = m_elec*vy_p;
+    }
     // dxs[g] = dx;
     double dt = dx / (sqrt(2) * kappa);
 
@@ -200,24 +206,24 @@ int main(int argc, char *argv[])
     elec_file.close();
     int numCols = data.size();
     std::cout << numCols << std::endl;
-    for (int i = 0; i < numCols; i++) {
-        double x1  = stod(data[i][0]);
-        double x2  = stod(data[i][1]);
-        double vx1 = stod(data[i][2]);
-        double vx2 = stod(data[i][3]);
+    // for (int i = 0; i < numCols; i++) {
+    //     double x1  = stod(data[i][0]);
+    //     double x2  = stod(data[i][1]);
+    //     double vx1 = stod(data[i][2]);
+    //     double vx2 = stod(data[i][3]);
 
-        x1_elec_hist[N_h - 1][i] = x1;
-        x2_elec_hist[N_h - 1][i] = x2;
-        x1_elec_hist[N_h - 2][i] = x1;
-        x2_elec_hist[N_h - 2][i] = x2;
+    //     x1_elec_hist[N_h - 1][i] = x1;
+    //     x2_elec_hist[N_h - 1][i] = x2;
+    //     x1_elec_hist[N_h - 2][i] = x1;
+    //     x2_elec_hist[N_h - 2][i] = x2;
 
-        v1_elec_hist[N_h - 1][i] = vx1;
-        v2_elec_hist[N_h - 1][i] = vx2;
-        v1_elec_hist[N_h - 2][i] = vx1;
-        v2_elec_hist[N_h - 2][i] = vx2;
-        v1_elec_hist[N_h - 3][i] = vx1;
-        v2_elec_hist[N_h - 3][i] = vx2;
-    }
+    //     v1_elec_hist[N_h - 1][i] = vx1;
+    //     v2_elec_hist[N_h - 1][i] = vx2;
+    //     v1_elec_hist[N_h - 2][i] = vx1;
+    //     v2_elec_hist[N_h - 2][i] = vx2;
+    //     v1_elec_hist[N_h - 3][i] = vx1;
+    //     v2_elec_hist[N_h - 3][i] = vx2;
+    // }
 
     MOLTEngine molt(Nx, Ny, numParticles, N_h, x, y, x1_elec_hist, x2_elec_hist, v1_elec_hist, v2_elec_hist, dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, beta_BDF1);
 
@@ -226,7 +232,7 @@ int main(int argc, char *argv[])
     
     // Kokkos::Timer timer;
 
-    // N_steps = 100;
+    // N_steps = 1000;
 
     std::vector<double> gauge_L2(N_steps+1);
     gauge_L2[0] = molt.getGaugeL2();

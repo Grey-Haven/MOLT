@@ -9,6 +9,9 @@
 #include <vector>
 #include <sys/time.h>
 
+#include <stdio.h>
+#include <omp.h>
+
 using std::complex;
 
 // This is assuming a 2D Hz mode Yee grid
@@ -91,29 +94,29 @@ class MOLTEngine {
         void gatherFields(double p_x, double p_y, std::vector<std::vector<std::vector<std::complex<double>>>>& fields, std::vector<double>& fields_out);
         void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
 
-        void compute_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                        std::vector<std::vector<std::complex<double>>>& derivative_field, bool derivative_in_x);
-        void compute_second_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                std::vector<std::vector<std::complex<double>>>& derivative_field, bool derivative_in_x);
+        void computeFirstDerivative(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                        std::vector<std::vector<std::complex<double>>>& derivativeField, bool isDerivativeInX);
+        void computeSecondDerivative(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                std::vector<std::vector<std::complex<double>>>& derivativeField, bool isDerivativeInX);
         
         void solveHelmholtzEquation(std::vector<std::vector<std::complex<double>>>& RHS,
                                                 std::vector<std::vector<std::complex<double>>>& LHS, double alpha);
 
-        void compute_ddx(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                               std::vector<std::vector<std::complex<double>>>& derivative_field) {
-                                    compute_derivative(input_field, derivative_field, true);
+        void compute_ddx(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                               std::vector<std::vector<std::complex<double>>>& derivativeField) {
+                                    computeFirstDerivative(inputField, derivativeField, true);
                                }
-        void compute_ddy(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                               std::vector<std::vector<std::complex<double>>>& derivative_field) {
-                                    compute_derivative(input_field, derivative_field, false);
+        void compute_ddy(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                               std::vector<std::vector<std::complex<double>>>& derivativeField) {
+                                    computeFirstDerivative(inputField, derivativeField, false);
                                }
-        void compute_d2dx(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                                std::vector<std::vector<std::complex<double>>>& derivative_field) {
-                                    compute_second_derivative(input_field, derivative_field, true);
+        void compute_d2dx(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                                std::vector<std::vector<std::complex<double>>>& derivativeField) {
+                                    computeSecondDerivative(inputField, derivativeField, true);
                                 }
-        void compute_d2dy(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                                std::vector<std::vector<std::complex<double>>>& derivative_field) {
-                                    compute_second_derivative(input_field, derivative_field, false);
+        void compute_d2dy(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                                std::vector<std::vector<std::complex<double>>>& derivativeField) {
+                                    computeSecondDerivative(inputField, derivativeField, false);
                                 }
 
         std::complex<double> to_std_complex(const fftw_complex& fc) {
@@ -126,7 +129,10 @@ class MOLTEngine {
  * Author: Stephen White
  * Date Created: 9/28/22
  * Date Last Modified: 9/28/22 (Stephen White)
- * Description: 2D update equation derived from the curl equations in Maxwell's Equations (TE mode of the Yee Scheme)
+ * Description: Runs a single timestep iteration of a plasma system under the Lorenz gauge. 
+ *              The phi, A1, and A2 waves are updated using, for now, Rothe's method under a BDF1 time discretization, 
+ *              the particle locations updated using Newton's law with BDF1 computing the time derivative, and the IAEM for the particle velocity update.
+ *              For debugging purposes there are timers on each component of the algorithm, eliminating these will result in some time saved.
  * Inputs: NA
  * Output: NA
  * Dependencies: scatterFields, shuffleSteps, updateParticleLocations, updateParticleVelocities, updateWaves
@@ -191,6 +197,16 @@ double MOLTEngine::getGaugeL2() {
     return gaugeL2;
 }
 
+/**
+ * Name: updateParticleVelocities
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Computes the L2 error of the residual of the Lorenz gauge (eps = 1/k^2 ddt_phi + div(A) = 0)
+ * Inputs: none (relies on phi, ddx_A1, ddy_A2)
+ * Output: none
+ * Dependencies: none
+ */
 void MOLTEngine::computeGaugeL2() {
     double ddt_phi;
     double div_A;
@@ -205,6 +221,16 @@ void MOLTEngine::computeGaugeL2() {
     gaugeL2 = std::sqrt(dx*dy*l2);
 }
 
+/**
+ * Name: print
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: This prints the potentials and particle information to their own files grouped by mesh refinement, labeled by field and timestep
+ * Inputs: none (relies on the field and particle arrays)
+ * Output: none
+ * Dependencies: none
+ */
 void MOLTEngine::print() {
     std::ofstream phiFile, A1File, A2File;
     std::ofstream electronFile;
@@ -258,6 +284,16 @@ void MOLTEngine::print() {
     // J2File.close();
 }
 
+/**
+ * Name: updateParticleLocations
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Updates the particle locations using Newton's law
+ * Inputs: none (relies on x, y, x_elec, y_elec, vx_elec, vy_elec)
+ * Output: none
+ * Dependencies: OpenMP
+ */
 void MOLTEngine::updateParticleLocations() {
     double Lx = x[Nx-1] - x[0];
     double Ly = y[Ny-1] - y[0];
@@ -265,6 +301,7 @@ void MOLTEngine::updateParticleLocations() {
     double vx_star;
     double vy_star;
 
+    #pragma omp parallel for
     for (int i = 0; i < this->Np; i++) {
         vx_star = 2.0*this->vx_elec[lastStepIndex-1][i] - this->vx_elec[lastStepIndex-2][i];
         vy_star = 2.0*this->vy_elec[lastStepIndex-1][i] - this->vy_elec[lastStepIndex-2][i];
@@ -277,6 +314,18 @@ void MOLTEngine::updateParticleLocations() {
     }
 }
 
+/**
+ * Name: updateWaves
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: This updates the phi, A1, and A2 waves by Rothe's method. Discretizing in time using, for now, the BDF1 method, and bringing the previous
+ *              timesteps to the RHS along with the source function results in the modified Helmholtz equation, which we solve using the FFT. It then computes
+ *              the corresponding derivatives.
+ * Inputs: none (relies on rho, J1, J2, phi, A1, A2)
+ * Output: none
+ * Dependencies: solveHelmholtzEquation, compute_ddx, compute_ddy
+ */
 void MOLTEngine::updateWaves() {
     double alpha = this->beta/(this->kappa*this->dt);
     // BDF1
@@ -306,20 +355,196 @@ void MOLTEngine::updateWaves() {
     compute_ddy(this->A2[lastStepIndex],  this->ddy_A2[lastStepIndex]);
 }
 
+/**
+ * Name: updateParticleVelocities
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Oh boy, this one. This uses the Improved Asymmetric Euler Method to update the particle velocities. Simple, right?
+ *              Except it requires the gathering of eight field values for each particle, which is easily the most computationally
+ *              intensive process in this simulation. Now, this is embarassingly parallel, which is a small grace, however, if we 
+ *              wish to use OpenMP we can't rely on gatherField or gatherFields, it has to be in line, which makes things redundant.
+ *              Commented out code exists for posterity, may remove eventually, it is an eyesore.
+ * Inputs: none
+ * Output: none
+ * Dependencies: OpenMP
+ */
 void MOLTEngine::updateParticleVelocities() {
-    std::vector<double> fields_p(8);
-    double ddx_phi_p, ddy_phi_p, A1_p, ddx_A1_p, ddy_A1_p, A2_p, ddx_A2_p, ddy_A2_p;
-    for (int i = 0; i < Np; i++) {
 
-        gatherFields(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], currentFields, fields_p);
-        ddx_phi_p = fields_p[0];
-        ddy_phi_p = fields_p[1];
-        A1_p = fields_p[2];
-        ddx_A1_p = fields_p[3];
-        ddy_A1_p = fields_p[4];
-        A2_p = fields_p[5];
-        ddx_A2_p = fields_p[6];
-        ddy_A2_p = fields_p[7];
+    // int thread_id;
+    // int maxThreads = omp_get_max_threads();
+    // int numParticlesPerThread = Np / (maxThreads);
+
+    // std::vector<double> fields_p(8);
+    // double ddx_phi_p, ddy_phi_p, A1_p, ddx_A1_p, ddy_A1_p, A2_p, ddx_A2_p, ddy_A2_p;
+    
+    // #pragma omp parallel private(thread_id, ddx_phi_p, ddy_phi_p, A1_p, ddx_A1_p, ddy_A1_p, A2_p, ddx_A2_p, ddy_A2_p) shared(fields_p, x_elec, y_elec)
+    // {
+
+    //     thread_id = omp_get_thread_num();
+    //     int startIndex = thread_id * numParticlesPerThread;
+    //     for (int i = startIndex; i < startIndex + numParticlesPerThread; i++) {
+
+    //         // std::cout << "Thread " << thread_id << " updating " << i << " particle." << std::endl;
+
+    //         gatherFields(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], currentFields, fields_p);
+    //         ddx_phi_p = fields_p[0];
+    //         ddy_phi_p = fields_p[1];
+    //         A1_p = fields_p[2];
+    //         ddx_A1_p = fields_p[3];
+    //         ddy_A1_p = fields_p[4];
+    //         A2_p = fields_p[5];
+    //         ddx_A2_p = fields_p[6];
+    //         ddy_A2_p = fields_p[7];
+
+    //         double vx_star = 2.0*vx_elec[lastStepIndex-1][i] - vx_elec[lastStepIndex-2][i];
+    //         double vy_star = 2.0*vy_elec[lastStepIndex-1][i] - vy_elec[lastStepIndex-2][i];
+
+    //         double rhs1 = -elec_charge*ddx_phi_p + elec_charge*( ddx_A1_p*vx_star + ddx_A2_p*vy_star );
+    //         double rhs2 = -elec_charge*ddy_phi_p + elec_charge*( ddy_A1_p*vx_star + ddy_A2_p*vy_star );
+
+    //         // Compute the new momentum
+    //         Px_elec[lastStepIndex][i] = Px_elec[lastStepIndex-1][i] + dt*rhs1;
+    //         Py_elec[lastStepIndex][i] = Py_elec[lastStepIndex-1][i] + dt*rhs2;
+
+    //         double denom = std::sqrt(std::pow(Px_elec[lastStepIndex][i] - elec_charge*A1_p, 2) + std::pow(Py_elec[lastStepIndex][i] - elec_charge*A2_p, 2) + std::pow(elec_mass*kappa, 2));
+
+    //         // Compute the new velocity using the updated momentum
+    //         vx_elec[lastStepIndex][i] = (kappa*(Px_elec[lastStepIndex][i] - elec_charge*A1_p)) / denom;
+    //         vy_elec[lastStepIndex][i] = (kappa*(Py_elec[lastStepIndex][i] - elec_charge*A2_p)) / denom;
+    //     }
+    // }
+    // for (int i = numParticlesPerThread*maxThreads + numParticlesPerThread; i < Np; i++) {
+
+    //     gatherFields(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], currentFields, fields_p);
+    //     ddx_phi_p = fields_p[0];
+    //     ddy_phi_p = fields_p[1];
+    //     A1_p = fields_p[2];
+    //     ddx_A1_p = fields_p[3];
+    //     ddy_A1_p = fields_p[4];
+    //     A2_p = fields_p[5];
+    //     ddx_A2_p = fields_p[6];
+    //     ddy_A2_p = fields_p[7];
+
+    //     double vx_star = 2.0*vx_elec[lastStepIndex-1][i] - vx_elec[lastStepIndex-2][i];
+    //     double vy_star = 2.0*vy_elec[lastStepIndex-1][i] - vy_elec[lastStepIndex-2][i];
+
+    //     double rhs1 = -elec_charge*ddx_phi_p + elec_charge*( ddx_A1_p*vx_star + ddx_A2_p*vy_star );
+    //     double rhs2 = -elec_charge*ddy_phi_p + elec_charge*( ddy_A1_p*vx_star + ddy_A2_p*vy_star );
+
+    //     // Compute the new momentum
+    //     Px_elec[lastStepIndex][i] = Px_elec[lastStepIndex-1][i] + dt*rhs1;
+    //     Py_elec[lastStepIndex][i] = Py_elec[lastStepIndex-1][i] + dt*rhs2;
+
+    //     double denom = std::sqrt(std::pow(Px_elec[lastStepIndex][i] - elec_charge*A1_p, 2) + std::pow(Py_elec[lastStepIndex][i] - elec_charge*A2_p, 2) + std::pow(elec_mass*kappa, 2));
+
+    //     // Compute the new velocity using the updated momentum
+    //     vx_elec[lastStepIndex][i] = (kappa*(Px_elec[lastStepIndex][i] - elec_charge*A1_p)) / denom;
+    //     vy_elec[lastStepIndex][i] = (kappa*(Py_elec[lastStepIndex][i] - elec_charge*A2_p)) / denom;
+    // }
+
+    // std::vector<double> fields_p(8);
+    // double ddx_phi_p, ddy_phi_p, A1_p, ddx_A1_p, ddy_A1_p, A2_p, ddx_A2_p, ddy_A2_p;
+    // #pragma omp parallel for
+    // for (int i = 0; i < Np; i++) {
+
+    //     gatherFields(x_elec[lastStepIndex][i], y_elec[lastStepIndex][i], currentFields, fields_p);
+    //     ddx_phi_p = fields_p[0];
+    //     ddy_phi_p = fields_p[1];
+    //     A1_p = fields_p[2];
+    //     ddx_A1_p = fields_p[3];
+    //     ddy_A1_p = fields_p[4];
+    //     A2_p = fields_p[5];
+    //     ddx_A2_p = fields_p[6];
+    //     ddy_A2_p = fields_p[7];
+
+    //     double vx_star = 2.0*vx_elec[lastStepIndex-1][i] - vx_elec[lastStepIndex-2][i];
+    //     double vy_star = 2.0*vy_elec[lastStepIndex-1][i] - vy_elec[lastStepIndex-2][i];
+
+    //     double rhs1 = -elec_charge*ddx_phi_p + elec_charge*( ddx_A1_p*vx_star + ddx_A2_p*vy_star );
+    //     double rhs2 = -elec_charge*ddy_phi_p + elec_charge*( ddy_A1_p*vx_star + ddy_A2_p*vy_star );
+
+    //     // Compute the new momentum
+    //     Px_elec[lastStepIndex][i] = Px_elec[lastStepIndex-1][i] + dt*rhs1;
+    //     Py_elec[lastStepIndex][i] = Py_elec[lastStepIndex-1][i] + dt*rhs2;
+
+    //     double denom = std::sqrt(std::pow(Px_elec[lastStepIndex][i] - elec_charge*A1_p, 2) + std::pow(Py_elec[lastStepIndex][i] - elec_charge*A2_p, 2) + std::pow(elec_mass*kappa, 2));
+
+    //     // Compute the new velocity using the updated momentum
+    //     vx_elec[lastStepIndex][i] = (kappa*(Px_elec[lastStepIndex][i] - elec_charge*A1_p)) / denom;
+    //     vy_elec[lastStepIndex][i] = (kappa*(Py_elec[lastStepIndex][i] - elec_charge*A2_p)) / denom;
+    // }
+    
+
+    #pragma omp parallel for
+    for (int i = 0; i < Np; i++) {
+        double ddx_phi_p = 0;
+        double ddy_phi_p = 0;
+        double A1_p = 0;
+        double ddx_A1_p = 0;
+        double ddy_A1_p = 0;
+        double A2_p = 0;
+        double ddx_A2_p = 0;
+        double ddy_A2_p = 0;
+        const double p_x = x_elec[lastStepIndex][i];
+        const double p_y = y_elec[lastStepIndex][i];
+        // ------------------------------
+        // Gather Fields
+        // We convert from cartesian to logical space
+        const double x0 = this->x[0];
+        const double y0 = this->y[0];
+        const int lc_x = floor((p_x - x0)/dx);
+        const int lc_y = floor((p_y - y0)/dy);
+
+        const double xNode = this->x[lc_x];
+        const double yNode = this->y[lc_y];
+
+        // We compute the fractional distance of a particle from
+        // the nearest node.
+        // eg x=[0,.1,.2,.3], particleX = [.225]
+        // The particle's fractional is 1/4
+        const double fx = (p_x - xNode)/dx;
+        const double fy = (p_y - yNode)/dy;
+
+        ddx_phi_p += (1-fx)*(1-fy)*ddx_phi[lastStepIndex][lc_x][lc_y].real();
+        ddx_phi_p += (1-fx)*(fy)*ddx_phi[lastStepIndex][lc_x][lc_y+1].real();
+        ddx_phi_p += (fx)*(1-fy)*ddx_phi[lastStepIndex][lc_x+1][lc_y].real();
+        ddx_phi_p += (fx)*(fy)*ddx_phi[lastStepIndex][lc_x+1][lc_y+1].real();
+
+        ddy_phi_p += (1-fx)*(1-fy)*ddy_phi[lastStepIndex][lc_x][lc_y].real();
+        ddy_phi_p += (1-fx)*(fy)*ddy_phi[lastStepIndex][lc_x][lc_y+1].real();
+        ddy_phi_p += (fx)*(1-fy)*ddy_phi[lastStepIndex][lc_x+1][lc_y].real();
+        ddy_phi_p += (fx)*(fy)*ddy_phi[lastStepIndex][lc_x+1][lc_y+1].real();
+
+        A1_p += (1-fx)*(1-fy)*A1[lastStepIndex][lc_x][lc_y].real();
+        A1_p += (1-fx)*(fy)*A1[lastStepIndex][lc_x][lc_y+1].real();
+        A1_p += (fx)*(1-fy)*A1[lastStepIndex][lc_x+1][lc_y].real();
+        A1_p += (fx)*(fy)*A1[lastStepIndex][lc_x+1][lc_y+1].real();
+
+        ddx_A1_p += (1-fx)*(1-fy)*ddx_A1[lastStepIndex][lc_x][lc_y].real();
+        ddx_A1_p += (1-fx)*(fy)*ddx_A1[lastStepIndex][lc_x][lc_y+1].real();
+        ddx_A1_p += (fx)*(1-fy)*ddx_A1[lastStepIndex][lc_x+1][lc_y].real();
+        ddx_A1_p += (fx)*(fy)*ddx_A1[lastStepIndex][lc_x+1][lc_y+1].real();
+
+        ddy_A1_p += (1-fx)*(1-fy)*ddy_A1[lastStepIndex][lc_x][lc_y].real();
+        ddy_A1_p += (1-fx)*(fy)*ddy_A1[lastStepIndex][lc_x][lc_y+1].real();
+        ddy_A1_p += (fx)*(1-fy)*ddy_A1[lastStepIndex][lc_x+1][lc_y].real();
+        ddy_A1_p += (fx)*(fy)*ddy_A1[lastStepIndex][lc_x+1][lc_y+1].real();
+
+        A2_p += (1-fx)*(1-fy)*A2[lastStepIndex][lc_x][lc_y].real();
+        A2_p += (1-fx)*(fy)*A2[lastStepIndex][lc_x][lc_y+1].real();
+        A2_p += (fx)*(1-fy)*A2[lastStepIndex][lc_x+1][lc_y].real();
+        A2_p += (fx)*(fy)*A2[lastStepIndex][lc_x+1][lc_y+1].real();
+
+        ddx_A2_p += (1-fx)*(1-fy)*ddx_A2[lastStepIndex][lc_x][lc_y].real();
+        ddx_A2_p += (1-fx)*(fy)*ddx_A2[lastStepIndex][lc_x][lc_y+1].real();
+        ddx_A2_p += (fx)*(1-fy)*ddx_A2[lastStepIndex][lc_x+1][lc_y].real();
+        ddx_A2_p += (fx)*(fy)*ddx_A2[lastStepIndex][lc_x+1][lc_y+1].real();
+
+        ddy_A2_p += (1-fx)*(1-fy)*ddy_A2[lastStepIndex][lc_x][lc_y].real();
+        ddy_A2_p += (1-fx)*(fy)*ddy_A2[lastStepIndex][lc_x][lc_y+1].real();
+        ddy_A2_p += (fx)*(1-fy)*ddy_A2[lastStepIndex][lc_x+1][lc_y].real();
+        ddy_A2_p += (fx)*(fy)*ddy_A2[lastStepIndex][lc_x+1][lc_y+1].real();
 
         double vx_star = 2.0*vx_elec[lastStepIndex-1][i] - vx_elec[lastStepIndex-2][i];
         double vy_star = 2.0*vy_elec[lastStepIndex-1][i] - vy_elec[lastStepIndex-2][i];
@@ -339,6 +564,16 @@ void MOLTEngine::updateParticleVelocities() {
     }
 }
 
+/**
+ * Name: solveHelmholtzEquation
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Solves the modified Helmholtz equation (I - (1/alpha^2)Delta) u = RHS using the FFT.
+ * Inputs: RHS, LHS, alpha
+ * Output: technically none, but LHS is where the result is stored
+ * Dependencies: to_std_complex, fftw
+ */
 void MOLTEngine::solveHelmholtzEquation(std::vector<std::vector<std::complex<double>>>& RHS,
                                         std::vector<std::vector<std::complex<double>>>& LHS, double alpha) {
 
@@ -383,6 +618,17 @@ void MOLTEngine::solveHelmholtzEquation(std::vector<std::vector<std::complex<dou
     }
 }
 
+/**
+ * Name: shuffleSteps
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: We use time history throughout this simulation, which means we need a copy of Nh previous timesteps.
+ *              At the end of each iteration we shuffle the results down one timestep, making room for the next.
+ * Inputs: none (relies on global values x_elec, y_elec, vx_elec, vy_elec, Px_elec, Py_elec, phi, ddx_phi, ddy_phi, A1, ddx_A1, ddy_A1, A2, ddx_A2, ddy_A2, and currentFields)
+ * Output: none
+ * Dependencies: none
+ */
 void MOLTEngine::shuffleSteps() {
     for (int h = 0; h < lastStepIndex; h++) {
         x_elec[h].assign(x_elec[h+1].begin(), x_elec[h+1].end());
@@ -416,6 +662,18 @@ void MOLTEngine::shuffleSteps() {
     currentFields[7] = ddy_A2[lastStepIndex];
 }
 
+/**
+ * Name: gatherFields
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Eliminates redundancies in the gatherField method, instead of multiple calls to gatherField
+ *              we pass in a vector of fields and compute the fractional weight for each particle, using this
+ *              for each field.
+ * Inputs: p_x, p_y, fields, fields_out
+ * Output: technically none, but fields_out is where the results are stored.
+ * Dependencies: none
+ */
 void MOLTEngine::gatherFields(double p_x, double p_y, std::vector<std::vector<std::vector<std::complex<double>>>>& fields, std::vector<double>& fields_out) {
     // We convert from cartesian to logical space
     const double x0 = this->x[0];
@@ -450,6 +708,17 @@ void MOLTEngine::gatherFields(double p_x, double p_y, std::vector<std::vector<st
     }
 }
 
+/**
+ * Name: scatterFields
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Scatters the particles across the current meshes (J1, J2), then computes rho by taking the divergence of J
+ *              and using the continuity equation (rho_t + div(J) = 0).
+ * Inputs: none (relies on global values rho, J1, J2, and particle location, velocities, and charge.)
+ * Output: none
+ * Dependencies: none
+ */
 void MOLTEngine::scatterFields() {
     for (int i = 0; i < Nx; i++) {
         std::fill(J1[lastStepIndex][i].begin(), J1[lastStepIndex][i].end(), 0.0);
@@ -503,6 +772,17 @@ void MOLTEngine::scatterFields() {
     }
 }
 
+/**
+ * Name: gatherField
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Takes a particle location in cartesian space, converts it to logical space, and using bilinear interpolation gathers
+ *              the value of the field in question, returning this value.
+ * Inputs: p_x, p_y, field
+ * Output: value
+ * Dependencies: none
+ */
 double MOLTEngine::gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field) {
     // We convert from cartesian to logical space
     double x0 = this->x[0];
@@ -531,6 +811,17 @@ double MOLTEngine::gatherField(double p_x, double p_y, std::vector<std::vector<s
     return (1-fx)*(1-fy)*field_00 + (1-fx)*(fy)*field_01 + (fx)*(1-fy)*field_10 + (fx)*(fy)*field_11;
 }
 
+/**
+ * Name: scatterField
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Takes a particle location in cartesian space, converts it to logical space, and using bilinear interpolation partitions
+ *              the value of the particle and adds it to the field.
+ * Inputs: p_x, p_y, value, field
+ * Output: technically none, but field is the 2D mesh (vector of vectors) in which the results are stored.
+ * Dependencies: none
+ */
 void MOLTEngine::scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field) {
 
     // We convert from cartesian to logical space
@@ -561,46 +852,42 @@ void MOLTEngine::scatterField(double p_x, double p_y, double value, std::vector<
     field[lc_x+1][lc_y+1] += (fx)*(fy)*value;
 }
 
-void MOLTEngine::compute_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                                    std::vector<std::vector<std::complex<double>>>& derivative_field,
-                                    bool derivative_in_x) {
+/**
+ * Name: computeFirstDerivative
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Computes the first derivative in either the x or y direction of a 2D mesh of complex numbers using the FFTW.
+ *              Assumes a periodic domain.
+ * Inputs: inputField, derivativeField, isDerivativeInX (boolean indicating which direction the derivative is in)
+ * Output: technically none, but derivativeField is the 2D mesh (vector of vectors) in which the results are stored.
+ * Dependencies: fftw, to_std_complex
+ */
+void MOLTEngine::computeFirstDerivative(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                                        std::vector<std::vector<std::complex<double>>>& derivativeField,
+                                        bool isDerivativeInX) {
 
     int Nx = this->Nx - 1;
     int Ny = this->Ny - 1;
 
-    // Flatten the 2D input field into a 1D array for FFTW
-    // std::vector<std::complex<double>> in(Nx * Ny);
-    // std::vector<std::complex<double>> out(Nx * Ny);
-    // std::vector<std::complex<double>> derivative(Nx * Ny);
-
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            forwardIn[i * Ny + j] = input_field[i][j];
+            forwardIn[i * Ny + j] = inputField[i][j];
         }
     }
-
-    // Create FFTW plans for the forward and inverse FFT
-    // fftw_plan forward_plan = fftw_plan_dft_2d(Nx, Ny, 
-    //     reinterpret_cast<fftw_complex*>(in.data()), 
-    //     reinterpret_cast<fftw_complex*>(out.data()), 
-    //     FFTW_FORWARD, FFTW_ESTIMATE);
-    // fftw_plan inverse_plan = fftw_plan_dft_2d(Nx, Ny, 
-    //     reinterpret_cast<fftw_complex*>(out.data()), 
-    //     reinterpret_cast<fftw_complex*>(derivative.data()), 
-    //     FFTW_BACKWARD, FFTW_ESTIMATE);
 
     // Execute the forward FFT
     fftw_execute(forward_plan);
 
     // Compute the wave numbers in the appropriate direction
-    std::vector<double> k = derivative_in_x ? kx_deriv_1 : ky_deriv_1;
+    std::vector<double> k = isDerivativeInX ? kx_deriv_1 : ky_deriv_1;
 
     // Apply the derivative operator in the frequency domain
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
             int index = i * Ny + j;
             std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(forwardOut)[index]);
-            if (derivative_in_x) {
+            if (isDerivativeInX) {
                 freq_component *= std::complex<double>(0, k[i]); // Multiply by i * kx
             } else {
                 freq_component *= std::complex<double>(0, k[j]); // Multiply by i * ky
@@ -610,81 +897,66 @@ void MOLTEngine::compute_derivative(const std::vector<std::vector<std::complex<d
         }
     }
 
-    // for (int i = 0; i < Nx*Ny; ++i) {
-    //     backwardIn[i] = forwardOut[i];
-    // }
-
     // Execute the inverse FFT
     fftw_execute(inverse_plan);
 
     // Normalize the inverse FFT output
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            derivative_field[i][j] = backwardOut[i * Ny + j] / double(Nx * Ny);
+            derivativeField[i][j] = backwardOut[i * Ny + j] / double(Nx * Ny);
         }
     }
 
+    // Periodic BC
     for (int i = 0; i < this->Nx; i++) {
-        derivative_field[i][this->Ny-1] = derivative_field[i][0];
+        derivativeField[i][this->Ny-1] = derivativeField[i][0];
     }
     for (int j = 0; j < this->Ny; j++) {
-        derivative_field[this->Nx-1][j] = derivative_field[0][j];
+        derivativeField[this->Nx-1][j] = derivativeField[0][j];
     }
-
-    // Clean up FFTW plans
-    // fftw_destroy_plan(forward_plan);
-    // fftw_destroy_plan(inverse_plan);
 }
 
-void MOLTEngine::compute_second_derivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                               std::vector<std::vector<std::complex<double>>>& derivative_field,
-                               bool derivative_in_x) {
+/**
+ * Name: computeSecondDerivative
+ * Author: Stephen White
+ * Date Created: 5/28/24
+ * Date Last Modified: 5/28/24 (Stephen White)
+ * Description: Computes the second derivative in either the x or y direction of a 2D mesh of complex numbers using the FFTW.
+ *              Assumes a periodic domain.
+ * Inputs: inputField, derivativeField, isDerivativeInX  (boolean indicating which direction the derivative is in)
+ * Output: technically none, but derivativeField is the 2D mesh (vector of vectors) in which the results are stored.
+ * Dependencies: fftw, to_std_complex
+ */
+void MOLTEngine::computeSecondDerivative(const std::vector<std::vector<std::complex<double>>>& inputField, 
+                                         std::vector<std::vector<std::complex<double>>>& derivativeField,
+                                         bool isDerivativeInX) {
 
     int Nx = this->Nx - 1;
     int Ny = this->Ny - 1;
 
-    // Flatten the 2D input field into a 1D array for FFTW
-    // std::vector<std::complex<double>> in(Nx * Ny);
-    // std::vector<std::complex<double>> out(Nx * Ny);
-    // std::vector<std::complex<double>> derivative(Nx * Ny);
-
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            forwardIn[i * Ny + j] = input_field[i][j];
+            forwardIn[i * Ny + j] = inputField[i][j];
         }
     }
-
-    // Create FFTW plans for the forward and inverse FFT
-    // fftw_plan forward_plan = fftw_plan_dft_2d(Nx, Ny, 
-    //     reinterpret_cast<fftw_complex*>(in.data()), 
-    //     reinterpret_cast<fftw_complex*>(out.data()), 
-    //     FFTW_FORWARD, FFTW_ESTIMATE);
-    // fftw_plan inverse_plan = fftw_plan_dft_2d(Nx, Ny, 
-    //     reinterpret_cast<fftw_complex*>(out.data()), 
-    //     reinterpret_cast<fftw_complex*>(derivative.data()), 
-    //     FFTW_BACKWARD, FFTW_ESTIMATE);
 
     // Execute the forward FFT
     fftw_execute(forward_plan);
 
     // Compute the wave numbers in the appropriate direction
-    std::vector<double> k = derivative_in_x ? kx_deriv_2 : ky_deriv_2;
+    std::vector<double> k = isDerivativeInX ? kx_deriv_2 : ky_deriv_2;
 
     // Apply the second derivative operator in the frequency domain
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
             int index = i * Ny + j;
             std::complex<double> freq_component = to_std_complex(reinterpret_cast<fftw_complex*>(forwardOut)[index]);
-            double k_val = derivative_in_x ? k[i] : k[j];
+            double k_val = isDerivativeInX ? k[i] : k[j];
             freq_component *= -k_val * k_val; // Multiply by -k^2
             reinterpret_cast<fftw_complex*>(backwardIn)[index][0] = freq_component.real();
             reinterpret_cast<fftw_complex*>(backwardIn)[index][1] = freq_component.imag();
         }
     }
-    
-    // for (int i = 0; i < Nx*Ny; ++i) {
-    //     backwardIn[i] = forwardOut[i];
-    // }
 
     // Execute the inverse FFT
     fftw_execute(inverse_plan);
@@ -692,18 +964,14 @@ void MOLTEngine::compute_second_derivative(const std::vector<std::vector<std::co
     // Normalize the inverse FFT output
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {
-            derivative_field[i][j] = backwardOut[i * Ny + j] / double(Nx * Ny);
+            derivativeField[i][j] = backwardOut[i * Ny + j] / double(Nx * Ny);
         }
     }
 
     for (int i = 0; i < this->Nx; i++) {
-        derivative_field[i][this->Ny-1] = derivative_field[i][0];
+        derivativeField[i][this->Ny-1] = derivativeField[i][0];
     }
     for (int j = 0; j < this->Ny; j++) {
-        derivative_field[this->Nx-1][j] = derivative_field[0][j];
+        derivativeField[this->Nx-1][j] = derivativeField[0][j];
     }
-
-    // Clean up FFTW plans
-    // fftw_destroy_plan(forward_plan);
-    // fftw_destroy_plan(inverse_plan);
 }
