@@ -139,7 +139,7 @@ class MOLTEngine {
  */
 void MOLTEngine::step() {
     // std::cout << "Updating Particle Locations" << std::endl;
-    struct timeval begin1, end1, begin2, end2, begin3, end3, begin4, end4, begin5, end5, begin6, end6;
+    struct timeval begin1, end1, begin2, end2, begin3, end3, begin4, end4, begin5, end5, begin6, end6, begin7, end7;
     gettimeofday( &begin1, NULL );
     updateParticleLocations();
     gettimeofday( &end1, NULL );
@@ -164,7 +164,9 @@ void MOLTEngine::step() {
     gettimeofday( &end6, NULL );
     // std::cout << "Rinse, Repeat" << std::endl;
     if (n % 100 == 0) {
+        gettimeofday( &begin7, NULL );
         print();
+        gettimeofday( &end7, NULL );
     }
     timeComponent1 += 1.0 * ( end1.tv_sec - begin1.tv_sec ) + 1.0e-6 * ( end1.tv_usec - begin1.tv_usec );
     timeComponent2 += 1.0 * ( end2.tv_sec - begin2.tv_sec ) + 1.0e-6 * ( end2.tv_usec - begin2.tv_usec );
@@ -172,6 +174,7 @@ void MOLTEngine::step() {
     timeComponent4 += 1.0 * ( end4.tv_sec - begin4.tv_sec ) + 1.0e-6 * ( end4.tv_usec - begin4.tv_usec );
     timeComponent5 += 1.0 * ( end5.tv_sec - begin5.tv_sec ) + 1.0e-6 * ( end5.tv_usec - begin5.tv_usec );
     timeComponent6 += 1.0 * ( end6.tv_sec - begin6.tv_sec ) + 1.0e-6 * ( end6.tv_usec - begin6.tv_usec );
+    timeComponent7 += 1.0 * ( end7.tv_sec - begin7.tv_sec ) + 1.0e-6 * ( end7.tv_usec - begin7.tv_usec );
     n++;
     t += dt;
 }
@@ -183,6 +186,7 @@ void MOLTEngine::printTimeDiagnostics() {
     std::cout << "updateParticleVelocities(): " << timeComponent4 << std::endl;
     std::cout << "computeGaugeL2(): " << timeComponent5 << std::endl;
     std::cout << "shuffleSteps(): " << timeComponent6 << std::endl;
+    std::cout << "print(): " << timeComponent7 << std::endl;
 }
 
 double MOLTEngine::getTime() {
