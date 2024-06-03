@@ -103,9 +103,6 @@ class MOLTEngine {
             this->ddx_A2 = ddx_A2;
             this->ddy_A2 = ddy_A2;
 
-            // std::vector<std::vector<std::vector<std::complex<double>>>> fields{ddx_phi[lastStepIndex], ddy_phi[lastStepIndex], A1[lastStepIndex], ddx_A1[lastStepIndex], ddy_A1[lastStepIndex], A2[lastStepIndex], ddx_A2[lastStepIndex], ddy_A2[lastStepIndex]};
-            // this->currentFields = fields;
-
             this->gaugeL2 = 0;
 
             this->rho = rho;
@@ -115,11 +112,11 @@ class MOLTEngine {
             this->ddx_J1 = ddx_J1;
             this->ddy_J2 = ddy_J2;
 
-            std::vector<double> kx_deriv_1 = compute_wave_numbers(Nx, x[Nx-1] - x[0], true);
-            std::vector<double> ky_deriv_1 = compute_wave_numbers(Ny, y[Ny-1] - y[0], true);
+            std::vector<double> kx_deriv_1 = compute_wave_numbers(Nx-1, x[Nx-1] - x[0], true);
+            std::vector<double> ky_deriv_1 = compute_wave_numbers(Ny-1, y[Ny-1] - y[0], true);
 
-            std::vector<double> kx_deriv_2 = compute_wave_numbers(Nx, x[Nx-1] - x[0], false);
-            std::vector<double> ky_deriv_2 = compute_wave_numbers(Ny, y[Ny-1] - y[0], false);
+            std::vector<double> kx_deriv_2 = compute_wave_numbers(Nx-1, x[Nx-1] - x[0], false);
+            std::vector<double> ky_deriv_2 = compute_wave_numbers(Ny-1, y[Ny-1] - y[0], false);
 
             this->kx_deriv_1 = kx_deriv_1;
             this->ky_deriv_1 = ky_deriv_1;
