@@ -58,40 +58,40 @@ class MOLTEngine {
             this->Px_elec = Px_elec;
             this->Py_elec = Py_elec;
 
-            std::vector<std::vector<std::complex<double>>>** phi = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** ddx_phi = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** ddy_phi = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** A1 = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** ddx_A1 = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** ddy_A1 = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** A2 = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** ddx_A2 = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** ddy_A2 = new std::vector<std::vector<std::complex<double>>>*[Nh];
+            std::vector<std::complex<double>>** phi = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** ddx_phi = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** ddy_phi = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** A1 = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** ddx_A1 = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** ddy_A1 = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** A2 = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** ddx_A2 = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** ddy_A2 = new std::vector<std::complex<double>>*[Nh];
 
-            std::vector<std::vector<std::complex<double>>>** rho = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** J1 = new std::vector<std::vector<std::complex<double>>>*[Nh];
-            std::vector<std::vector<std::complex<double>>>** J2 = new std::vector<std::vector<std::complex<double>>>*[Nh];
+            std::vector<std::complex<double>>** rho = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** J1 = new std::vector<std::complex<double>>*[Nh];
+            std::vector<std::complex<double>>** J2 = new std::vector<std::complex<double>>*[Nh];
 
             // std::vector<std::vector<std::complex<double>>> IC(Nx, std::vector<std::complex<double>>(Ny));
 
             for (int h = 0; h < Nh; h++) {
-                phi[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                ddx_phi[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                ddy_phi[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                A1[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                ddx_A1[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                ddy_A1[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                A2[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                ddx_A2[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                ddy_A2[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
+                phi[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                ddx_phi[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                ddy_phi[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                A1[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                ddx_A1[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                ddy_A1[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                A2[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                ddx_A2[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                ddy_A2[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
 
-                rho[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                J1[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
-                J2[h] = new std::vector<std::vector<std::complex<double>>>(Ny, std::vector<std::complex<double>>(Nx, 0));
+                rho[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                J1[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
+                J2[h] = new std::vector<std::complex<double>>(Nx*Ny, 0);
             }
             
-            std::vector<std::vector<std::complex<double>>> ddx_J1(Nx, std::vector<std::complex<double>>(Ny));
-            std::vector<std::vector<std::complex<double>>> ddy_J2(Nx, std::vector<std::complex<double>>(Ny));
+            std::vector<std::complex<double>> ddx_J1(Nx*Ny);
+            std::vector<std::complex<double>> ddy_J2(Nx*Ny);
 
             this->phi = phi;
             this->ddx_phi = ddx_phi;
@@ -180,21 +180,20 @@ class MOLTEngine {
         double elec_charge;
         double elec_mass;
         double w_elec;
-        std::vector<std::vector<std::complex<double>>>** phi;
-        std::vector<std::vector<std::complex<double>>>** ddx_phi;
-        std::vector<std::vector<std::complex<double>>>** ddy_phi;
-        std::vector<std::vector<std::complex<double>>>** A1;
-        std::vector<std::vector<std::complex<double>>>** ddx_A1;
-        std::vector<std::vector<std::complex<double>>>** ddy_A1;
-        std::vector<std::vector<std::complex<double>>>** A2;
-        std::vector<std::vector<std::complex<double>>>** ddx_A2;
-        std::vector<std::vector<std::complex<double>>>** ddy_A2;
-        std::vector<std::vector<std::complex<double>>>** rho;
-        std::vector<std::vector<std::complex<double>>>** J1;
-        std::vector<std::vector<std::complex<double>>>** J2;
-        std::vector<std::vector<std::complex<double>>> ddx_J1;
-        std::vector<std::vector<std::complex<double>>> ddy_J2;
-        std::vector<std::vector<std::vector<std::complex<double>>>> currentFields;
+        std::vector<std::complex<double>>** phi;
+        std::vector<std::complex<double>>** ddx_phi;
+        std::vector<std::complex<double>>** ddy_phi;
+        std::vector<std::complex<double>>** A1;
+        std::vector<std::complex<double>>** ddx_A1;
+        std::vector<std::complex<double>>** ddy_A1;
+        std::vector<std::complex<double>>** A2;
+        std::vector<std::complex<double>>** ddx_A2;
+        std::vector<std::complex<double>>** ddy_A2;
+        std::vector<std::complex<double>>** rho;
+        std::vector<std::complex<double>>** J1;
+        std::vector<std::complex<double>>** J2;
+        std::vector<std::complex<double>> ddx_J1;
+        std::vector<std::complex<double>> ddy_J2;
         std::vector<double> kx_deriv_1, ky_deriv_1;
         std::vector<double> kx_deriv_2, ky_deriv_2;
         std::complex<double>* forwardIn;
@@ -210,37 +209,37 @@ class MOLTEngine {
         void updateParticleVelocities();
         void scatterFields();
         void updateWaves();
-        double gatherField(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& field);
-        void gatherFields(double p_x, double p_y, std::vector<std::vector<std::vector<std::complex<double>>>>& fields, std::vector<double>& fields_out);
-        void scatterField(double p_x, double p_y, double value, std::vector<std::vector<std::complex<double>>>& field);
+        double gatherField(double p_x, double p_y, std::vector<std::complex<double>>& field);
+        void gatherFields(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& fields, std::vector<double>& fields_out);
+        void scatterField(double p_x, double p_y, double value, std::vector<std::complex<double>>& field);
         void shuffleSteps();
         void updatePhi();
         void updateA1();
         void updateA2();
         std::vector<double> compute_wave_numbers(int N, double L);
-        void computeFirstDerivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                        std::vector<std::vector<std::complex<double>>>& derivative_field, bool derivative_in_x);
-        void computeSecondDerivative(const std::vector<std::vector<std::complex<double>>>& input_field, 
-                std::vector<std::vector<std::complex<double>>>& derivative_field, bool derivative_in_x);
-        void solveHelmholtzEquation(std::vector<std::vector<std::complex<double>>>& RHS,
-                                            std::vector<std::vector<std::complex<double>>>& LHS, double alpha);
+        void computeFirstDerivative(const std::vector<std::complex<double>>& input_field, 
+                                    std::vector<std::complex<double>>& derivative_field, bool derivative_in_x);
+        void computeSecondDerivative(const std::vector<std::complex<double>>& input_field, 
+                                     std::vector<std::complex<double>>& derivative_field, bool derivative_in_x);
+        void solveHelmholtzEquation(std::vector<std::complex<double>>& RHS,
+                                    std::vector<std::complex<double>>& LHS, double alpha);
 
-        void compute_ddx(const std::vector<std::vector<std::complex<double>>>& inputField, 
-                               std::vector<std::vector<std::complex<double>>>& derivativeField) {
-                                    computeFirstDerivative(inputField, derivativeField, true);
-                               }
-        void compute_ddy(const std::vector<std::vector<std::complex<double>>>& inputField, 
-                               std::vector<std::vector<std::complex<double>>>& derivativeField) {
-                                    computeFirstDerivative(inputField, derivativeField, false);
-                               }
-        void compute_d2dx(const std::vector<std::vector<std::complex<double>>>& inputField, 
-                                std::vector<std::vector<std::complex<double>>>& derivativeField) {
-                                    computeSecondDerivative(inputField, derivativeField, true);
-                                }
-        void compute_d2dy(const std::vector<std::vector<std::complex<double>>>& inputField, 
-                                std::vector<std::vector<std::complex<double>>>& derivativeField) {
-                                    computeSecondDerivative(inputField, derivativeField, false);
-                                }
+        void compute_ddx(std::vector<std::complex<double>>& inputField, 
+                         std::vector<std::complex<double>>& derivativeField) {
+            computeFirstDerivative(inputField, derivativeField, true);
+        }
+        void compute_ddy(const std::vector<std::complex<double>>& inputField, 
+                               std::vector<std::complex<double>>& derivativeField) {
+            computeFirstDerivative(inputField, derivativeField, false);
+        }
+        void compute_d2dx(const std::vector<std::complex<double>>& inputField, 
+                                std::vector<std::complex<double>>& derivativeField) {
+            computeSecondDerivative(inputField, derivativeField, true);
+        }
+        void compute_d2dy(const std::vector<std::complex<double>>& inputField, 
+                                std::vector<std::complex<double>>& derivativeField) {
+            computeSecondDerivative(inputField, derivativeField, false);
+        }
 
         std::complex<double> to_std_complex(const fftw_complex& fc) {
             return std::complex<double>(fc[0], fc[1]);
