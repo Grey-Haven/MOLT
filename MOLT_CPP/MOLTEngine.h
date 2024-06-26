@@ -12,10 +12,12 @@
 class MOLTEngine {
 
     public:
+        enum NumericalMethod { BDF1, BDF2, BDF3, DIRK2, DIRK3, CDF1 };
         MOLTEngine(int Nx, int Ny, int Np, int Nh, double* x, double* y,
                    std::vector<std::vector<double>*>& x_elec, std::vector<std::vector<double>*>& y_elec,
                    std::vector<std::vector<double>*>& vx_elec, std::vector<std::vector<double>*>& vy_elec,
-                   double dx, double dy, double dt, double sigma_1, double sigma_2, double kappa, double q_elec, double m_elec, double beta) {
+                   double dx, double dy, double dt, double sigma_1, double sigma_2, double kappa, double q_elec, double m_elec,
+                   MOLTEngine::NumericalMethod method) {
             this->Nx = Nx;
             this->Ny = Ny;
             this->Np = Np;
@@ -32,7 +34,6 @@ class MOLTEngine {
             this->kappa = kappa;
             this->elec_charge = q_elec;
             this->elec_mass = m_elec;
-            this->beta = beta;
             this->t = 0;
             this->n = 0;
 
@@ -42,6 +43,20 @@ class MOLTEngine {
             this->vy_elec = vy_elec;
 
             this->w_elec = 10*((x[Nx-1] - x[0])*(y[Ny-1] - y[0]))/Np;
+
+            if (method == MOLTEngine::BDF1) {
+                beta = 1.0;
+            } else if (method == MOLTEngine::BDF2) {
+                beta = 1 / (2.0/3.0);
+            } else if (method == MOLTEngine::BDF3) {
+                beta = 1 / (6.0/11.0);
+            } else if (method == MOLTEngine::DIRK2) {
+
+            } else if (method == MOLTEngine::DIRK3) {
+
+            } else if (method == MOLTEngine::CDF1) {
+                beta = sqrt(2);
+            }
 
             std::vector<std::vector<double>*> Px_elec(Nh);
             std::vector<std::vector<double>*> Py_elec(Nh);
@@ -58,19 +73,23 @@ class MOLTEngine {
             this->Px_elec = Px_elec;
             this->Py_elec = Py_elec;
 
-            std::complex<double>** phi     = new std::complex<double>*[Nh];
-            std::complex<double>** ddx_phi = new std::complex<double>*[Nh];
-            std::complex<double>** ddy_phi = new std::complex<double>*[Nh];
-            std::complex<double>** A1      = new std::complex<double>*[Nh];
-            std::complex<double>** ddx_A1  = new std::complex<double>*[Nh];
-            std::complex<double>** ddy_A1  = new std::complex<double>*[Nh];
-            std::complex<double>** A2      = new std::complex<double>*[Nh];
-            std::complex<double>** ddx_A2  = new std::complex<double>*[Nh];
-            std::complex<double>** ddy_A2  = new std::complex<double>*[Nh];
+            std::vector<std::complex<double>*> phi(Nh);
+            std::vector<std::complex<double>*> ddx_phi(Nh);
+            std::vector<std::complex<double>*> ddy_phi(Nh);
+            std::vector<std::complex<double>*> A1(Nh);
+            std::vector<std::complex<double>*> ddx_A1(Nh);
+            std::vector<std::complex<double>*> ddy_A1(Nh);
+            std::vector<std::complex<double>*> A2(Nh);
+            std::vector<std::complex<double>*> ddx_A2(Nh);
+            std::vector<std::complex<double>*> ddy_A2(Nh);
 
-            std::complex<double>** rho     = new std::complex<double>*[Nh];
-            std::complex<double>** J1      = new std::complex<double>*[Nh];
-            std::complex<double>** J2      = new std::complex<double>*[Nh];
+            std::vector<std::complex<double>*> ddt_phi(2);
+            std::vector<std::complex<double>*> ddt_A1(2);
+            std::vector<std::complex<double>*> ddt_A2(2);
+
+            std::vector<std::complex<double>*> rho(Nh);
+            std::vector<std::complex<double>*> J1(Nh);
+            std::vector<std::complex<double>*> J2(Nh);
 
             // std::vector<std::vector<std::complex<double>>> IC(Nx, std::vector<std::complex<double>>(Ny));
 
@@ -105,6 +124,22 @@ class MOLTEngine {
                     J2[h][i]  = 0;
                 }
             }
+
+            ddt_phi[0] = new std::complex<double>[Nx*Ny];
+            ddt_phi[1] = new std::complex<double>[Nx*Ny];
+            ddt_A1[0] = new std::complex<double>[Nx*Ny];
+            ddt_A1[1] = new std::complex<double>[Nx*Ny];
+            ddt_A2[0] = new std::complex<double>[Nx*Ny];
+            ddt_A2[1] = new std::complex<double>[Nx*Ny];
+
+            for (int i = 0; i < Nx*Ny; i++) {
+                ddt_phi[0][i] = 0;
+                ddt_phi[1][i] = 0;
+                ddt_A1[0][i] = 0;
+                ddt_A1[1][i] = 0;
+                ddt_A2[0][i] = 0;
+                ddt_A2[1][i] = 0;
+            }
             
             std::complex<double>* ddx_J1 = new std::complex<double>[Nx*Ny];
             std::complex<double>* ddy_J2 = new std::complex<double>[Nx*Ny];
@@ -120,10 +155,13 @@ class MOLTEngine {
             this->ddy_A2 = ddy_A2;
 
             this->gaugeL2 = 0;
+            this->gaussL2_divE = 0;
 
             this->rho = rho;
             this->J1 = J1;
             this->J2 = J2;
+
+            this->rhoTotal = 0;
 
             this->ddx_J1 = ddx_J1;
             this->ddy_J2 = ddy_J2;
@@ -131,6 +169,16 @@ class MOLTEngine {
             this->phi_src = new std::complex<double>[Nx * Ny];
             this->A1_src  = new std::complex<double>[Nx * Ny];
             this->A2_src  = new std::complex<double>[Nx * Ny];
+
+            this->ddt_phi = ddt_phi;
+            this->ddt_A1 = ddt_A1;
+            this->ddt_A2 = ddt_A2;
+
+            this->E1  = new std::complex<double>[Nx * Ny];
+            this->E2  = new std::complex<double>[Nx * Ny];
+
+            this->ddx_E1  = new std::complex<double>[Nx * Ny];
+            this->ddy_E2  = new std::complex<double>[Nx * Ny];
 
             std::vector<double> kx_deriv_1 = compute_wave_numbers(Nx, x[Nx-1] - x[0], true);
             std::vector<double> ky_deriv_1 = compute_wave_numbers(Ny, y[Ny-1] - y[0], true);
@@ -165,12 +213,15 @@ class MOLTEngine {
                 reinterpret_cast<fftw_complex*>(backwardIn), 
                 reinterpret_cast<fftw_complex*>(backwardOut), 
                 FFTW_BACKWARD, FFTW_ESTIMATE);
+
+            this->method = method;
         }
         void step();
         void print();
         double getTime();
         int getStep();
         double getGaugeL2();
+        double getTotalCharge();
         void printTimeDiagnostics();
 
     private:
@@ -188,6 +239,8 @@ class MOLTEngine {
         std::vector<std::vector<double>*> Px_elec;
         std::vector<std::vector<double>*> Py_elec;
         double gaugeL2;
+        double gaussL2_divE;
+        double rhoTotal;
         double dx;
         double dy;
         double dt;
@@ -200,23 +253,30 @@ class MOLTEngine {
         double elec_charge;
         double elec_mass;
         double w_elec;
-        std::complex<double>** phi;
-        std::complex<double>** ddx_phi;
-        std::complex<double>** ddy_phi;
-        std::complex<double>** A1;
-        std::complex<double>** ddx_A1;
-        std::complex<double>** ddy_A1;
-        std::complex<double>** A2;
-        std::complex<double>** ddx_A2;
-        std::complex<double>** ddy_A2;
-        std::complex<double>** rho;
-        std::complex<double>** J1;
-        std::complex<double>** J2;
+        std::vector<std::complex<double>*> phi;
+        std::vector<std::complex<double>*> ddx_phi;
+        std::vector<std::complex<double>*> ddy_phi;
+        std::vector<std::complex<double>*> A1;
+        std::vector<std::complex<double>*> ddx_A1;
+        std::vector<std::complex<double>*> ddy_A1;
+        std::vector<std::complex<double>*> A2;
+        std::vector<std::complex<double>*> ddx_A2;
+        std::vector<std::complex<double>*> ddy_A2;
+        std::vector<std::complex<double>*> rho;
+        std::vector<std::complex<double>*> J1;
+        std::vector<std::complex<double>*> J2;
+        std::vector<std::complex<double>*> ddt_phi;
+        std::vector<std::complex<double>*> ddt_A1;
+        std::vector<std::complex<double>*> ddt_A2;
         std::complex<double>* ddx_J1;
         std::complex<double>* ddy_J2;
         std::complex<double>* phi_src;
         std::complex<double>* A1_src;
         std::complex<double>* A2_src;
+        std::complex<double>* E1;
+        std::complex<double>* E2;
+        std::complex<double>* ddx_E1;
+        std::complex<double>* ddy_E2;
         std::vector<double> kx_deriv_1, ky_deriv_1;
         std::vector<double> kx_deriv_2, ky_deriv_2;
         std::complex<double>* forwardIn;
@@ -224,14 +284,22 @@ class MOLTEngine {
         std::complex<double>* backwardIn;
         std::complex<double>* backwardOut;
         fftw_plan forward_plan, inverse_plan;
+        MOLTEngine::NumericalMethod method;
 
         double timeComponent1, timeComponent2, timeComponent3, timeComponent4, timeComponent5, timeComponent6, timeComponent7;
 
         void computeGaugeL2();
+        void computeGaussL2();
         void updateParticleLocations();
         void updateParticleVelocities();
         void scatterFields();
         void updateWaves();
+        void DIRK2_advance_per(std::complex<double>* u, std::complex<double>* v,
+                               std::complex<double>* u_next, std::complex<double>* v_next,
+                               std::complex<double>* src_prev, std::complex<double>* src_curr);
+        void DIRK3_advance_per(std::complex<double>* u, std::complex<double>* v,
+                               std::complex<double>* u_next, std::complex<double>* v_next,
+                               std::complex<double>* src_prev, std::complex<double>* src_curr);
         double gatherField(double p_x, double p_y, std::complex<double>* field);
         void gatherFields(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& fields, std::vector<double>& fields_out);
         void scatterField(double p_x, double p_y, double value, std::complex<double>* field);

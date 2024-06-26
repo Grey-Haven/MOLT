@@ -28,10 +28,10 @@ int main(int argc, char *argv[])
     const double q_elec = -Q_electron / Q;
     const double m_elec = M_electron / M;
     
-    const double T_bar = 10000;                                       // Average temperature [K]
-    const double n_bar = 1e13;                                        // Average macroscopic number density [m^-3]
+    const double T_bar = 10000;                                         // Average temperature [K]
+    const double n_bar = 2.5e12;                                          // Average macroscopic number density [m^-3]
     const double lambda_D = sqrt((eps_0 * k_B * T_bar)/(n_bar*(Q*Q)));  // Debye length [m]
-    const double w_p = sqrt((n_bar * pow(Q, 2)) / (M * eps_0));       // angular frequency
+    const double w_p = sqrt((n_bar * pow(Q, 2)) / (M * eps_0));         // angular frequency
 
     // More nondimensionalized units
     const double L = lambda_D; // In meters [m]
@@ -44,18 +44,15 @@ int main(int argc, char *argv[])
     const double sig_1 = (M * eps_0) / (pow(Q, 2) * pow(T, 2) * n_bar);
     const double sig_2 = mu_0 * pow(Q, 2) * pow(L, 2) * n_bar / M;
 
-    // const double beta_BDF1 = 1;
-    // const double beta_BDF2 = 1 / (2.0/3.0);
-    // const double beta_BDF3 = 1 / (6.0/11.0);
-    const double beta_CDF1 = sqrt(2);
+    // const double T_final = argv > 3 ? int[argc[3]] : 80;
 
-    const double T_final = 1; // normalized wrt 1/w_p (plasma period)
+    const double T_final = 80; // normalized wrt 1/w_p (plasma period)
 
-    const int N_h = 6;
+    const int N_h = 5;
 
     // Physical grid parameters
-    const double L_x = 1;
-    const double L_y = 1;
+    const double L_x = 16;
+    const double L_y = 16;
 
     const double a_x = -L_x/2;
     const double b_x =  L_x/2;
@@ -65,11 +62,22 @@ int main(int argc, char *argv[])
     // End physical grid parameters
 
     // Set up nondimensional grid
-    const int N = 64;
+    int N;
+    sscanf (argv[1],"%d",&N);
+    // const int N = int(argv[1]);
     const int Nx = N;
     const int Ny = N;
     const double dx = (b_x-a_x)/(Nx);
     const double dy = (b_y-a_y)/(Ny);
+
+    std::cout << "dx: " << double(L_x) / double(N) << std::endl;
+    std::cout << "N: " << N << std::endl;
+    std::cout << "lambda_D: " << lambda_D << std::endl;
+    std::cout << "w_p^-1: " << double(1)/w_p << std::endl;
+    std::cout << "lambda_D/dx : " << lambda_D / dx << std::endl;
+    std::cout << "lambda_D/N : " << lambda_D / double(N) << std::endl;
+
+    // return 0;
 
     double x[Nx]; // [a_x,b_x)
     double y[Ny]; // [a_x,b_x)
@@ -83,7 +91,6 @@ int main(int argc, char *argv[])
     // Particle Setup
     // const int numParticles = 2.5e4;
     const int numParticles = N*N*100;
-    // const int numParticles = 5;
 
     // const double v1_drift = kappa / 100;
     // const double v2_drift = kappa / 100;
@@ -166,31 +173,31 @@ int main(int argc, char *argv[])
    
     std::string nxn = std::to_string(Nx) + "x" + std::to_string(Ny);
 
-    std::string elec_file_path = "./initial_conditions/" + nxn + "/elec_0.csv";
+    // std::string elec_file_path = "./initial_conditions/" + nxn + "/elec_0.csv";
 
-    std::cout << elec_file_path << std::endl;
+    // std::cout << elec_file_path << std::endl;
     
     // std::cout << elec_file_path << std::endl;
 
-    std::string line;
-    std::vector<std::vector<std::string>> data;
+    // std::string line;
+    // std::vector<std::vector<std::string>> data;
 
-    std::ifstream elec_file(elec_file_path);
+    // std::ifstream elec_file(elec_file_path);
 
-    while (std::getline(elec_file, line)) {
-        std::vector<std::string> row;
-        std::stringstream ss(line);
-        std::string value;
+    // while (std::getline(elec_file, line)) {
+    //     std::vector<std::string> row;
+    //     std::stringstream ss(line);
+    //     std::string value;
 
-        // Parse each line
-        while (std::getline(ss, value, ',')) {
-            row.push_back(value);
-        }
-        data.push_back(row);
-    }
+    //     // Parse each line
+    //     while (std::getline(ss, value, ',')) {
+    //         row.push_back(value);
+    //     }
+    //     data.push_back(row);
+    // }
 
     // Close the file
-    elec_file.close();
+    // elec_file.close();
     // int numCols = data.size();
 
     // for (int i = 0; i < numCols; i++) {
@@ -213,7 +220,36 @@ int main(int argc, char *argv[])
     // }
 
     // std::cout << "MOLTing" << std::endl;
-    MOLTEngine molt(Nx, Ny, numParticles, N_h, x, y, x1_elec_hist, x2_elec_hist, v1_elec_hist, v2_elec_hist, dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, beta_CDF1);
+    MOLTEngine::NumericalMethod method; // = MOLTEngine::BDF1;
+    if (strcmp(argv[2], "BDF1") == 0) {
+        method = MOLTEngine::BDF1;
+    } else if (strcmp(argv[2], "BDF2") == 0) {
+        method = MOLTEngine::BDF2;
+    } else if (strcmp(argv[2], "CDF1") == 0) {
+        method = MOLTEngine::CDF1;
+    } else if (strcmp(argv[2], "DIRK2") == 0) {
+        method = MOLTEngine::DIRK2;
+    } else if (strcmp(argv[2], "DIRK3") == 0) {
+        method = MOLTEngine::DIRK3;
+    } else {
+        throw -1;
+    }
+
+    std::string subpath;
+
+    if (method == MOLTEngine::BDF1) {
+        subpath = "BDF1_mod_debye";
+    } else if (method == MOLTEngine::BDF2) {
+        subpath = "BDF2_mod_debye";
+    } else if (method == MOLTEngine::DIRK2) {
+        subpath = "DIRK2_mod_debye";
+    } else if (method == MOLTEngine::DIRK3) {
+        subpath = "DIRK3_mod_debye";
+    } else if (method == MOLTEngine::CDF1) {
+        subpath = "CDF1_mod_debye";
+    }
+
+    MOLTEngine molt(Nx, Ny, numParticles, N_h, x, y, x1_elec_hist, x2_elec_hist, v1_elec_hist, v2_elec_hist, dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, method);
 
     struct timeval begin, end;
     gettimeofday( &begin, NULL );
@@ -223,14 +259,38 @@ int main(int argc, char *argv[])
     // N_steps = 1;
 
     std::vector<double> gauge_L2(N_steps+1);
+    std::vector<double> rho_total(N_steps+1);
     gauge_L2[0] = molt.getGaugeL2();
+    rho_total[0] = molt.getTotalCharge();
+
+    std::ofstream gaugeFile;
+    std::ofstream rhoFile;
+
+    std::cout << "./results/" + subpath << std::endl;
+
+    // N_steps = 5;
 
     for (int n = 0; n < N_steps; n++) {
-        if (n % 100 == 0) {
+        if (n % 1000 == 0) {
             std::cout << "Step: " << n << "/" << N_steps << " = " << 100*(double(n)/double(N_steps)) << "\% complete" << std::endl;
+        }
+        if (n % (N_steps / 100) == 0) {
+            gaugeFile.open("./results/" + subpath + "/gauge_" + nxn + "_unfinished_recent" + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                gaugeFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauge_L2[n_sub] << std::endl;
+            }
+            gaugeFile.close();
+        }
+        if (n % (N_steps / 100) == 0) {
+            rhoFile.open("./results/" + subpath + "/rho_" + nxn + "_unfinished_recent" + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
+            }
+            rhoFile.close();
         }
         molt.step();
         gauge_L2[n+1] = molt.getGaugeL2();
+        rho_total[n+1] = molt.getTotalCharge();
     }
     std::cout << "Done running!" << std::endl;
     gettimeofday( &end, NULL );
@@ -240,12 +300,17 @@ int main(int argc, char *argv[])
     // }
     molt.printTimeDiagnostics();
 
-    std::ofstream gaugeFile;
-    gaugeFile.open("./results/CDF1/gauge_" + nxn + ".csv");
+    
+    gaugeFile.open("./results/" + subpath + "/gauge_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         gaugeFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauge_L2[n] << std::endl;
     }
     gaugeFile.close();
+    rhoFile.open("./results/" + subpath + "/rho_" + nxn + "_unfinished_recent" + ".csv");
+    for (int n_sub = 0; n_sub < N_steps+1; n_sub++) {
+        rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
+    }
+    rhoFile.close();
 
     return 0;
 }
