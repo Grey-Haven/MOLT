@@ -615,8 +615,6 @@ void MOLTEngine::updateWaves() {
         delete[] ddt_A1_curr;
         delete[] ddt_A2_curr;
 
-    } else if (this->method == MOLTEngine::DIRK3) {
-
     } else {
         if (this->method == MOLTEngine::BDF1) {
             for (int i = 0; i < Nx*Ny; i++) {
