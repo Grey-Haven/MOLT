@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <sys/time.h>
+#include <filesystem>
 
 #include <cmath>
 #include <random>
@@ -14,22 +15,39 @@
 int main(int argc, char *argv[])
 {
     // Physical constants
-    const double M_electron = 9.109e-31; // [kg]
-    const double Q_electron = 1.602e-19; // [C] (intentionally positive)
+    // const double M_electron = 9.109e-31; // [kg]
+    // const double Q_electron = 1.602e-19; // [C] (intentionally positive)
     const double c = 299792458;
     const double mu_0 = 1.25663706e-6;
     const double eps_0 = 8.854187817e-12;
     const double k_B = 1.38064852e-23; // Boltzmann constant
 
+    // Particle species mass parameters
+    const double ion_electron_mass_ratio = 10000.0;
+
+    const double electron_charge_mass_ratio = -175882008800.0; // Units of C/kg
+    const double ion_charge_mass_ratio = -electron_charge_mass_ratio/ion_electron_mass_ratio; // Units of C/kg
+
+    const double M_electron = (-1.602e-19)/electron_charge_mass_ratio;
+    const double M_ion = ion_electron_mass_ratio*M_electron;
+
+    const double Q_electron = electron_charge_mass_ratio*M_electron;
+    const double Q_ion = ion_charge_mass_ratio*M_ion;
+
     // Nondimensionalized units
     const double M = M_electron; // [kg]
-    const double Q = Q_electron; // [C]
+    const double Q = -Q_electron; // [C]
+    
+    // Normalized charges
+    const double q_ions = Q_ion/Q;
+    const double q_elec = Q_electron/Q;
 
-    const double q_elec = -Q_electron / Q;
-    const double m_elec = M_electron / M;
+    // Normalized masses
+    const double m_ions = M_ion/M;
+    const double m_elec = M_electron/M;
     
     const double T_bar = 10000;                                         // Average temperature [K]
-    const double n_bar = 2.5e12;                                          // Average macroscopic number density [m^-3]
+    const double n_bar = 2.5e12;                                        // Average macroscopic number density [m^-3]
     const double lambda_D = sqrt((eps_0 * k_B * T_bar)/(n_bar*(Q*Q)));  // Debye length [m]
     const double w_p = sqrt((n_bar * pow(Q, 2)) / (M * eps_0));         // angular frequency
 
@@ -46,7 +64,7 @@ int main(int argc, char *argv[])
 
     // const double T_final = argv > 3 ? int[argc[3]] : 80;
 
-    const double T_final = 80; // normalized wrt 1/w_p (plasma period)
+    const double T_final = 1000.0; // normalized wrt 1/w_p (plasma period)
 
     const int N_h = 5;
 
@@ -76,8 +94,6 @@ int main(int argc, char *argv[])
     std::cout << "w_p^-1: " << double(1)/w_p << std::endl;
     std::cout << "lambda_D/dx : " << lambda_D / dx << std::endl;
     std::cout << "lambda_D/N : " << lambda_D / double(N) << std::endl;
-
-    // return 0;
 
     double x[Nx]; // [a_x,b_x)
     double y[Ny]; // [a_x,b_x)
@@ -111,6 +127,8 @@ int main(int argc, char *argv[])
     
     std::vector<double> x1_ion(numParticles);
     std::vector<double> x2_ion(numParticles);
+    std::vector<double> v1_ion(numParticles);
+    std::vector<double> v2_ion(numParticles);
     
     std::vector<std::vector<double>*> v1_elec_hist(N_h);
     std::vector<std::vector<double>*> v2_elec_hist(N_h);
@@ -161,6 +179,9 @@ int main(int argc, char *argv[])
         (*v2_elec_hist[N_h - 2])[i] = vy_p;
         (*v1_elec_hist[N_h - 3])[i] = vx_p;
         (*v2_elec_hist[N_h - 3])[i] = vy_p;
+
+        v1_ion[i] = 0;
+        v2_ion[i] = 0;
     }
     // dxs[g] = dx;
     double dt = dx / (sqrt(2) * kappa);
@@ -220,36 +241,77 @@ int main(int argc, char *argv[])
     // }
 
     // std::cout << "MOLTing" << std::endl;
-    MOLTEngine::NumericalMethod method; // = MOLTEngine::BDF1;
-    if (strcmp(argv[2], "BDF1") == 0) {
-        method = MOLTEngine::BDF1;
-    } else if (strcmp(argv[2], "BDF2") == 0) {
-        method = MOLTEngine::BDF2;
-    } else if (strcmp(argv[2], "CDF1") == 0) {
-        method = MOLTEngine::CDF1;
-    } else if (strcmp(argv[2], "DIRK2") == 0) {
-        method = MOLTEngine::DIRK2;
-    } else if (strcmp(argv[2], "DIRK3") == 0) {
-        method = MOLTEngine::DIRK3;
+    MOLTEngine::RhoUpdate rhoUpdate;
+    MOLTEngine::NumericalMethod method;
+
+    if (strcmp(argv[2], "CONSERVING") == 0) {
+        rhoUpdate = MOLTEngine::CONSERVING;
+    } else if (strcmp(argv[2], "NAIVE") == 0) {
+        rhoUpdate = MOLTEngine::NAIVE;
     } else {
         throw -1;
     }
 
-    std::string subpath;
+    if (strcmp(argv[3], "BDF1") == 0) {
+        method = MOLTEngine::BDF1;
+    } else if (strcmp(argv[3], "BDF2") == 0) {
+        method = MOLTEngine::BDF2;
+    } else if (strcmp(argv[3], "CDF1") == 0) {
+        method = MOLTEngine::CDF1;
+    } else if (strcmp(argv[3], "DIRK2") == 0) {
+        method = MOLTEngine::DIRK2;
+    } else if (strcmp(argv[3], "DIRK3") == 0) {
+        method = MOLTEngine::DIRK3;
+    } else if (strcmp(argv[3], "MOLT_BDF1") == 0) {
+        method = MOLTEngine::MOLT_BDF1;
+    } else {
+        throw -1;
+    }
+    std::string subpath = "";
 
-    if (method == MOLTEngine::BDF1) {
-        subpath = "BDF1_mod_debye";
-    } else if (method == MOLTEngine::BDF2) {
-        subpath = "BDF2_mod_debye";
-    } else if (method == MOLTEngine::DIRK2) {
-        subpath = "DIRK2_mod_debye";
-    } else if (method == MOLTEngine::DIRK3) {
-        subpath = "DIRK3_mod_debye";
-    } else if (method == MOLTEngine::CDF1) {
-        subpath = "CDF1_mod_debye";
+    if (rhoUpdate == MOLTEngine::CONSERVING) {
+        subpath += "conserving";
+    } else if (rhoUpdate == MOLTEngine::NAIVE) {
+        subpath += "naive";
     }
 
-    MOLTEngine molt(Nx, Ny, numParticles, N_h, x, y, x1_elec_hist, x2_elec_hist, v1_elec_hist, v2_elec_hist, dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, method);
+    if (method == MOLTEngine::BDF1) {
+        subpath += "/BDF1";
+    } else if (method == MOLTEngine::BDF2) {
+        subpath += "/BDF2";
+    } else if (method == MOLTEngine::DIRK2) {
+        subpath += "/DIRK2";
+    } else if (method == MOLTEngine::DIRK3) {
+        subpath += "/DIRK3";
+    } else if (method == MOLTEngine::CDF1) {
+        subpath += "/CDF1";
+    } else if (method == MOLTEngine::MOLT_BDF1) {
+        subpath += "/MOLT_BDF1";
+    }
+
+    std::string path = "./results/moving_blob/" + subpath + "/" + nxn;
+    std::cout << path << std::endl;
+
+    // Create results folder
+    std::filesystem::create_directories(path);
+    std::filesystem::create_directories(path + "/particles");
+    std::filesystem::create_directories(path + "/phi");
+    std::filesystem::create_directories(path + "/A1");
+    std::filesystem::create_directories(path + "/A2");
+    std::filesystem::create_directories(path + "/ddx_phi");
+    std::filesystem::create_directories(path + "/ddx_A1");
+    std::filesystem::create_directories(path + "/ddx_A2");
+    std::filesystem::create_directories(path + "/ddy_phi");
+    std::filesystem::create_directories(path + "/ddy_A1");
+    std::filesystem::create_directories(path + "/ddy_A2");
+    std::filesystem::create_directories(path + "/rho");
+    std::filesystem::create_directories(path + "/J1");
+    std::filesystem::create_directories(path + "/J2");
+
+    MOLTEngine molt(Nx, Ny, numParticles, N_h, x, y, x1_elec_hist,
+                    x2_elec_hist, v1_elec_hist, v2_elec_hist,
+                    x1_ion, x2_ion, v1_ion, v2_ion,
+                    dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, q_ions, m_ions, method, rhoUpdate, path);
 
     struct timeval begin, end;
     gettimeofday( &begin, NULL );
@@ -266,8 +328,6 @@ int main(int argc, char *argv[])
     std::ofstream gaugeFile;
     std::ofstream rhoFile;
 
-    std::cout << "./results/" + subpath << std::endl;
-
     // N_steps = 5;
 
     for (int n = 0; n < N_steps; n++) {
@@ -275,14 +335,14 @@ int main(int argc, char *argv[])
             std::cout << "Step: " << n << "/" << N_steps << " = " << 100*(double(n)/double(N_steps)) << "\% complete" << std::endl;
         }
         if (n % (N_steps / 100) == 0) {
-            gaugeFile.open("./results/" + subpath + "/gauge_" + nxn + "_unfinished_recent" + ".csv");
+            gaugeFile.open(path + "/gauge_" + nxn + "_unfinished_recent" + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 gaugeFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauge_L2[n_sub] << std::endl;
             }
             gaugeFile.close();
         }
         if (n % (N_steps / 100) == 0) {
-            rhoFile.open("./results/" + subpath + "/rho_" + nxn + "_unfinished_recent" + ".csv");
+            rhoFile.open(path + "/rho_" + nxn + "_unfinished_recent" + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
             }
@@ -300,13 +360,12 @@ int main(int argc, char *argv[])
     // }
     molt.printTimeDiagnostics();
 
-    
-    gaugeFile.open("./results/" + subpath + "/gauge_" + nxn + ".csv");
+    gaugeFile.open(path + "/gauge_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         gaugeFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauge_L2[n] << std::endl;
     }
     gaugeFile.close();
-    rhoFile.open("./results/" + subpath + "/rho_" + nxn + "_unfinished_recent" + ".csv");
+    rhoFile.open(path + "/rho_" + nxn + ".csv");
     for (int n_sub = 0; n_sub < N_steps+1; n_sub++) {
         rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
     }
