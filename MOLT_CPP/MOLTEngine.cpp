@@ -514,27 +514,64 @@ void MOLTEngine::print() {
 
     std::string nstr = std::to_string(n);
     int numlen = 5;
+
+    std::string electronFileName = snapshotPath + "/particles.csv";
+    std::string phiFileName = snapshotPath + "/phi" + "/phi.csv";
+    std::string A1FileName = snapshotPath + "/A1.csv";
+    std::string A2FileName = snapshotPath + "/A2.csv";
+    std::string ddx_phiFileName = snapshotPath + "/ddx_phi.csv";
+    std::string ddy_phiFileName = snapshotPath + "/ddy_phi.csv";
+    std::string ddx_A1FileName = snapshotPath + "/ddx_A1.csv";
+    std::string ddy_A1FileName = snapshotPath + "/ddy_A1.csv";
+    std::string ddx_A2FileName = snapshotPath + "/ddx_A2.csv";
+    std::string ddy_A2FileName = snapshotPath + "/ddy_A2.csv";
+    std::string rhoFileName = snapshotPath + "/rho.csv";
+    std::string J1FileName = snapshotPath + "/J1.csv";
+    std::string J2FileName = snapshotPath + "/J2.csv";
+    std::string ddt_phiFileName = snapshotPath + "/ddt_phi.csv";
     
     std::ostringstream padder;
     padder << std::internal << std::setfill('0') << std::setw(numlen) << n;
     std::string paddedNum = padder.str();
-    electronFile.open(snapshotPath + "/particles" + "/elec_" + paddedNum + ".csv");
-    phiFile.open(snapshotPath + "/phi" + "/phi_" + paddedNum + ".csv");
-    A1File.open(snapshotPath + "/A1" + "/A1_" + paddedNum + ".csv");
-    A2File.open(snapshotPath + "/A2" + "/A2_" + paddedNum + ".csv");
-    ddx_phiFile.open(snapshotPath + "/ddx_phi" + "/ddx_phi_" + paddedNum + ".csv");
-    ddx_A1File.open(snapshotPath + "/ddx_A1" + "/ddx_A1_" + paddedNum + ".csv");
-    ddx_A2File.open(snapshotPath + "/ddx_A2" + "/ddx_A2_" + paddedNum + ".csv");
-    ddy_phiFile.open(snapshotPath + "/ddy_phi" + "/ddy_phi_" + paddedNum + ".csv");
-    ddy_A1File.open(snapshotPath + "/ddy_A1" + "/ddy_A1_" + paddedNum + ".csv");
-    ddy_A2File.open(snapshotPath + "/ddy_A2" + "/ddy_A2_" + paddedNum + ".csv");
-    rhoFile.open(snapshotPath + "/rho" + "/rho_" + paddedNum + ".csv");
-    J1File.open(snapshotPath + "/J1" + "/J1_" + paddedNum + ".csv");
-    J2File.open(snapshotPath + "/J1" + "/J2_" + paddedNum + ".csv");
-    ddt_phiFile.open(snapshotPath + "/ddt_phi" + "/ddt_phi_" + paddedNum + ".csv");
+
+    electronFile.open(electronFileName, std::ios_base::app);
+
+    phiFile.open(phiFileName, std::ios_base::app);
+    A1File.open(A1FileName, std::ios_base::app);
+    A2File.open(A2FileName, std::ios_base::app);
+    
+    ddx_phiFile.open(ddx_phiFileName, std::ios_base::app);
+    ddy_phiFile.open(ddy_phiFileName, std::ios_base::app);
+
+    ddx_A1File.open(ddx_A1FileName, std::ios_base::app);
+    ddy_A1File.open(ddy_A1FileName, std::ios_base::app);
+
+    ddx_A2File.open(ddx_A2FileName, std::ios_base::app);
+    ddy_A2File.open(ddy_A2FileName, std::ios_base::app);
+
+    rhoFile.open(rhoFileName, std::ios_base::app);
+    J1File.open(J1FileName, std::ios_base::app);
+    J2File.open(J2FileName, std::ios_base::app);
+    ddt_phiFile.open(ddt_phiFileName, std::ios_base::app);
+    
+    electronFile << std::endl << dt << std::endl;
+    phiFile      << std::endl << dt << std::endl;
+    A1File       << std::endl << dt << std::endl;
+    A2File       << std::endl << dt << std::endl;
+    ddx_phiFile  << std::endl << dt << std::endl;
+    ddx_A1File   << std::endl << dt << std::endl;
+    ddx_A2File   << std::endl << dt << std::endl;
+    ddy_phiFile  << std::endl << dt << std::endl;
+    ddy_A1File   << std::endl << dt << std::endl;
+    ddy_A2File   << std::endl << dt << std::endl;
+    rhoFile      << std::endl << dt << std::endl;
+    J1File       << std::endl << dt << std::endl;
+    J2File       << std::endl << dt << std::endl;
+    ddt_phiFile  << std::endl << dt << std::endl;
+
     int idx = 0;
     for (int i = 0; i < Nx; i++) {
-        for (int j = 0; j < Ny-1; j++) {
+        for (int j = 0; j < Ny; j++) {
             idx = i*Ny + j;
             phiFile << std::to_string(phi[lastStepIndex][idx].real()) + ",";
             A1File << std::to_string(A1[lastStepIndex][idx].real()) + ",";
@@ -550,25 +587,37 @@ void MOLTEngine::print() {
             J2File << std::to_string(J2[lastStepIndex][idx].real()) + ",";
             ddt_phiFile << std::to_string(ddt_phi[1][idx].real()) + ",";
         }
-        idx = i*Ny + Ny;
-        phiFile << std::to_string(phi[lastStepIndex][idx].real()) + "\n";
-        A1File << std::to_string(A1[lastStepIndex][idx].real()) + "\n";
-        A2File << std::to_string(A2[lastStepIndex][idx].real()) + "\n";
-        ddx_phiFile << std::to_string(ddx_phi[lastStepIndex][idx].real()) + "\n";
-        ddx_A1File << std::to_string(ddx_A1[lastStepIndex][idx].real()) + "\n";
-        ddx_A2File << std::to_string(ddx_A2[lastStepIndex][idx].real()) + "\n";
-        ddy_phiFile << std::to_string(ddy_phi[lastStepIndex][idx].real()) + "\n";
-        ddy_A1File << std::to_string(ddy_A1[lastStepIndex][idx].real()) + "\n";
-        ddy_A2File << std::to_string(ddy_A2[lastStepIndex][idx].real()) + "\n";
-        rhoFile << std::to_string(rho[lastStepIndex][idx].real()) + "\n";
-        J1File << std::to_string(J1[lastStepIndex][idx].real()) + "\n";
-        J2File << std::to_string(J2[lastStepIndex][idx].real()) + "\n";
-        ddt_phiFile << std::to_string(ddt_phi[1][idx].real()) + "\n";
     }
     for (int p = 0; p < Np; p++) {
-        electronFile << std::to_string((*x_elec[lastStepIndex])[p]) + "," + std::to_string((*y_elec[lastStepIndex])[p]) + "," + 
-                        std::to_string((*vx_elec[lastStepIndex])[p]) + "," + std::to_string((*vy_elec[lastStepIndex])[p]) << "\n";
+        electronFile << std::to_string((*y_elec[lastStepIndex])[p]) << ",";
     }
+    electronFile << std::endl;
+    for (int p = 0; p < Np; p++) {
+        electronFile << std::to_string((*y_elec[lastStepIndex])[p]) << ",";
+    }
+    electronFile << std::endl;
+    for (int p = 0; p < Np; p++) {
+        electronFile << std::to_string((*vx_elec[lastStepIndex])[p]) << ",";
+    }
+    electronFile << std::endl;
+    for (int p = 0; p < Np; p++) {
+        electronFile << std::to_string((*vy_elec[lastStepIndex])[p]) << ",";
+    }
+    electronFile << std::endl;
+    phiFile      << std::endl;
+    A1File       << std::endl;
+    A2File       << std::endl;
+    ddx_phiFile  << std::endl;
+    ddx_A1File   << std::endl;
+    ddx_A2File   << std::endl;
+    ddy_phiFile  << std::endl;
+    ddy_A1File   << std::endl;
+    ddy_A2File   << std::endl;
+    rhoFile      << std::endl;
+    J1File       << std::endl;
+    J2File       << std::endl;
+    ddt_phiFile  << std::endl;
+
     electronFile.close();
     phiFile.close();
     A1File.close();
