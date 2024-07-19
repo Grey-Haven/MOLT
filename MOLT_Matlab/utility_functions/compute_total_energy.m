@@ -12,7 +12,7 @@ function total_energy = compute_total_energy(phi, A1, A2, x1, x2, P1, P2, x, y, 
     tmp = (P1 - q_s*A1_p).^2;
     tmp = tmp + (P2 - q_s*A2_p).^2;
     tmp = tmp * 1./(2*m_s);
-    tmp = tmp + tmp + q_s*phi_p;
+    tmp = tmp + q_s*phi_p;
 
     total_energy = sum(tmp);
 end

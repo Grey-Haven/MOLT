@@ -26,29 +26,17 @@ M = M_electron;
 % Scale for (electron) charge [C] (keep this as positive)
 Q = 1.602e-19;
 
-% Compute the average macroscopic number density for the plasma [m^{-3}]
-% n_bar = 10^12; % number density in [m^-3]
-n_bar = 1e10;
+lambda_D = 1e-2; % Debye length [m]
+% n_bar = (M*epsilon_0*c^2)/(kappa*Q*lambda_D)^2; % Average macroscopic number density [m^-3]
+n_bar = 1.129708e14;
+w_p = sqrt((n_bar*Q^2)/(M*epsilon_0)); % angular frequency
+T_bar = (n_bar*(Q*lambda_D)^2)/(epsilon_0*k_B);
 
-% Compute the average macroscopic temperature [K] using lam_D and n_bar
-% T_bar = 2e6; % temperature in Kelvin [K]
-T_bar = 1e4;
+% More nondimensionalized units
+L = lambda_D; % In meters [m]
+T = 1/w_p;  % In seconds/radians [s/r]
+V = L/T; % In [m/s] (thermal velocity lam_D*w_p)
 
-% Angular oscillation frequency [rad/s]
-w_p = sqrt( ( n_bar*(Q^2) )/( M*epsilon_0 ) );
-
-% Debye length [m]
-lam_D = sqrt((epsilon_0 * k_B * T_bar)/(n_bar*Q^2));
-
-% Define the length and time scales from the plasma parameters
-% L = lam_D; % L has units of [m]
-L = c / w_p;
-T = 1 / w_p; % T has units of [s/rad]
-
-% Compute the thermal velocity V = lam_D * w_p in units of [m/s]
-V = L/T;
-
-% Normalized speed of light
 kappa = c/V;
 
 % Derived scales for the scalar potential and vector potential
@@ -71,19 +59,18 @@ sigma_2 = (n_bar*mu_0*(Q*L)^2)/M;
 
 % MOLT stability parameter
 % Set for the first-order method
-beta_BDF1 = 1.0;
+beta_BDF = 1.0;
+% Set for the second-order method
+beta_CDF2 = sqrt(2);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % BEGIN Domain Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-T_final = 50;
+T_final = 500;
 
-% L_x = 20.0;
-% L_y = 20.0;
-
-L_x = 1.153896;
-L_y = 1.153896;
+L_x = 25.0;
+L_y = 25.0;
 
 a_x = -L_x/2;
 b_x = L_x/2;

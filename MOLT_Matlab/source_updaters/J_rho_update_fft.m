@@ -1,6 +1,20 @@
 % Compute the next step of rho using the continuity equation.
 % The FFT will be used to compute div(J).
-J_compute_vanilla;
+if J_rho_update_method == J_rho_update_method_CDF1_FFT
+    x1_elec_ave = (x1_elec_new + x1_elec_old)/2;
+    x2_elec_ave = (x2_elec_new + x2_elec_old)/2;
+
+    J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
+                                x1_elec_ave, x2_elec_ave, ...
+                                v1_star, v2_star, ...
+                                q_elec, cell_volumes, w_elec);
+
+    % Need to enforce periodicity for the current on the mesh
+    J1_mesh(:,:,end) = enforce_periodicity(J_mesh(:,:,1));
+    J2_mesh(:,:,end) = enforce_periodicity(J_mesh(:,:,2));
+else
+    J_compute_vanilla;
+end
 
 J1_clean = ifft(fft(ifft(fft(J1_mesh(1:end-1,1:end-1,end),N_x-1,2),N_x-1,2),N_y-1,1),N_y-1,1);
 J2_clean = ifft(fft(ifft(fft(J2_mesh(1:end-1,1:end-1,end),N_x-1,2),N_x-1,2),N_y-1,1),N_y-1,1);

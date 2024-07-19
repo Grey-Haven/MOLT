@@ -11,7 +11,7 @@ set(0,'defaulttextinterpreter','latex')
 set(0,'DefaultTextFontname', 'cmss')
 set(0,'DefaultAxesFontName', 'cmss')
 
-grid_refinement = [16,32,64,192]; % Run FFT BDF BDF for 64x64
+grid_refinement = [32]; % Run FFT BDF BDF for 64x64
 CFLs = [1];
 particle_count_multipliers = [10];
 
@@ -63,6 +63,7 @@ run_type_FFT_BDF1_gc = "BDF1_FFT_gauge_cleaning";
 run_type_FFT_BDF2_ng = "BDF2_FFT_no_gauge_cleaning";
 run_type_FFT_BDF2_gc = "BDF2_FFT_gauge_cleaning";
 
+run_type_vanilla_BDF1_ng = "BDF1_vanilla_J_rho_FFT_waves_no_gauge_cleaning";
 run_type_vanilla_BDF2_ng = "BDF2_vanilla_J_rho_FFT_waves_no_gauge_cleaning";
 
 run_type_FFT_CDF1_ng = "CDF1_FFT_no_gauge_cleaning";
@@ -81,7 +82,7 @@ waves_BDF_FFT_Family = [waves_update_method_BDF1_FFT, waves_update_method_BDF2_F
 % MOLT for the wave, FFT for the derivatives
 waves_BDF_Hybrid_Family = [waves_update_method_BDF1_MOLT_Hybrid, waves_update_method_BDF2_MOLT_Hybrid, waves_update_method_BDF3_MOLT_Hybrid, waves_update_method_BDF4_MOLT_Hybrid];
 
-for iter = 4:6
+for iter = 3:3
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
@@ -106,6 +107,8 @@ for iter = 4:6
     elseif iter == 5
         run_type = run_type_vanilla_J_rho_CDF1_wave_ng;
     elseif iter == 6
+        run_type = run_type_vanilla_BDF1_ng;
+    elseif iter == 7
         run_type = run_type_vanilla_BDF2_ng;
     end
 
@@ -168,6 +171,16 @@ for iter = 4:6
         waves_update_method = waves_update_method_BDF2_FFT;
     
         gauge_correction = gauge_correction_FFT;
+    
+    elseif run_type == run_type_vanilla_BDF1_ng
+    
+        update_method_title = "First Order Vanilla Charge Update, BDF-2 Wave Update, FFT Derivative";
+        update_method_folder = "vanilla_charge_BDF1_wave_update_FFT_derivative";
+    
+        J_rho_update_method = J_rho_update_method_vanilla;
+        waves_update_method = waves_update_method_BDF1_FFT;
+    
+        gauge_correction = gauge_correction_none;
     
     elseif run_type == run_type_vanilla_BDF2_ng
     
@@ -248,8 +261,9 @@ for iter = 4:6
             for g = grid_refinement
                 close all;
                 variable_setup;
-                % make_vpa;
+                tic;
                 engine;
+                toc;
             end
         end
     end

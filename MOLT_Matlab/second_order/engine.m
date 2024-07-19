@@ -12,6 +12,17 @@
 %              x1_elec_new, x2_elec_new, t_n, ...
 %              update_method_title, tag, vidObj);
 
+
+% Initial half step
+% [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_hist(:,end), x2_elec_hist(:,end), ...
+%                                                            v1_elec_hist(:,end), v2_elec_hist(:,end), dt/2);
+% 
+% 
+% % Apply the particle boundary conditions
+% % Need to include the shift function here
+% x1_elec_hist(:,end) = periodic_shift(x1_elec_new, x(1), L_x);
+% x2_elec_hist(:,end) = periodic_shift(x2_elec_new, y(1), L_y);
+
 steps = 0;
 
 while(steps < N_steps)
@@ -34,8 +45,8 @@ while(steps < N_steps)
         end
         if (enable_plots)
 
-            ddt_A1  = (A1(:,:,end)  - A1(:,:,end-1))  / dt;
-            ddt_A2  = (A2(:,:,end)  - A2(:,:,end-1))  / dt;
+            ddt_A1 = (A1(:,:,end) - A1(:,:,end-1)) / dt;
+            ddt_A2 = (A2(:,:,end) - A2(:,:,end-1)) / dt;
 
             E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
             E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
@@ -58,7 +69,7 @@ while(steps < N_steps)
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
                                                                v1_star, v2_star, dt);
 
-    
+
     % Apply the particle boundary conditions
     % Need to include the shift function here
     x1_elec_new = periodic_shift(x1_elec_new, x(1), L_x);
@@ -92,13 +103,13 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
     %---------------------------------------------------------------------
-    psi_src_hist(:,:,end-1) = (1/sigma_1)*rho_mesh(:,:,end-1);
-    A1_src_hist(:,:,end-1)  = sigma_2*J1_mesh(:,:,end-1);
-    A2_src_hist(:,:,end-1)  = sigma_2*J2_mesh(:,:,end-1);
-
-    psi_src_hist(:,:,end) = (1/sigma_1)*rho_mesh(:,:,end);
-    A1_src_hist(:,:,end)  = sigma_2*J1_mesh(:,:,end);
-    A2_src_hist(:,:,end)  = sigma_2*J2_mesh(:,:,end);
+    % psi_src_hist(:,:,end-1) = (1/sigma_1)*rho_mesh(:,:,end-1);
+    % A1_src_hist(:,:,end-1)  = sigma_2*J1_mesh(:,:,end-1);
+    % A2_src_hist(:,:,end-1)  = sigma_2*J2_mesh(:,:,end-1);
+    % 
+    % psi_src_hist(:,:,end) = (1/sigma_1)*rho_mesh(:,:,end);
+    % A1_src_hist(:,:,end)  = sigma_2*J1_mesh(:,:,end);
+    % A2_src_hist(:,:,end)  = sigma_2*J2_mesh(:,:,end);
 
     %---------------------------------------------------------------------
     % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
@@ -123,7 +134,7 @@ while(steps < N_steps)
         ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
         throw(ME);
     end
-    
+
     %---------------------------------------------------------------------
     % 3.3 Correct gauge error (optional)
     %---------------------------------------------------------------------
@@ -137,7 +148,7 @@ while(steps < N_steps)
         ME = MException('GaugeCorrectionException','Gauge Correction Method ' + gauge_correction + " not an option");
         throw(ME);
     end
-    
+
 
     %---------------------------------------------------------------------
     % 4. Momentum advance by dt
@@ -164,7 +175,7 @@ while(steps < N_steps)
                                                         A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
                                                         A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
                                                         x, y, dx, dy, q_elec, r_elec, ...
-                                                        kappa, dt);        
+                                                        kappa, dt);
     else
         [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
         improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
@@ -284,21 +295,21 @@ ts = 0:dt:(N_steps-1)*dt;
 
 gauge_error_array = zeros(length(ts),3);
 gauge_error_array(:,1) = ts;
-gauge_error_array(:,2) = gauge_error_L2;
-gauge_error_array(:,3) = gauge_error_inf;
+gauge_error_array(:,2) = gauge_error_L2(1:N_steps);
+gauge_error_array(:,3) = gauge_error_inf(1:N_steps);
 
 gauss_error_array = zeros(length(ts),7);
 gauss_error_array(:,1) = ts;
-gauss_error_array(:,2) = gauss_law_potential_err_L2;
-gauss_error_array(:,3) = gauss_law_potential_err_inf;
-gauss_error_array(:,4) = gauss_law_gauge_err_L2;
-gauss_error_array(:,5) = gauss_law_gauge_err_inf;
-gauss_error_array(:,6) = gauss_law_field_err_L2;
-gauss_error_array(:,7) = gauss_law_field_err_inf;
+gauss_error_array(:,2) = gauss_law_potential_err_L2(1:N_steps);
+gauss_error_array(:,3) = gauss_law_potential_err_inf(1:N_steps);
+gauss_error_array(:,4) = gauss_law_gauge_err_L2(1:N_steps);
+gauss_error_array(:,5) = gauss_law_gauge_err_inf(1:N_steps);
+gauss_error_array(:,6) = gauss_law_field_err_L2(1:N_steps);
+gauss_error_array(:,7) = gauss_law_field_err_inf(1:N_steps);
 
 Bz_L2_array = zeros(length(ts),2);
 Bz_L2_array(:,1) = ts;
-Bz_L2_array(:,2) = Bz_magnitude_hist;
+Bz_L2_array(:,2) = Bz_magnitude_hist(1:N_steps);
 
 if (write_csvs)
     save_csvs;
@@ -348,7 +359,7 @@ y0=100;
 set(gcf,'position',[x0,y0,width,height]);
 
 % subplot(1,2,2);
-plot(ts,gauge_error_L2);
+plot(ts,gauge_error_L2(1:N_steps));
 xlabel("Angular Plasma Periods",'FontSize',24);
 % ylabel("$\frac{1}{\kappa^2}\frac{\phi^{n+1} - 2\phi^{n} + \phi^{n-1}}{\Delta t^2} - \left(b_1\nabla\cdot\textbf{A}^{(1),n+1} + b_2\nabla\cdot\textbf{A}^{(2),n+1}\right)$",'interpreter','latex', 'FontSize', 24);
 ylabel("$||\frac{1}{\kappa^2}\frac{\partial \phi}{\partial t} - \nabla\cdot\textbf{A}||_2$",'interpreter','latex', 'FontSize', 24);

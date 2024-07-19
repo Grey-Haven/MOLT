@@ -7,6 +7,7 @@ N = g+1;
 N_x = N;
 N_y = N;
 
+
 tag = g + "x" + g;
 
 disp(tag);
@@ -15,10 +16,8 @@ disp(tag);
 % BEGIN Domain Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% L_x = 32.0;
-% L_y = 32.0;
-L_x = 1.0;
-L_y = 1.0;
+L_x = 50;
+L_y = 50;
 
 a_x = -L_x/2;
 b_x = L_x/2;
@@ -35,19 +34,15 @@ x = linspace(a_x, b_x, N_x);
 y = linspace(a_y, b_y, N_y);
 
 % dt = 5*dx/kappa
-dt = CFL*dx/(sqrt(2)*kappa);
+dt = dx/(sqrt(2)*kappa);
 N_steps = ceil(T_final/dt);
+
+% N_steps = 20000;
+% dt = T_final / N_steps;
 
 v_ave_mag = 1;
 
-v1_drift = kappa/100;
-% v1_drift = 0;
-v2_drift = kappa/100;
-% v2_drift = 0;
-
-% Number of particles for each species
-N_p = floor(particle_count_multiplier * 2.5e3);
-% N_p = 1;
+N_p = 250632;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Domain Parameters
@@ -63,41 +58,33 @@ b_x = x(end);
 a_y = y(1);
 b_y = y(end);
 
-x1_ions = zeros(N_p,1);
-x2_ions = zeros(N_p,1);
-
-x1_elec = zeros(N_p,1);
-x2_elec = zeros(N_p,1);
-
 %%% Sampling approach for particle intialization
 % % Generate a set of uniform samples in the domain for ions and electrons
 xy_min = [a_x, a_y];
 xy_max = [b_x, b_y];
 
-% % Create a 2-D array where the columns are x1 and x2 position coordinates
-% particle_positions_elec = np.random.uniform(low=xy_min, high=xy_max, size=(N_p,2))
-% particle_positions_ions = np.random.uniform(low=xy_min, high=xy_max, size=(N_p,2))
-
-x_0 = (a_x + b_x) / 2;
-y_0 = (a_y + b_y) / 2;
-
 x_offset = (b_x - a_x)/4;
 y_offset = (b_y - a_y)/4;
 
-sig_x = .05*(b_x - a_x);
-sig_y = .05*(b_y - a_y);
+particle_positions_elec_x = L_x*(rand(2*N_p,1) - .5);
+particle_positions_elec_y = L_y*(rand(2*N_p,1) - .5);
 
-particle_positions_elec = sig_x*randn(N_p,2) + [x_0, y_0]; %+ [x_offset, y_offset];
-particle_positions_ions = sig_y*randn(N_p,2) + [x_0, y_0];
+particle_positions_ions_x = L_x*(rand(N_p,1) - .5);
+particle_positions_ions_y = L_y*(rand(N_p,1) - .5);
 
-% x1_elec = particle_positions_elec(:,1);
-% x2_elec = particle_positions_elec(:,2);
+% We double the electron macroparticle count but keep the physical
+% particle count down (ie halve the weight)
+x1_elec_1 = particle_positions_ions_x;
+x2_elec_1 = particle_positions_ions_y;
 
-x1_elec = particle_positions_ions(:,1);
-x2_elec = particle_positions_ions(:,2);
+x1_elec_2 = particle_positions_ions_x;
+x2_elec_2 = particle_positions_ions_y;
 
-x1_ions = particle_positions_ions(:,1);
-x2_ions = particle_positions_ions(:,2);
+x1_elec = [x1_elec_1;x1_elec_2];
+x2_elec = [x2_elec_1;x2_elec_2];
+
+x1_ions = particle_positions_ions_x;
+x2_ions = particle_positions_ions_y;
 
 % Normalized masses
 r_ions = M_ion/M;
@@ -108,6 +95,7 @@ r_elec = M_electron/M;
 q_ions = Q_ion/Q;
 q_elec = Q_electron/Q;
 
+% Setting up velocity:
 
 % Ions will be stationary for this experiment
 v1_ions = zeros(N_p,1);
@@ -118,8 +106,14 @@ v2_ions = zeros(N_p,1);
 electron_velocities = randn(N_p,2);
 
 % Electrons have drift velocity in addition to a thermal velocity
-v1_elec = v_ave_mag*electron_velocities(:,1) + v1_drift;
-v2_elec = v_ave_mag*electron_velocities(:,2) + v2_drift;
+v1_elec_1 = electron_velocities(:,1);
+v1_elec_2 = -electron_velocities(:,1);
+
+v2_elec_1 = electron_velocities(:,2);
+v2_elec_2 = -electron_velocities(:,2);
+
+v1_elec = [v1_elec_1;v1_elec_2];
+v2_elec = [v2_elec_1;v2_elec_2];
 
 % Convert velocity to generalized momentum (A = 0 since the total current is zero)
 % This is equivalent to the classical momentum
@@ -131,8 +125,8 @@ P2_elec = v2_elec*r_elec;
 
 % Compute the normalized particle weights
 % L_x and L_y are the non-dimensional domain lengths
-w_ions = 10*(L_x*L_y)/N_p;
-w_elec = 10*(L_x*L_y)/N_p;
+w_ions = (L_x*L_y)/N_p;
+w_elec = .5*(L_x*L_y)/N_p;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters
@@ -151,12 +145,6 @@ w_elec = 10*(L_x*L_y)/N_p;
 %
 % We'll assume that the ions remain stationary
 % so that we only need to update electrons.
-
-
-% Make a list for tracking the electron velocity history
-% we use this to compute the temperature outside the solver
-% This variance is an average of the variance in each direction
-v_elec_var_history = [];
 
 % Electron positions
 x1_elec_old = x1_elec(:);
@@ -202,20 +190,20 @@ N_elec = length(x1_elec_new);
 N_h = 3;
 
 psi = zeros(N_y, N_x, N_h);
-ddx_psi = zeros(N_y,N_x);
-ddy_psi = zeros(N_y,N_x);
+ddx_psi = zeros(N_y,N_x,N_h);
+ddy_psi = zeros(N_y,N_x,N_h);
 psi_src = zeros(N_y,N_x);
 psi_A = zeros(N_y,N_x);
 psi_C = zeros(N_y,N_x);
 
 A1 = zeros(N_y, N_x, N_h);
-ddx_A1 = zeros(N_y,N_x, N_h);
-ddy_A1 = zeros(N_y,N_x, N_h);
+ddx_A1 = zeros(N_y,N_x,N_h);
+ddy_A1 = zeros(N_y,N_x,N_h);
 A1_src = zeros(N_y,N_x);
 
 A2 = zeros(N_y, N_x, N_h);
-ddx_A2 = zeros(N_y,N_x, N_h);
-ddy_A2 = zeros(N_y,N_x, N_h);
+ddx_A2 = zeros(N_y,N_x,N_h);
+ddy_A2 = zeros(N_y,N_x,N_h);
 A2_src = zeros(N_y,N_x);
 
 % Other data needed for the evaluation of 
@@ -237,10 +225,12 @@ ddy_E2 = zeros(N_y,N_x);
 gauge_residual = zeros(N_y,N_x);
 gauss_residual = zeros(N_y,N_x);
 
+gauss_law_potential_res = zeros(N_y,N_x);
+gauss_law_gauge_res = zeros(N_y,N_x);
+gauss_law_field_res = zeros(N_y,N_x);
+
 gauge_error_L2 = zeros(N_steps,1);
 gauge_error_inf = zeros(N_steps,1);
-gauss_law_error = zeros(N_steps,1);
-sum_gauss_law_residual = zeros(N_steps,1);
 
 gauss_law_potential_err_L2 = zeros(N_steps,1);
 gauss_law_potential_err_inf = zeros(N_steps,1);
@@ -248,6 +238,11 @@ gauss_law_gauge_err_L2 = zeros(N_steps,1);
 gauss_law_gauge_err_inf = zeros(N_steps,1);
 gauss_law_field_err_L2 = zeros(N_steps,1);
 gauss_law_field_err_inf = zeros(N_steps,1);
+
+% We track two time levels of J (n, n+1)
+% Note, we don't need J3 for this model 
+% Since ions are stationary J_mesh := J_elec
+J_mesh = zeros(N_y,N_x,2); % Idx order: grid indices (y,x), time level
 
 % From https://math.mit.edu/~stevenj/fft-deriv.pdf
 % TL;DR 
@@ -289,12 +284,14 @@ rho_ions = enforce_periodicity(rho_ions(:,:));
 rho_elec = enforce_periodicity(rho_elec(:,:));
 
 % rho_mesh = rho_ions + rho_elec;
-% rho_mesh = zeros(size(rho_elec));
 rho_mesh = zeros([size(rho_elec),N_h]);
+
+[x1_elec_half, x2_elec_half] = advance_particle_positions_2D(x1_elec_new, x2_elec_new, ...
+                                                             v1_elec_old, v2_elec_old, dt/2);
 
 % Current
 J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
-                            x1_elec_new, x2_elec_new, ...
+                            x1_elec_half, x2_elec_half, ...
                             v1_elec_old, v2_elec_old, ...
                             q_elec, cell_volumes, w_elec);
 
@@ -302,12 +299,50 @@ J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
 J_mesh(:,:,1) = enforce_periodicity(J_mesh(:,:,1));
 J_mesh(:,:,2) = enforce_periodicity(J_mesh(:,:,2));
 
-J1_mesh = J_mesh(:,:,1);
-J2_mesh = J_mesh(:,:,2);
+J1_mesh = zeros(size(rho_mesh));
+J2_mesh = zeros(size(rho_mesh));
 
-v_elec_var_history = zeros(N_steps, 1);
+J1_mesh(:,:,end) = J_mesh(:,:,1);
+J2_mesh(:,:,end) = J_mesh(:,:,2);
+
+v_elec_var_history = [];
+
+x1_elec_hist = zeros(length(x1_elec),N_h);
+x2_elec_hist = zeros(length(x2_elec),N_h);
+
+v1_elec_hist = zeros(length(v1_elec),N_h);
+v2_elec_hist = zeros(length(v2_elec),N_h);
+
+P1_elec_hist = zeros(length(P1_elec),N_h);
+P2_elec_hist = zeros(length(P2_elec),N_h);
+
+x1_elec_hist(:,end  ) = x1_elec;
+x2_elec_hist(:,end  ) = x2_elec;
+x1_elec_hist(:,end-1) = x1_elec;
+x2_elec_hist(:,end-1) = x2_elec;
+
+v1_elec_hist(:,end  ) = v1_elec;
+v2_elec_hist(:,end  ) = v2_elec;
+v1_elec_hist(:,end-1) = v1_elec;
+v2_elec_hist(:,end-1) = v2_elec;
+v1_elec_hist(:,end-2) = v1_elec;
+v2_elec_hist(:,end-2) = v2_elec;
+
+P1_elec_hist(:,end  ) = P1_elec;
+P2_elec_hist(:,end  ) = P2_elec;
+P1_elec_hist(:,end-1) = P1_elec;
+P2_elec_hist(:,end-1) = P2_elec;
+
+% Store the total number of particles for each species
+N_ions = length(x1_ions);
+N_elec = length(x1_elec);
 
 rho_hist = zeros(N_steps,1);
+
+Ex_L2_hist = zeros(N_steps,1);
+Ey_L2_hist = zeros(N_steps,1);
+
+Bz_L2_hist = zeros(N_steps,1);
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % END Storage Variables
@@ -358,6 +393,7 @@ if debug
     assert(dt < dx/6, "Make dt smaller. Use more steps or run to a shorter final time.\n")
 end
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % BEGIN Cold Storage Variables
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -365,8 +401,7 @@ tag = (length(x)-1) + "x" + (length(y)-1);
 filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
-resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
-              "/CFL_" + CFL + "/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
+resultsPath = projectRoot + "/results/conserving/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
 figPath = resultsPath + "figures/";
 csvPath = resultsPath + "csv_files/";
 disp(resultsPath);
@@ -374,3 +409,24 @@ create_directories;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Cold Storage Variables
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN Recording Process Start
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+if enable_plots
+    vidName = "heating" + ".mp4";
+    vidObj = VideoWriter(figPath + vidName, 'MPEG-4');
+    open(vidObj);
+    
+    figure;
+    x0=200;
+    y0=100;
+    width = 1800;
+    height = 1200;
+    set(gcf,'position',[x0,y0,width,height]);
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% END Recording Process Start
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -11,7 +11,7 @@ function [u,dudx,dudy] = BDF1_combined_per_advance_hybrid_FD6(u, dudx, dudy, src
 
     u_next = u(1:end-1,1:end-1,end);
 
-    [dudx,dudy] = compute_derivative_FD6_periodic(u_next,dx,dy);
+    [dudx,dudy] = compute_gradient_FD6_per(u_next,dx,dy);
 
 end
 

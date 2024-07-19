@@ -36,9 +36,15 @@
 ddt_A1  = (A1(:,:,end)  - A1(:,:,end-1))  / dt;
 ddt_A2  = (A2(:,:,end)  - A2(:,:,end-1))  / dt;
 
-E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
-E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
-B3(:,:) = ddx_A2(:,:,end) - ddy_A1(:,:,end);
+if waves_update_method == waves_update_method_CDF1_FFT
+    E1(:,:) = -(ddx_psi(:,:,end) + ddx_psi(:,:,end-2))/2 - ddt_A1(:,:);
+    E2(:,:) = -(ddy_psi(:,:,end) + ddy_psi(:,:,end-2))/2 - ddt_A2(:,:);
+    B3(:,:) = ddx_A2(:,:,end) - ddy_A1(:,:,end);
+else
+    E1(:,:) = -ddx_psi(:,:,end) - ddt_A1(:,:);
+    E2(:,:) = -ddy_psi(:,:,end) - ddt_A2(:,:);
+    B3(:,:) = ddx_A2(:,:,end) - ddy_A1(:,:,end);
+end
 
 % Want to ensure the spatial derivatives we're taking are consistent.
 if ismember(waves_update_method, [waves_update_method_vanilla, waves_update_method_FD2])
@@ -129,12 +135,14 @@ if waves_update_method == waves_update_method_DIRK2
 
 else
     % METHOD 2:
-    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT || waves_update_method == waves_update_method_CDF1_FFT
+    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
         ddt2_phi = BDF1_d2(psi, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT
         ddt2_phi = BDF2_d2(psi, dt);
     elseif waves_update_method == waves_update_method_vanilla
         ddt2_phi = BDF2_d2(psi, dt);
+    elseif waves_update_method == waves_update_method_CDF1_FFT
+        ddt2_phi = BDF1_d2(psi, dt);
     else
         ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
         throw(ME);
@@ -162,6 +170,9 @@ else
     if waves_update_method == waves_update_method_CDF1_FFT
         RHS = (rho_mesh(:,:,end) + rho_mesh(:,:,end-2)) / (2*sigma_1);
         laplacian_phi_FFT = compute_Laplacian_FFT((psi(:,:,end) + psi(:,:,end-2))/2,kx_deriv_2,ky_deriv_2);
+        % phi_ave_curr = (psi(:,:,end) + psi(:,:,end-1)) / 2;
+        % phi_nm1_curr = (psi(:,:,end-2) + psi(:,:,end-3)) / 2;
+        % laplacian_phi_FFT = compute_Laplacian_FFT((phi_ave_curr + phi_nm1_curr)/2,kx_deriv_2,ky_deriv_2);
     else
         RHS = rho_mesh(:,:,end) / sigma_1;
         laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);

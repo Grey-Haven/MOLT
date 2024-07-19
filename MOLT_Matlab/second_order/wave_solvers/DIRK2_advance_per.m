@@ -13,9 +13,16 @@
 % --------------
 %     | 1/2  1/2
 %
+% Pareschi and Russo: s=2 stage, 2nd order, A-stable iff x>=1/4 Diagonal Implicit RK
+%
+%  x  |  x    0
+% 1-x | 1-2x  x
+% --------------
+%     | 1/2  1/2
 %%
 function [u_next, v_next] = DIRK2_advance_per(u, v, src, c, h, kx_deriv_2, ky_deriv_2)
 
+    % Qin and Zhang variables
     a11 = 1/4;
     a12 = 0;
     a21 = 1/2;
@@ -27,11 +34,24 @@ function [u_next, v_next] = DIRK2_advance_per(u, v, src, c, h, kx_deriv_2, ky_de
     c1 = 1/4;
     c2 = 3/4;
 
+    % Pareschi and Russo's variables
+    % x = 1/3; 
+    % a11 = x;
+    % a12 = 0;
+    % a21 = 1 - 2*x;
+    % a22 = x;
+    % 
+    % b1 = 1/2;
+    % b2 = 1/2;
+    % 
+    % c1 = x;
+    % c2 = 1 - x;
+
     alpha1 = 1/(h*a11*c);
     alpha2 = 1/(h*a22*c);
 
-    S_prev = src(:,:,1);
-    S_curr = src(:,:,2);
+    S_prev = src(:,:,end-1);
+    S_curr = src(:,:,end);
 
     % f^{n+c} = (1-c)f^{n} + cf^{n+1}, c in [0,1], assuming f is linear
     S_1 = (1-c1)*S_prev + c1*S_curr;

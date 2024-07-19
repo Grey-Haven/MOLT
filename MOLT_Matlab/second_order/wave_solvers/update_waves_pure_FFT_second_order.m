@@ -4,37 +4,31 @@
 if waves_update_method == waves_update_method_BDF1_FFT
 
     alpha = beta_BDF1/(kappa*dt);
-    psi_source_with_prev = BDF1_d2_update(psi(:,:,1:end-1), psi_src_hist(:,:,end), alpha);
-    A1_source_with_prev  = BDF1_d2_update(A1(:,:,1:end-1), A1_src_hist(:,:,end), alpha);
-    A2_source_with_prev  = BDF1_d2_update(A2(:,:,1:end-1), A2_src_hist(:,:,end), alpha);
+    psi_source_with_prev = BDF1_d2_update(psi(:,:,1:end-1), (1/sigma_1)*rho_mesh(:,:,end), alpha);
+    A1_source_with_prev  = BDF1_d2_update(A1(:,:,1:end-1), sigma_2*J1_mesh(:,:,end), alpha);
+    A2_source_with_prev  = BDF1_d2_update(A2(:,:,1:end-1), sigma_2*J2_mesh(:,:,end), alpha);
 
 elseif waves_update_method == waves_update_method_BDF2_FFT
 
     alpha = beta_BDF2/(kappa*dt);
-    psi_source_with_prev = BDF2_d2_update(psi(:,:,1:end-1), psi_src_hist(:,:,end), alpha);
-    A1_source_with_prev  = BDF2_d2_update(A1(:,:,1:end-1), A1_src_hist(:,:,end), alpha);
-    A2_source_with_prev  = BDF2_d2_update(A2(:,:,1:end-1), A2_src_hist(:,:,end), alpha);
+    psi_source_with_prev = BDF2_d2_update(psi(:,:,1:end-1), (1/sigma_1)*rho_mesh(:,:,end), alpha);
+    A1_source_with_prev  = BDF2_d2_update(A1(:,:,1:end-1), sigma_2*J1_mesh(:,:,end), alpha);
+    A2_source_with_prev  = BDF2_d2_update(A2(:,:,1:end-1), sigma_2*J2_mesh(:,:,end), alpha);
 
 elseif waves_update_method == waves_update_method_BDF3_FFT
 
     alpha = beta_BDF3/(kappa*dt);
-    psi_source_with_prev = BDF3_d2_update(psi(:,:,1:end-1), psi_src_hist(:,:,end), alpha);
-    A1_source_with_prev  = BDF3_d2_update(A1(:,:,1:end-1), A1_src_hist(:,:,end), alpha);
-    A2_source_with_prev  = BDF3_d2_update(A2(:,:,1:end-1), A2_src_hist(:,:,end), alpha);
+    psi_source_with_prev = BDF3_d2_update(psi(:,:,1:end-1), (1/sigma_1)*rho_mesh(:,:,end), alpha);
+    A1_source_with_prev  = BDF3_d2_update(A1(:,:,1:end-1), sigma_2*J1_mesh(:,:,end), alpha);
+    A2_source_with_prev  = BDF3_d2_update(A2(:,:,1:end-1), sigma_2*J2_mesh(:,:,end), alpha);
 
 elseif waves_update_method == waves_update_method_CDF1_FFT
-    alpha = beta_CDF1/(kappa*dt);
-%     laplacian_psi_prev = compute_Laplacian_FFT(psi(:,:,end-2), kx_deriv_2, ky_deriv_2);
-%     laplacian_A1_prev  = compute_Laplacian_FFT(A1(:,:,end-2) , kx_deriv_2, ky_deriv_2);
-%     laplacian_A2_prev  = compute_Laplacian_FFT(A2(:,:,end-2) , kx_deriv_2, ky_deriv_2);
 
-    % The averageing term 1/2 in eg (rho^n+1 + rho^n-1)/2 is in the alpha
+    % The averaging term 1/2 in eg (rho^n+1 + rho^n-1)/2 is in the alpha
     % term (beta_CDF1 = sqrt(2))
-%     psi_source_with_prev = 1/alpha^2 * ((rho_mesh(:,:,end) + rho_mesh(:,:,end-2))/(sigma_1) + laplacian_psi_prev) + 2*psi(:,:,end-1) - psi(:,:,end-2);
-%     A1_source_with_prev  = 1/alpha^2 * (sigma_2*(J1_mesh(:,:,end) + J1_mesh(:,:,end-2)) + laplacian_A1_prev) + 2*A1(:,:,end-1) - A1(:,:,end-2);
-%     A2_source_with_prev  = 1/alpha^2 * (sigma_2*(J2_mesh(:,:,end) + J2_mesh(:,:,end-2)) + laplacian_A2_prev) + 2*A2(:,:,end-1) - A2(:,:,end-2);
 
-    psi_source_with_prev = 1/alpha^2*(rho_mesh(:,:,end) + rho_mesh(:,:,end-2)/sigma_1) + 2*psi(:,:,end-1);
+    alpha = beta_CDF1/(kappa*dt);
+    psi_source_with_prev = 1/alpha^2*((rho_mesh(:,:,end) + rho_mesh(:,:,end-2))/sigma_1) + 2*psi(:,:,end-1);
     A1_source_with_prev  = sigma_2/alpha^2*(J1_mesh(:,:,end) + J1_mesh(:,:,end-2)) + 2*A1(:,:,end-1);
     A2_source_with_prev  = sigma_2/alpha^2*(J2_mesh(:,:,end) + J2_mesh(:,:,end-2)) + 2*A2(:,:,end-1);
 else

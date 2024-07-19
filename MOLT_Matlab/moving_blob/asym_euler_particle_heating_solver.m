@@ -58,7 +58,7 @@ while(steps < N_steps)
 
     if J_rho_update_method == J_rho_update_method_vanilla
         J_rho_update_vanilla;
-    elseif J_rho_update_method == J_rho_update_method_FFT
+    elseif ismember(J_rho_update_method, J_rho_BDF_FFT_Family)
         J_rho_update_fft;
     elseif J_rho_update_method == J_rho_update_method_FD6
         J_rho_update_FD6;
@@ -70,7 +70,7 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
     %---------------------------------------------------------------------
-    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:);
+    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:,end);
     A1_src(:,:) = sigma_2*J1_mesh;
     A2_src(:,:) = sigma_2*J2_mesh;
 
@@ -83,7 +83,7 @@ while(steps < N_steps)
         update_waves_hybrid_FFT;
         % update_waves_pure_FFT;
     elseif waves_update_method == waves_update_method_FD6
-        update_waves_hybrid_FD6
+        update_waves_hybrid_FD6;
     elseif waves_update_method == waves_update_method_poisson_phi
         update_waves_poisson_phi;
     elseif waves_update_method == waves_update_method_pure_FFT
@@ -143,7 +143,7 @@ while(steps < N_steps)
 
     rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
-    compute_gauss_residual;
+    % compute_gauss_residual;
 
     
     %---------------------------------------------------------------------
@@ -173,6 +173,8 @@ while(steps < N_steps)
     
     P1_elec_old(:) = P1_elec_new(:);
     P2_elec_old(:) = P2_elec_new(:);
+
+    rho_mesh = shuffle_steps(rho_mesh);
 
     % Step is now complete
     steps = steps + 1;
@@ -240,7 +242,7 @@ subplot(1,2,2);
 plot(ts,gauge_error_L2)
 title("Gauge Error",'FontSize',32);
 
-sgtitle("Pure FFT Solve, Without Fixed Point Stepping " + tag,'FontSize',48);
+sgtitle("Hybrid MOLT-BDF1 Wave, FFT Derivatives, " + tag,'FontSize',48);
 
 saveas(gcf,figPath + "residuals.jpg");
 

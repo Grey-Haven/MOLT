@@ -10,9 +10,13 @@ psi_curr = psi(:,:,end-1);
 A1_curr  = A1(:,:,end-1);
 A2_curr  = A2(:,:,end-1);
 
-[psi_next, ddt_psi_next] = DIRK2_advance_per(psi_curr, ddt_psi_curr, psi_src_hist, kappa, dt, kx_deriv_2, ky_deriv_2);
-[A1_next , ddt_A1_next ] = DIRK2_advance_per(A1_curr , ddt_A1_curr , A1_src_hist , kappa, dt, kx_deriv_2, ky_deriv_2);
-[A2_next , ddt_A2_next ] = DIRK2_advance_per(A2_curr , ddt_A2_curr , A2_src_hist , kappa, dt, kx_deriv_2, ky_deriv_2);
+psi_src = (1/sigma_1)*rho_mesh;
+A1_src  = sigma_2*J1_mesh;
+A2_src  = sigma_2*J2_mesh;
+
+[psi_next, ddt_psi_next] = DIRK2_advance_per(psi_curr, ddt_psi_curr, psi_src, kappa, dt, kx_deriv_2, ky_deriv_2);
+[A1_next , ddt_A1_next ] = DIRK2_advance_per(A1_curr , ddt_A1_curr , A1_src , kappa, dt, kx_deriv_2, ky_deriv_2);
+[A2_next , ddt_A2_next ] = DIRK2_advance_per(A2_curr , ddt_A2_curr , A2_src , kappa, dt, kx_deriv_2, ky_deriv_2);
 
 psi(:,:,end) = psi_next;
 A1(:,:,end)  = A1_next;
