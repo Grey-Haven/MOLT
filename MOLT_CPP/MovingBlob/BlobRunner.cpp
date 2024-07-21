@@ -7,7 +7,7 @@
 
 #include <cmath>
 #include <random>
-#include "MOLTEngine.h"
+#include "../MOLTEngine.h"
 
 #include <stdio.h>
 #include <omp.h>
@@ -107,6 +107,8 @@ int main(int argc, char *argv[])
     // Particle Setup
     // const int numParticles = 2.5e4;
     const int numParticles = N*N*100;
+    
+    double macroparticleWeight = (L_x*L_y) / numParticles;
 
     // const double v1_drift = kappa / 100;
     // const double v2_drift = kappa / 100;
@@ -289,46 +291,61 @@ int main(int argc, char *argv[])
         subpath += "/MOLT_BDF1";
     }
 
-    std::string path = "./results/moving_blob/" + subpath + "/" + nxn;
+    uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+    std::string path = "./results/" + subpath + "/" + nxn + "/" + "run_" + std::to_string(timestamp);
     std::cout << path << std::endl;
 
     // Create results folder
     std::filesystem::create_directories(path);
-    std::filesystem::create_directories(path + "/particles");
-    std::filesystem::create_directories(path + "/phi");
-    std::filesystem::create_directories(path + "/A1");
-    std::filesystem::create_directories(path + "/A2");
-    std::filesystem::create_directories(path + "/ddx_phi");
-    std::filesystem::create_directories(path + "/ddx_A1");
-    std::filesystem::create_directories(path + "/ddx_A2");
-    std::filesystem::create_directories(path + "/ddy_phi");
-    std::filesystem::create_directories(path + "/ddy_A1");
-    std::filesystem::create_directories(path + "/ddy_A2");
-    std::filesystem::create_directories(path + "/rho");
-    std::filesystem::create_directories(path + "/J1");
-    std::filesystem::create_directories(path + "/J2");
+    // std::filesystem::create_directories(path + "/particles");
+    // std::filesystem::create_directories(path + "/phi");
+    // std::filesystem::create_directories(path + "/A1");
+    // std::filesystem::create_directories(path + "/A2");
+    // std::filesystem::create_directories(path + "/ddx_phi");
+    // std::filesystem::create_directories(path + "/ddx_A1");
+    // std::filesystem::create_directories(path + "/ddx_A2");
+    // std::filesystem::create_directories(path + "/ddy_phi");
+    // std::filesystem::create_directories(path + "/ddy_A1");
+    // std::filesystem::create_directories(path + "/ddy_A2");
+    // std::filesystem::create_directories(path + "/rho");
+    // std::filesystem::create_directories(path + "/J1");
+    // std::filesystem::create_directories(path + "/J2");
 
-    MOLTEngine molt(Nx, Ny, numParticles, N_h, x, y, x1_elec_hist,
+    MOLTEngine molt(Nx, Ny, numParticles, numParticles, N_h, x, y, x1_elec_hist,
                     x2_elec_hist, v1_elec_hist, v2_elec_hist,
                     x1_ion, x2_ion, v1_ion, v2_ion,
-                    dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, q_ions, m_ions, method, rhoUpdate, path);
+                    dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, q_ions, m_ions,
+                    macroparticleWeight, macroparticleWeight, method, rhoUpdate, path);
 
     struct timeval begin, end;
     gettimeofday( &begin, NULL );
     
     // Kokkos::Timer timer;
 
-    // N_steps = 1;
-
     std::vector<double> gauge_L2(N_steps+1);
+    std::vector<double> gauss_L2_divE(N_steps+1);
+    std::vector<double> gauss_L2_divA(N_steps+1);
+    std::vector<double> gauss_L2_wave(N_steps+1);
     std::vector<double> rho_total(N_steps+1);
+    std::vector<double> mass_total(N_steps+1);
+    std::vector<double> energy_total(N_steps+1);
+    
+    molt.computePhysicalDiagnostics();
+
+    gauss_L2_divE[0] = molt.getGaussL2_divE();
+    gauss_L2_divA[0] = molt.getGaussL2_divA();
+    gauss_L2_wave[0] = molt.getGaussL2_wave();
     gauge_L2[0] = molt.getGaugeL2();
     rho_total[0] = molt.getTotalCharge();
+    energy_total[0] = molt.getTotalEnergy();
+    mass_total[0] = molt.getTotalMass();
 
     std::ofstream gaugeFile;
+    std::ofstream gaussFile;
     std::ofstream rhoFile;
-
-    // N_steps = 5;
+    std::ofstream energyFile;
+    std::ofstream massFile;
 
     for (int n = 0; n < N_steps; n++) {
         if (n % 1000 == 0) {
@@ -340,19 +357,39 @@ int main(int argc, char *argv[])
                 gaugeFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauge_L2[n_sub] << std::endl;
             }
             gaugeFile.close();
-        }
-        if (n % (N_steps / 100) == 0) {
-            rhoFile.open(path + "/rho_" + nxn + "_unfinished_recent" + ".csv");
+            gaussFile.open(path + "/gauss_" + nxn + "_unfinished_recent" + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                gaussFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauss_L2_divE[n_sub] << "," << gauss_L2_divA[n_sub] << "," << gauss_L2_wave[n_sub] << std::endl;
+            }
+            gaussFile.close();
+            rhoFile.open(path + "/rho_total_" + nxn + "_unfinished_recent" + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
             }
             rhoFile.close();
+            energyFile.open(path + "/energy_" + nxn + "_unfinished_recent" + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                energyFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << energy_total[n_sub] << std::endl;
+            }
+            energyFile.close();
+            massFile.open(path + "/mass_" + nxn + "_unfinished_recent" + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << mass_total[n_sub] << std::endl;
+            }
+            massFile.close();
         }
         molt.step();
         gauge_L2[n+1] = molt.getGaugeL2();
+        gauss_L2_divE[n+1] = molt.getGaussL2_divE();
+        gauss_L2_divA[n+1] = molt.getGaussL2_divA();
+        gauss_L2_wave[n+1] = molt.getGaussL2_wave();
         rho_total[n+1] = molt.getTotalCharge();
+        mass_total[n+1] = molt.getTotalMass();
+        energy_total[n+1] = molt.getTotalEnergy();
+
     }
     std::cout << "Done running!" << std::endl;
+
     gettimeofday( &end, NULL );
     double time = 1.0 * ( end.tv_sec - begin.tv_sec ) + 1.0e-6 * ( end.tv_usec - begin.tv_usec );
     // double time = timer.seconds();
@@ -365,11 +402,26 @@ int main(int argc, char *argv[])
         gaugeFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauge_L2[n] << std::endl;
     }
     gaugeFile.close();
-    rhoFile.open(path + "/rho_" + nxn + ".csv");
-    for (int n_sub = 0; n_sub < N_steps+1; n_sub++) {
-        rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
+    gaussFile.open(path + "/gauss_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        gaussFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauss_L2_divE[n] << "," << gauss_L2_divA[n] << "," << gauss_L2_wave[n] << std::endl;
+    }
+    gaussFile.close();
+    rhoFile.open(path + "/rho_total_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        rhoFile << std::setprecision(16) << std::to_string(dt*n) << "," << rho_total[n] << std::endl;
     }
     rhoFile.close();
+    energyFile.open(path + "/energy_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        energyFile << std::setprecision(16) << std::to_string(dt*n) << "," << energy_total[n] << std::endl;
+    }
+    energyFile.close();
+    massFile.open(path + "/mass_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        massFile << std::setprecision(16) << std::to_string(dt*n) << "," << mass_total[n] << std::endl;
+    }
+    massFile.close();
 
     return 0;
 }
