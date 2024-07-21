@@ -12,7 +12,7 @@
 class MOLTEngine {
 
     public:
-        enum NumericalMethod { BDF1, BDF2, BDF3, DIRK2, DIRK3, CDF1, MOLT_BDF1 };
+        enum NumericalMethod { BDF1, BDF2, BDF3, DIRK2, DIRK3, CDF1, MOLT_BDF1, MOLT_BDF1_HYBRID_FFT, MOLT_BDF1_HYBRID_FD6 };
         enum RhoUpdate { CONSERVING, NAIVE };
         MOLTEngine(int Nx, int Ny, int numElectrons, int numIons, int Nh, double* x, double* y,
                    std::vector<std::vector<double>*>& x_elec, std::vector<std::vector<double>*>& y_elec,
@@ -60,7 +60,10 @@ class MOLTEngine {
             this->w_ele = w_elec;
             this->w_ion = w_ion;
 
-            if (method == MOLTEngine::BDF1 || method == MOLTEngine::MOLT_BDF1) {
+            if (method == MOLTEngine::BDF1 ||
+                method == MOLTEngine::MOLT_BDF1 ||
+                method == MOLTEngine::MOLT_BDF1_HYBRID_FFT ||
+                method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
                 beta = 1.0;
             } else if (method == MOLTEngine::BDF2) {
                 beta = 1 / (2.0/3.0);
@@ -72,6 +75,8 @@ class MOLTEngine {
 
             } else if (method == MOLTEngine::CDF1) {
                 beta = sqrt(2);
+            } else {
+                throw -1;
             }
 
             std::vector<std::vector<double>*> Px_elec(Nh);
@@ -537,7 +542,7 @@ class MOLTEngine {
         void linear5_L(std::vector<std::complex<double>> v_ext, double gamma, std::vector<std::complex<double>>& J_L);
         void linear5_R(std::vector<std::complex<double>> v_ext, double gamma, std::vector<std::complex<double>>& J_R);
         void fast_convolution(std::vector<std::complex<double>> &I_L, std::vector<std::complex<double>> &I_R, double alpha);
-        void apply_A_and_B(std::vector<std::complex<double>> &I_, double* x, int N, double alpha, double A, double B);
+        void apply_A_and_B(std::vector<std::complex<double>> &I_, double* x, double dx, int N, double alpha, double A, double B);
         double gatherField(double p_x, double p_y, std::complex<double>* field);
         void gatherFields(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& fields, std::vector<double>& fields_out);
         void scatterField(double p_x, double p_y, double value, std::complex<double>* field);
