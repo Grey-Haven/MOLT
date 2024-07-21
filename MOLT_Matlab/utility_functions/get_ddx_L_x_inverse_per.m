@@ -20,7 +20,7 @@ function ddx = get_ddx_L_x_inverse_per(operand, x, y, dx, dy, dt, c, beta)
             operand_ext(j+2,i+2) = operand(j,i);
         end
     end
-    
+
     % Extend the data for the operand along x
     % Corners are not needed
     for j = 1:N_y

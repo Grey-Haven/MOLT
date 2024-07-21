@@ -183,9 +183,11 @@ while(steps < N_steps)
     P1_elec_old(:) = P1_elec_new(:);
     P2_elec_old(:) = P2_elec_new(:);
 
-    % u_prev(:,:) = u_star(:,:);
+    % The following diagnostic code requites us to store the results in
+    % steps+1, given the zeroth step has already been computed
+    % (MATLAB 1-indexing ruins yet another thing).
     
-    % % Measure the variance of the electron velocity distribution
+    % Measure the variance of the electron velocity distribution
     % and store for later use
     %
     % Note that we average the variance here so we don't need an
@@ -194,15 +196,33 @@ while(steps < N_steps)
     var_v2 = var(v2_elec_new);
     v_elec_var_history(steps+1) = ( 0.5*(var_v1 + var_v2) );
 
+    % Should these be taking weight into account?
+    total_mass_ions = compute_total_mass_species(rho_ions(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_ions, r_ions);
+    total_mass_elec = compute_total_mass_species(rho_elec(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_elec, r_elec);
+    
+    total_energy_ions = compute_total_energy(psi, A1, A2, ...
+                                             x1_ions, x2_ions, ...
+                                             P1_ions, P2_ions, ...
+                                             x, y, q_ions, r_ions);
+    
+    total_energy_elec = compute_total_energy(psi, A1, A2, ...
+                                             x1_elec_new, x2_elec_new, ...
+                                             P1_elec_new, P2_elec_new, ...
+                                             x, y, q_elec, r_elec);
+    
+    % Combine the results from both species
+    total_mass(steps+1) = total_mass_ions + total_mass_elec;
+    total_energy(steps+1) = total_energy_ions + total_energy_elec;
+
     Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(B3)),dx*dy);
     Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(B3)),dx*dy);
     Bz_L2_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
 
+    rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
+
     % Step is now complete
     steps = steps + 1;
     t_n = t_n + dt;
-
-    rho_hist(steps) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
     if (mod(steps, plot_at) == 0)
         if (write_csvs)
@@ -238,6 +258,14 @@ rho_hist_array = zeros(length(ts),2);
 rho_hist_array(:,1) = ts;
 rho_hist_array(:,2) = rho_hist;
 
+mass_hist_array = zeros(length(ts),2);
+mass_hist_array(:,1) = ts;
+mass_hist_array(:,2) = total_mass;
+
+energy_hist_array = zeros(length(ts),2);
+energy_hist_array(:,1) = ts;
+energy_hist_array(:,2) = total_energy;
+
 if (write_csvs)
     save_csvs;
 end
@@ -246,8 +274,38 @@ if enable_plots
     close(vidObj);
 end
 
+figure;
+x0=200 + width;
+y0=100;
+set(gcf,'position',[x0,y0,width,height]);
+
+semilogy(ts, abs((total_mass - total_mass(1)) ./ total_mass(1)));
+xlabel("Angular Plasma Periods",'FontSize',24);
+ylabel("$||\left(M(t) - M(0)\right)/M(0)||_2$",'interpreter','latex', 'FontSize', 24);
+title("Relative Total Mass Over Time",'FontSize',32);
+subtitle(update_method_title + " " + tag,'FontSize',24);
+
+saveas(gcf,figPath + "total_mass" + tag + ".jpg");
+close;
+
+figure;
+x0=200 + width;
+y0=100;
+set(gcf,'position',[x0,y0,width,height]);
+
+semilogy(ts, abs((total_energy - total_energy(1)) ./ total_energy(1)));
+xlabel("Angular Plasma Periods",'FontSize',24);
+ylabel("$||\left(E(t) - E(0)\right)/E(0)||_2$",'interpreter','latex', 'FontSize', 24);
+title("Relative Total Energy Over Time",'FontSize',32);
+subtitle(update_method_title + " " + tag,'FontSize',24);
+
+saveas(gcf,figPath + "total_energy" + tag + ".jpg");
+close;
+
 writematrix(gauge_error_array,csvPath + "gauge_error.csv");
 writematrix(B3_L2_array,csvPath + "B3_magnitude.csv");
 writematrix(E1_L2_array,csvPath + "E1_magnitude.csv");
 writematrix(E2_L2_array,csvPath + "E2_magnitude.csv");
 writematrix(rho_hist_array,csvPath + "rho_hist.csv");
+writematrix(mass_hist_array,csvPath + "mass_hist.csv");
+writematrix(energy_hist_array,csvPath + "energy_hist.csv");

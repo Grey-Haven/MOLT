@@ -137,12 +137,6 @@ dt = T_final / N_steps;
 % We'll assume that the ions remain stationary
 % so that we only need to update electrons.
 
-
-% Make a list for tracking the electron velocity history
-% we use this to compute the temperature outside the solver
-% This variance is an average of the variance in each direction
-v_elec_var_history = [];
-
 % Electron positions
 x1_elec_old = x1_elec(:);
 x2_elec_old = x2_elec(:);
@@ -219,18 +213,6 @@ B3 = zeros(N_y,N_x);
 ddx_E1 = zeros(N_y,N_x);
 ddy_E2 = zeros(N_y,N_x);
 
-gauge_residual = zeros(N_y,N_x);
-gauss_residual = zeros(N_y,N_x);
-
-gauge_error_L2 = zeros(N_steps,1);
-gauge_error_inf = zeros(N_steps,1);
-gauss_law_error = zeros(N_steps,1);
-
-sum_gauss_law_residual = zeros(N_steps,1);
-
-total_mass = zeros(N_steps,1);
-total_energy = zeros(N_steps,1);
-
 % We track two time levels of J (n, n+1)
 % Note, we don't need J3 for this model 
 % Since ions are stationary J_mesh := J_elec
@@ -280,9 +262,9 @@ rho_mesh = zeros(size(rho_elec));
 
 % Current
 J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
-                        x1_elec_new, x2_elec_new, ...
-                        v1_elec_old, v2_elec_old, ...
-                        q_elec, cell_volumes, w_elec);
+                            x1_elec_new, x2_elec_new, ...
+                            v1_elec_old, v2_elec_old, ...
+                            q_elec, cell_volumes, w_elec);
 
 % Need to enforce periodicity for the current on the mesh
 J_mesh(:,:,1) = enforce_periodicity(J_mesh(:,:,1));
@@ -291,35 +273,58 @@ J_mesh(:,:,2) = enforce_periodicity(J_mesh(:,:,2));
 J1_mesh = J_mesh(:,:,1);
 J2_mesh = J_mesh(:,:,2);
 
-v_elec_var_history = zeros(N_steps, 1);
-
-rho_hist = zeros(N_steps,1);
-
 Ex_L2_hist = zeros(N_steps,1);
 Ey_L2_hist = zeros(N_steps,1);
 
 Bz_L2_hist = zeros(N_steps,1);
 
-% total_mass_ions = get_total_mass_species(rho_ions, cell_volumes, q_ions, r_ions);
-% total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
-% 
-% total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-%                                      x1_ions, x2_ions, ...
-%                                      P1_ions, P2_ions, ...
-%                                      x, y, q_ions, w_ions*r_ions, kappa);
-% 
-% total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-%                                      x1_elec_new, x2_elec_new, ...
-%                                      P1_elec_new, P2_elec_new, ...
-%                                      x, y, q_elec, w_elec*r_elec, kappa);
-% 
-% % Combine the results from both species
-% total_mass(1) = total_mass_ions + total_mass_elec;
-% total_energy(1) = total_energy_ions + total_energy_elec;
-
 %%%%%%%%%%%%%%%%%%%%%%%
 % END Storage Variables
 %%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BEGIN Diagnostic Variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+gauge_residual = zeros(N_y,N_x);
+gauss_residual = zeros(N_y,N_x);
+
+gauge_error_L2 = zeros(N_steps,1);
+gauge_error_inf = zeros(N_steps,1);
+gauss_law_error = zeros(N_steps,1);
+
+sum_gauss_law_residual = zeros(N_steps,1);
+
+rho_hist = zeros(N_steps,1);
+
+total_mass = zeros(N_steps,1);
+total_energy = zeros(N_steps,1);
+
+total_mass_ions = compute_total_mass_species(rho_ions(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_ions, r_ions);
+total_mass_elec = compute_total_mass_species(rho_elec(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_elec, r_elec);
+
+total_energy_ions = compute_total_energy(psi, A1, A2, ...
+                                         x1_ions, x2_ions, ...
+                                         P1_ions, P2_ions, ...
+                                         x, y, q_ions, r_ions);
+
+total_energy_elec = compute_total_energy(psi, A1, A2, ...
+                                         x1_elec_new, x2_elec_new, ...
+                                         P1_elec_new, P2_elec_new, ...
+                                         x, y, q_elec, r_elec);
+
+% Combine the results from both species
+total_mass(1) = total_mass_ions + total_mass_elec;
+total_energy(1) = total_energy_ions + total_energy_elec;
+
+% Make a list for tracking the electron velocity history
+% we use this to compute the temperature outside the solver
+% This variance is an average of the variance in each direction
+v_elec_var_history = zeros(N_steps, 1);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% END Diagnostic Variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

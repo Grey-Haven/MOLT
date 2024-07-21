@@ -8,7 +8,7 @@ ylim([y(1),y(end)]);
 axis square;
 
 subplot(2,3,2);
-surf(x,y,rho_mesh);
+surf(x,y,rho_mesh(:,:,end));
 xlabel("x");
 ylabel("y");
 title("$\rho$",'Interpreter','latex');

@@ -39,8 +39,7 @@ function [v1_s_new, v2_s_new, P1_s_new, P2_s_new] = ...
     meshes(:,:,6) = A2_mesh;
     meshes(:,:,7) = ddx_A2_mesh;
     meshes(:,:,8) = ddy_A2_mesh;
-    X = ...
-        gather_2D_vectorized_multiple(meshes, x1_s_new, x2_s_new, x, y, dx, dy);
+    X = gather_2D_vectorized_multiple(meshes, x1_s_new, x2_s_new, x, y, dx, dy);
     ddx_psi_p = X(:,1);
     ddy_psi_p = X(:,2);
     A1_p = X(:,3);
