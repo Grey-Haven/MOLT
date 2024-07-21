@@ -245,10 +245,10 @@ int main(int argc, char *argv[])
     // return 0;
 
     // dxs[g] = dx;
-    double dt = dx / (sqrt(2) * kappa);
-    int N_steps = int(T_final / dt);
-    // const int N_steps = 1e6;
-    // const double dt = T_final / N_steps;
+    // double dt = dx / (sqrt(2) * kappa);
+    // int N_steps = int(T_final / dt);
+    const int N_steps = 1e6;
+    const double dt = double(T_final) / double(N_steps);
     const double MAX_DT = (L_x/double(N))/60.0;
 
     std::cout << dt << " < " << MAX_DT << std::endl;
@@ -340,6 +340,10 @@ int main(int argc, char *argv[])
         method = MOLTEngine::DIRK3;
     } else if (strcmp(argv[3], "MOLT_BDF1") == 0) {
         method = MOLTEngine::MOLT_BDF1;
+    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FFT") == 0) {
+        method = MOLTEngine::MOLT_BDF1_HYBRID_FFT;
+    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FD6") == 0) {
+        method = MOLTEngine::MOLT_BDF1_HYBRID_FD6;
     } else {
         throw -1;
     }
@@ -363,6 +367,10 @@ int main(int argc, char *argv[])
         subpath += "/CDF1";
     } else if (method == MOLTEngine::MOLT_BDF1) {
         subpath += "/MOLT_BDF1";
+    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FFT) {
+        subpath += "/MOLT_BDF1_HYBRID_FFT";
+    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
+        subpath += "/MOLT_BDF1_HYBRID_FD6";
     }
 
     uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -459,11 +467,11 @@ int main(int argc, char *argv[])
                 massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << mass_total[n_sub] << std::endl;
             }
             massFile.close();
-            massFile.open(path + "/temperature_" + nxn + "_unfinished_recent" + ".csv");
+            tempFile.open(path + "/temperature_" + nxn + "_unfinished_recent" + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
-                massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << temperature[n_sub] << std::endl;
+                tempFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << temperature[n_sub] << std::endl;
             }
-            massFile.close();
+            tempFile.close();
         }
         molt.step();
         gauge_L2[n+1] = molt.getGaugeL2();

@@ -266,6 +266,10 @@ int main(int argc, char *argv[])
         method = MOLTEngine::DIRK3;
     } else if (strcmp(argv[3], "MOLT_BDF1") == 0) {
         method = MOLTEngine::MOLT_BDF1;
+    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FFT") == 0) {
+        method = MOLTEngine::MOLT_BDF1_HYBRID_FFT;
+    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FD6") == 0) {
+        method = MOLTEngine::MOLT_BDF1_HYBRID_FD6;
     } else {
         throw -1;
     }
@@ -289,6 +293,10 @@ int main(int argc, char *argv[])
         subpath += "/CDF1";
     } else if (method == MOLTEngine::MOLT_BDF1) {
         subpath += "/MOLT_BDF1";
+    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FFT) {
+        subpath += "/MOLT_BDF1_HYBRID_FFT";
+    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
+        subpath += "/MOLT_BDF1_HYBRID_FD6";
     }
 
     uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -298,19 +306,6 @@ int main(int argc, char *argv[])
 
     // Create results folder
     std::filesystem::create_directories(path);
-    // std::filesystem::create_directories(path + "/particles");
-    // std::filesystem::create_directories(path + "/phi");
-    // std::filesystem::create_directories(path + "/A1");
-    // std::filesystem::create_directories(path + "/A2");
-    // std::filesystem::create_directories(path + "/ddx_phi");
-    // std::filesystem::create_directories(path + "/ddx_A1");
-    // std::filesystem::create_directories(path + "/ddx_A2");
-    // std::filesystem::create_directories(path + "/ddy_phi");
-    // std::filesystem::create_directories(path + "/ddy_A1");
-    // std::filesystem::create_directories(path + "/ddy_A2");
-    // std::filesystem::create_directories(path + "/rho");
-    // std::filesystem::create_directories(path + "/J1");
-    // std::filesystem::create_directories(path + "/J2");
 
     MOLTEngine molt(Nx, Ny, numParticles, numParticles, N_h, x, y, x1_elec_hist,
                     x2_elec_hist, v1_elec_hist, v2_elec_hist,
@@ -330,6 +325,7 @@ int main(int argc, char *argv[])
     std::vector<double> rho_total(N_steps+1);
     std::vector<double> mass_total(N_steps+1);
     std::vector<double> energy_total(N_steps+1);
+    std::vector<double> temperature(N_steps+1);
     
     molt.computePhysicalDiagnostics();
 
@@ -340,12 +336,14 @@ int main(int argc, char *argv[])
     rho_total[0] = molt.getTotalCharge();
     energy_total[0] = molt.getTotalEnergy();
     mass_total[0] = molt.getTotalMass();
+    temperature[0] = molt.getTemperature();
 
     std::ofstream gaugeFile;
     std::ofstream gaussFile;
     std::ofstream rhoFile;
     std::ofstream energyFile;
     std::ofstream massFile;
+    std::ofstream tempFile;
 
     for (int n = 0; n < N_steps; n++) {
         if (n % 1000 == 0) {
@@ -377,6 +375,11 @@ int main(int argc, char *argv[])
                 massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << mass_total[n_sub] << std::endl;
             }
             massFile.close();
+            tempFile.open(path + "/temperature_" + nxn + "_unfinished_recent" + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << temperature[n_sub] << std::endl;
+            }
+            tempFile.close();
         }
         molt.step();
         gauge_L2[n+1] = molt.getGaugeL2();
@@ -386,6 +389,7 @@ int main(int argc, char *argv[])
         rho_total[n+1] = molt.getTotalCharge();
         mass_total[n+1] = molt.getTotalMass();
         energy_total[n+1] = molt.getTotalEnergy();
+        temperature[n+1] = molt.getTemperature();
 
     }
     std::cout << "Done running!" << std::endl;
@@ -422,6 +426,11 @@ int main(int argc, char *argv[])
         massFile << std::setprecision(16) << std::to_string(dt*n) << "," << mass_total[n] << std::endl;
     }
     massFile.close();
+    tempFile.open(path + "/temperature_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        massFile << std::setprecision(16) << std::to_string(dt*n) << "," << temperature[n] << std::endl;
+    }
+    tempFile.close();
 
     return 0;
 }
