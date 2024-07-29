@@ -12,19 +12,21 @@
 class MOLTEngine {
 
     public:
-        enum NumericalMethod { BDF1, BDF2, BDF3, DIRK2, DIRK3, CDF1, MOLT_BDF1 };
+        enum NumericalMethod { BDF1, BDF2, BDF3, DIRK2, DIRK3, CDF1, MOLT_BDF1, MOLT_BDF1_HYBRID_FFT, MOLT_BDF1_HYBRID_FD6 };
         enum RhoUpdate { CONSERVING, NAIVE };
-        MOLTEngine(int Nx, int Ny, int Np, int Nh, double* x, double* y,
+        MOLTEngine(int Nx, int Ny, int numElectrons, int numIons, int Nh, double* x, double* y,
                    std::vector<std::vector<double>*>& x_elec, std::vector<std::vector<double>*>& y_elec,
                    std::vector<std::vector<double>*>& vx_elec, std::vector<std::vector<double>*>& vy_elec,
                    std::vector<double>& x_ion, std::vector<double>& y_ion,
                    std::vector<double>& vx_ion, std::vector<double>& vy_ion,
                    double dx, double dy, double dt, double sigma_1, double sigma_2, double kappa,
                    double q_elec, double m_elec, double q_ions, double m_ions,
+                   double w_elec, double w_ion,
                    MOLTEngine::NumericalMethod method, MOLTEngine::RhoUpdate rhoUpdate, std::string path) {
             this->Nx = Nx;
             this->Ny = Ny;
-            this->Np = Np;
+            this->numElectrons = numElectrons;
+            this->numIons = numIons;
             this->Nh = Nh;
             this->lastStepIndex = Nh-1;
             this->x = x;
@@ -54,9 +56,14 @@ class MOLTEngine {
             this->vx_ion = vx_ion;
             this->vy_ion = vy_ion;
 
-            this->w_ele = ((x[Nx-1] - x[0] + dx)*(y[Ny-1] - y[0] + dy)) / Np;
+            // this->w_ele = ((x[Nx-1] - x[0] + dx)*(y[Ny-1] - y[0] + dy)) / Np;
+            this->w_ele = w_elec;
+            this->w_ion = w_ion;
 
-            if (method == MOLTEngine::BDF1 || method == MOLTEngine::MOLT_BDF1) {
+            if (method == MOLTEngine::BDF1 ||
+                method == MOLTEngine::MOLT_BDF1 ||
+                method == MOLTEngine::MOLT_BDF1_HYBRID_FFT ||
+                method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
                 beta = 1.0;
             } else if (method == MOLTEngine::BDF2) {
                 beta = 1 / (2.0/3.0);
@@ -68,17 +75,19 @@ class MOLTEngine {
 
             } else if (method == MOLTEngine::CDF1) {
                 beta = sqrt(2);
+            } else {
+                throw -1;
             }
 
             std::vector<std::vector<double>*> Px_elec(Nh);
             std::vector<std::vector<double>*> Py_elec(Nh);
-            std::vector<double> Px_ion(Np);
-            std::vector<double> Py_ion(Np);
+            std::vector<double> Px_ion(numIons);
+            std::vector<double> Py_ion(numIons);
 
             for (int h = 0; h < Nh; h++) {
-                Px_elec[h] = new std::vector<double>(Np);
-                Py_elec[h] = new std::vector<double>(Np);
-                for (int i = 0; i < Np; i++) {
+                Px_elec[h] = new std::vector<double>(numElectrons);
+                Py_elec[h] = new std::vector<double>(numElectrons);
+                for (int i = 0; i < numElectrons; i++) {
                     double v_mag = std::sqrt((*vx_elec[h])[i]*(*vx_elec[h])[i] + (*vy_elec[h])[i]*(*vy_elec[h])[i]);
                     double gamma = 1.0 / std::sqrt(1.0 - std::pow(v_mag / kappa, 2));
                     (*Px_elec[h])[i] = gamma * m_ele * (*vx_elec[h])[i];
@@ -86,7 +95,7 @@ class MOLTEngine {
                 }
             }
 
-            for (int i = 0; i < Np; i++) {
+            for (int i = 0; i < numIons; i++) {
                 double gamma_x = 1 / std::sqrt(1 - std::pow(vx_ion[i] / kappa, 2));
                 double gamma_y = 1 / std::sqrt(1 - std::pow(vy_ion[i] / kappa, 2));
                 Px_ion[i] = gamma_x * m_ion * vx_ion[i];
@@ -205,6 +214,7 @@ class MOLTEngine {
             this->ionTotalMass = 0;
             this->eleTotalEnergy = 0;
             this->eleTotalMass = 0;
+            this->temperature = 0;
 
             this->rho = rho;
             this->J1 = J1;
@@ -218,24 +228,54 @@ class MOLTEngine {
                 rho_eles[i] = 0.0;
             }
 
-            for (int i = 0; i < Np; i++) {
-                MOLTEngine::scatterField(x_ion[i], y_ion[i], w_ele*q_ion/(dx*dy), rho_ions);
+            for (int i = 0; i < numIons; i++) {
+                MOLTEngine::scatterField(x_ion[i], y_ion[i], w_ion*q_ion/(dx*dy), rho_ions);
             }
 
-            for (int i = 0; i < Np; i++) {
+            for (int i = 0; i < numElectrons; i++) {
                 MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], w_ele*q_ele/(dx*dy), rho_eles);
             }
-
-            // for (int i = 0; i < Nx; i++) {
-            //     for (int j = 0; j < Ny; j++) {
-            //         std::cout << rho_eles[i*Ny + j].real() << " ";
-            //     }
-            //     std::cout << std::endl;
-            // }
 
             for (int i = 0; i < Nx*Ny; i++) {
                 rho[lastStepIndex][i] = rho_eles[i] + rho_ions[i];
             }
+            // std::cout << std::setprecision(16) << rho_eles[0] << " + " << rho_ions[0] << " = " << rho_eles[0] + rho_ions[0] << std::endl;
+            // std::cout << std::setprecision(16) << rho_eles[0].real() << " + " << rho_ions[0].real() << " = " << rho_eles[0].real() + rho_ions[0].real() << std::endl;
+
+            // std::cout << "RHO IONS" << std::endl;
+            // for (int i = 0; i < Nx; i++) {
+            //     for (int j = 0; j < Ny; j++) {
+            //         int idx = i*Ny + j;
+            //         std::cout << rho_ions[idx].real() << ", ";
+            //     }
+            //     std::cout << std::endl;
+            // }
+            // std::cout << std::endl;
+            // std::cout << std::endl;
+
+            // std::cout << "=============================" << std::endl;
+            // std::cout << "RHO ELECTRONS" << std::endl;
+            // for (int i = 0; i < Nx; i++) {
+            //     for (int j = 0; j < Ny; j++) {
+            //         int idx = i*Ny + j;
+            //         std::cout << rho_eles[idx].real() << ", ";
+            //     }
+            //     std::cout << std::endl;
+            // }
+            // std::cout << std::endl;
+            // std::cout << std::endl;
+
+            // std::cout << "=============================" << std::endl;
+            // std::cout << "RHO" << std::endl;
+            // for (int i = 0; i < Nx; i++) {
+            //     for (int j = 0; j < Ny; j++) {
+            //         int idx = i*Ny + j;
+            //         std::cout << rho[lastStepIndex][idx].real() << ", ";
+            //     }
+            //     std::cout << std::endl;
+            // }
+            // std::cout << std::endl;
+            // std::cout << std::endl;
 
             this->rhoTotal = 0.0;
 
@@ -327,6 +367,7 @@ class MOLTEngine {
         double getTotalCharge();
         double getTotalMass();
         double getTotalEnergy();
+        double getTemperature();
         void printTimeDiagnostics();
 
         void computePhysicalDiagnostics();
@@ -334,7 +375,8 @@ class MOLTEngine {
     private:
         int Nx; // Number of nodes, noninclusive of right boundary
         int Ny; // Number of nodes, noninclusive of lower boundary
-        int Np;
+        int numElectrons;
+        int numIons;
         int Nh;
         int lastStepIndex;
         double* x;
@@ -362,6 +404,7 @@ class MOLTEngine {
         double ionTotalMass;
         double eleTotalEnergy;
         double eleTotalMass;
+        double temperature;
         double dx;
         double dy;
         double dt;
@@ -376,6 +419,7 @@ class MOLTEngine {
         double q_ion;
         double m_ion;
         double w_ele;
+        double w_ion;
         std::vector<std::complex<double>*> phi;
         std::vector<std::complex<double>*> ddx_phi;
         std::vector<std::complex<double>*> ddy_phi;
@@ -475,7 +519,7 @@ class MOLTEngine {
         void computeGaussL2();
         void computeTotalEnergy();
         void computeTotalMass();
-        // void computePhysicalDiagnostics();
+        void computeTemperature();
         void updateParticleLocations();
         void updateParticleVelocities();
         void scatterFields();
@@ -498,7 +542,7 @@ class MOLTEngine {
         void linear5_L(std::vector<std::complex<double>> v_ext, double gamma, std::vector<std::complex<double>>& J_L);
         void linear5_R(std::vector<std::complex<double>> v_ext, double gamma, std::vector<std::complex<double>>& J_R);
         void fast_convolution(std::vector<std::complex<double>> &I_L, std::vector<std::complex<double>> &I_R, double alpha);
-        void apply_A_and_B(std::vector<std::complex<double>> &I_, double* x, int N, double alpha, double A, double B);
+        void apply_A_and_B(std::vector<std::complex<double>> &I_, double* x, double dx, int N, double alpha, double A, double B);
         double gatherField(double p_x, double p_y, std::complex<double>* field);
         void gatherFields(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& fields, std::vector<double>& fields_out);
         void scatterField(double p_x, double p_y, double value, std::complex<double>* field);
@@ -507,29 +551,40 @@ class MOLTEngine {
         void updateA1();
         void updateA2();
         std::vector<double> compute_wave_numbers(int N, double L);
-        void computeFirstDerivative(std::complex<double>* input_field, 
-                                    std::complex<double>* derivative_field, bool derivative_in_x);
-        void computeSecondDerivative(std::complex<double>* input_field, 
-                                     std::complex<double>* derivative_field, bool derivative_in_x);
+        void computeFirstDerivative_FFT(std::complex<double>* input_field, 
+                                        std::complex<double>* derivative_field, bool derivative_in_x);
+        void computeSecondDerivative_FFT(std::complex<double>* input_field, 
+                                         std::complex<double>* derivative_field, bool derivative_in_x);
+        void computeFirstDerivative_FD6(std::complex<double>* input_field, 
+                                        std::complex<double>* derivative_field, bool derivative_in_x);
         void solveHelmholtzEquation(std::complex<double>* RHS,
                                     std::complex<double>* LHS, double alpha);
         void sortParticlesByLocation();
 
-        void compute_ddx(std::complex<double>* inputField, 
-                         std::complex<double>* derivativeField) {
-            computeFirstDerivative(inputField, derivativeField, true);
+        void compute_ddx_FFT(std::complex<double>* inputField, 
+                             std::complex<double>* derivativeField) {
+            computeFirstDerivative_FFT(inputField, derivativeField, true);
         }
-        void compute_ddy(std::complex<double>* inputField, 
-                         std::complex<double>* derivativeField) {
-            computeFirstDerivative(inputField, derivativeField, false);
+        void compute_ddy_FFT(std::complex<double>* inputField, 
+                             std::complex<double>* derivativeField) {
+            computeFirstDerivative_FFT(inputField, derivativeField, false);
         }
         void compute_d2dx(std::complex<double>* inputField, 
                           std::complex<double>* derivativeField) {
-            computeSecondDerivative(inputField, derivativeField, true);
+            computeSecondDerivative_FFT(inputField, derivativeField, true);
         }
         void compute_d2dy(std::complex<double>* inputField, 
                           std::complex<double>* derivativeField) {
-            computeSecondDerivative(inputField, derivativeField, false);
+            computeSecondDerivative_FFT(inputField, derivativeField, false);
+        }
+
+        void compute_ddx_FD6(std::complex<double>* inputField, 
+                             std::complex<double>* derivativeField) {
+            computeFirstDerivative_FD6(inputField, derivativeField, true);
+        }
+        void compute_ddy_FD6(std::complex<double>* inputField, 
+                             std::complex<double>* derivativeField) {
+            computeFirstDerivative_FD6(inputField, derivativeField, false);
         }
 
         double dirk_qin_zhang_rhs(double rhs_prev, double rhs_curr) {
