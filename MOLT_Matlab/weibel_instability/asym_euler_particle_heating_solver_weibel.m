@@ -42,17 +42,17 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 5.1. Compute wave sources
     %---------------------------------------------------------------------
-    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:);
+    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:,end);
     A1_src(:,:) = sigma_2*J1_mesh;
     A2_src(:,:) = sigma_2*J2_mesh;
 
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    update_waves;
-    % update_waves_hybrid_BDF;
+%     update_waves;
+%     update_waves_hybrid_BDF;
 %     update_waves_hybrid_FFT;
-%     update_waves_hybrid_FD6;
+    update_waves_hybrid_FD6;
     % update_waves_FFT_alt;
 %     update_waves_FFT;
 
@@ -200,12 +200,16 @@ while(steps < N_steps)
     total_mass_ions = compute_total_mass_species(rho_ions(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_ions, r_ions);
     total_mass_elec = compute_total_mass_species(rho_elec(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_elec, r_elec);
     
-    total_energy_ions = compute_total_energy(psi, A1, A2, ...
+    [kinetic_energy_ions, ...
+     potential_energy_ions, ...
+     total_energy_ions] = compute_total_energy(psi, A1, A2, ...
                                              x1_ions, x2_ions, ...
                                              P1_ions, P2_ions, ...
                                              x, y, q_ions, r_ions);
     
-    total_energy_elec = compute_total_energy(psi, A1, A2, ...
+    [kinetic_energy_elec, ...
+     potential_energy_elec, ...
+     total_energy_elec] = compute_total_energy(psi, A1, A2, ...
                                              x1_elec_new, x2_elec_new, ...
                                              P1_elec_new, P2_elec_new, ...
                                              x, y, q_elec, r_elec);
@@ -213,6 +217,8 @@ while(steps < N_steps)
     % Combine the results from both species
     total_mass(steps+1) = total_mass_ions + total_mass_elec;
     total_energy(steps+1) = total_energy_ions + total_energy_elec;
+    total_kinetic(steps+1) = kinetic_energy_ions + kinetic_energy_elec;
+    total_potential(steps+1) = potential_energy_ions + potential_energy_elec;
 
     Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(B3)),dx*dy);
     Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(B3)),dx*dy);
@@ -262,9 +268,11 @@ mass_hist_array = zeros(length(ts),2);
 mass_hist_array(:,1) = ts;
 mass_hist_array(:,2) = total_mass;
 
-energy_hist_array = zeros(length(ts),2);
+energy_hist_array = zeros(length(ts),4);
 energy_hist_array(:,1) = ts;
-energy_hist_array(:,2) = total_energy;
+energy_hist_array(:,2) = total_kinetic;
+energy_hist_array(:,3) = total_potential;
+energy_hist_array(:,4) = total_energy;
 
 if (write_csvs)
     save_csvs;
