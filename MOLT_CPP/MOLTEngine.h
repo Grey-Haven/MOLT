@@ -9,6 +9,8 @@
 #include <fftw3.h>
 #include <sys/time.h>
 
+#include "FFT.h"
+
 class MOLTEngine {
 
     public:
@@ -22,7 +24,8 @@ class MOLTEngine {
                    double dx, double dy, double dt, double sigma_1, double sigma_2, double kappa,
                    double q_elec, double m_elec, double q_ions, double m_ions,
                    double w_elec, double w_ion,
-                   MOLTEngine::NumericalMethod method, MOLTEngine::RhoUpdate rhoUpdate, std::string path) {
+                   bool correctGauge, MOLTEngine::NumericalMethod method, MOLTEngine::RhoUpdate rhoUpdate,
+                   std::string savePath, std::string debugPath, bool debugViaMatlab=false) : fft_utility(Nx, Ny, x[Nx-1] - x[0] + dx, y[Ny-1] - y[0] + dy) {
             this->Nx = Nx;
             this->Ny = Ny;
             this->numElectrons = numElectrons;
@@ -56,9 +59,10 @@ class MOLTEngine {
             this->vx_ion = vx_ion;
             this->vy_ion = vy_ion;
 
-            // this->w_ele = ((x[Nx-1] - x[0] + dx)*(y[Ny-1] - y[0] + dy)) / Np;
             this->w_ele = w_elec;
             this->w_ion = w_ion;
+
+            this->correctTheGauge = correctGauge;
 
             if (method == MOLTEngine::BDF1 ||
                 method == MOLTEngine::MOLT_BDF1 ||
@@ -66,15 +70,15 @@ class MOLTEngine {
                 method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
                 beta = 1.0;
             } else if (method == MOLTEngine::BDF2) {
-                beta = 1 / (2.0/3.0);
+                beta = 1.0 / (2.0/3.0);
             } else if (method == MOLTEngine::BDF3) {
-                beta = 1 / (6.0/11.0);
+                beta = 1.0 / (6.0/11.0);
             } else if (method == MOLTEngine::DIRK2) {
 
             } else if (method == MOLTEngine::DIRK3) {
 
             } else if (method == MOLTEngine::CDF1) {
-                beta = sqrt(2);
+                beta = std::sqrt(2);
             } else {
                 throw -1;
             }
@@ -88,18 +92,18 @@ class MOLTEngine {
                 Px_elec[h] = new std::vector<double>(numElectrons);
                 Py_elec[h] = new std::vector<double>(numElectrons);
                 for (int i = 0; i < numElectrons; i++) {
-                    double v_mag = std::sqrt((*vx_elec[h])[i]*(*vx_elec[h])[i] + (*vy_elec[h])[i]*(*vy_elec[h])[i]);
-                    double gamma = 1.0 / std::sqrt(1.0 - std::pow(v_mag / kappa, 2));
+                    double v_mag2 = std::sqrt((*vx_elec[h])[i]*(*vx_elec[h])[i] + (*vy_elec[h])[i]*(*vy_elec[h])[i]);
+                    double gamma = 1.0 / std::sqrt(1.0 - std::pow(v_mag2 / kappa, 2));
                     (*Px_elec[h])[i] = gamma * m_ele * (*vx_elec[h])[i];
                     (*Py_elec[h])[i] = gamma * m_ele * (*vy_elec[h])[i];
                 }
             }
 
             for (int i = 0; i < numIons; i++) {
-                double gamma_x = 1 / std::sqrt(1 - std::pow(vx_ion[i] / kappa, 2));
-                double gamma_y = 1 / std::sqrt(1 - std::pow(vy_ion[i] / kappa, 2));
-                Px_ion[i] = gamma_x * m_ion * vx_ion[i];
-                Py_ion[i] = gamma_y * m_ion * vy_ion[i];
+                double v_mag2 = std::sqrt(vx_ion[i]*vx_ion[i] + vy_ion[i]*vy_ion[i]);
+                double gamma = 1.0 / std::sqrt(1.0 - std::pow(v_mag2 / kappa, 2));
+                Px_ion[i] = gamma * m_ion * vx_ion[i];
+                Py_ion[i] = gamma * m_ion * vy_ion[i];
             }
 
             this->Px_elec = Px_elec;
@@ -208,13 +212,24 @@ class MOLTEngine {
             this->gaussL2_divE = 0;
             this->gaussL2_wave = 0;
 
+            this->kineticEnergy = 0;
+            this->ionKineticEnergy = 0;
+            this->eleKineticEnergy = 0;
+
+            this->potentialEnergy = 0;
+            this->ionPotentialEnergy = 0;
+            this->elePotentialEnergy = 0;
+
             this->totalEnergy = 0;
-            this->totalMass = 0;
             this->ionTotalEnergy = 0;
-            this->ionTotalMass = 0;
             this->eleTotalEnergy = 0;
+            this->eleForce = 0;
+            this->totalMass = 0;
+            this->ionTotalMass = 0;
             this->eleTotalMass = 0;
             this->temperature = 0;
+            this->totalMomentum = 0;
+            this->magneticMagnitude = 0;
 
             this->rho = rho;
             this->J1 = J1;
@@ -232,52 +247,31 @@ class MOLTEngine {
                 MOLTEngine::scatterField(x_ion[i], y_ion[i], w_ion*q_ion/(dx*dy), rho_ions);
             }
 
+            std::cout << "w_ele*q_ele/(dx*dy): " << w_ele*q_ele/(dx*dy) << std::endl;
+
             for (int i = 0; i < numElectrons; i++) {
                 MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], w_ele*q_ele/(dx*dy), rho_eles);
+                // MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], (*vx_elec[lastStepIndex-1])[i]*w_ele*q_ele/(dx*dy), J1[lastStepIndex-1]);
+                // MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], (*vy_elec[lastStepIndex-1])[i]*w_ele*q_ele/(dx*dy), J2[lastStepIndex-1]);
+            }
+
+            for (int i = 0; i < numElectrons; i++) {
+                totalMomentum += std::sqrt( std::pow((*Px_elec[lastStepIndex])[i], 2) + std::pow((*Py_elec[lastStepIndex])[i], 2) );
             }
 
             for (int i = 0; i < Nx*Ny; i++) {
                 rho[lastStepIndex][i] = rho_eles[i] + rho_ions[i];
             }
-            // std::cout << std::setprecision(16) << rho_eles[0] << " + " << rho_ions[0] << " = " << rho_eles[0] + rho_ions[0] << std::endl;
-            // std::cout << std::setprecision(16) << rho_eles[0].real() << " + " << rho_ions[0].real() << " = " << rho_eles[0].real() + rho_ions[0].real() << std::endl;
-
-            // std::cout << "RHO IONS" << std::endl;
-            // for (int i = 0; i < Nx; i++) {
-            //     for (int j = 0; j < Ny; j++) {
-            //         int idx = i*Ny + j;
-            //         std::cout << rho_ions[idx].real() << ", ";
-            //     }
-            //     std::cout << std::endl;
-            // }
-            // std::cout << std::endl;
-            // std::cout << std::endl;
-
-            // std::cout << "=============================" << std::endl;
-            // std::cout << "RHO ELECTRONS" << std::endl;
-            // for (int i = 0; i < Nx; i++) {
-            //     for (int j = 0; j < Ny; j++) {
-            //         int idx = i*Ny + j;
-            //         std::cout << rho_eles[idx].real() << ", ";
-            //     }
-            //     std::cout << std::endl;
-            // }
-            // std::cout << std::endl;
-            // std::cout << std::endl;
-
-            // std::cout << "=============================" << std::endl;
-            // std::cout << "RHO" << std::endl;
-            // for (int i = 0; i < Nx; i++) {
-            //     for (int j = 0; j < Ny; j++) {
-            //         int idx = i*Ny + j;
-            //         std::cout << rho[lastStepIndex][idx].real() << ", ";
-            //     }
-            //     std::cout << std::endl;
-            // }
-            // std::cout << std::endl;
-            // std::cout << std::endl;
 
             this->rhoTotal = 0.0;
+            this->rhoElecTotal = 0.0;
+            this->rhoIonsTotal = 0.0;
+
+            for (int i = 0; i < Nx*Ny; i++) {
+                rhoElecTotal += rho_eles[i].real();
+                rhoIonsTotal += rho_ions[i].real();
+            }
+            rhoTotal = rhoElecTotal + rhoIonsTotal;
 
             this->phi_src = new std::complex<double>[Nx * Ny];
             this->A1_src  = new std::complex<double>[Nx * Ny];
@@ -323,16 +317,16 @@ class MOLTEngine {
             this->ddt_divA_curr = new std::complex<double>[Nx*Ny];
             // End DIRK Variables
 
-            this->kx_deriv_1 = compute_wave_numbers(Nx, x[Nx-1] - x[0], true);
-            this->ky_deriv_1 = compute_wave_numbers(Ny, y[Ny-1] - y[0], true);
+            // this->kx_deriv_1 = compute_wave_numbers(Nx, x[Nx-1] - x[0], true);
+            // this->ky_deriv_1 = compute_wave_numbers(Ny, y[Ny-1] - y[0], true);
 
-            this->kx_deriv_2 = compute_wave_numbers(Nx, x[Nx-1] - x[0], false);
-            this->ky_deriv_2 = compute_wave_numbers(Ny, y[Ny-1] - y[0], false);
+            // this->kx_deriv_2 = compute_wave_numbers(Nx, x[Nx-1] - x[0], false);
+            // this->ky_deriv_2 = compute_wave_numbers(Ny, y[Ny-1] - y[0], false);
 
-            this->forwardIn   = new std::complex<double>[Nx * Ny];
-            this->forwardOut  = new std::complex<double>[Nx * Ny];
-            this->backwardIn  = new std::complex<double>[Nx * Ny];
-            this->backwardOut = new std::complex<double>[Nx * Ny];
+            // this->forwardIn   = new std::complex<double>[Nx * Ny];
+            // this->forwardOut  = new std::complex<double>[Nx * Ny];
+            // this->backwardIn  = new std::complex<double>[Nx * Ny];
+            // this->backwardOut = new std::complex<double>[Nx * Ny];
 
             this->timeComponent1 = 0;
             this->timeComponent2 = 0;
@@ -342,19 +336,73 @@ class MOLTEngine {
             this->timeComponent6 = 0;
 
             // Create FFTW plans for the forward and inverse FFT
-            forward_plan = fftw_plan_dft_2d(Nx, Ny,
-                reinterpret_cast<fftw_complex*>(forwardIn), 
-                reinterpret_cast<fftw_complex*>(forwardOut), 
-                FFTW_FORWARD, FFTW_ESTIMATE);
-            inverse_plan = fftw_plan_dft_2d(Nx, Ny,
-                reinterpret_cast<fftw_complex*>(backwardIn), 
-                reinterpret_cast<fftw_complex*>(backwardOut), 
-                FFTW_BACKWARD, FFTW_ESTIMATE);
+            // forward_plan = fftw_plan_dft_2d(Nx, Ny,
+            //     reinterpret_cast<fftw_complex*>(forwardIn), 
+            //     reinterpret_cast<fftw_complex*>(forwardOut), 
+            //     FFTW_FORWARD, FFTW_ESTIMATE);
+            // inverse_plan = fftw_plan_dft_2d(Nx, Ny,
+            //     reinterpret_cast<fftw_complex*>(backwardIn), 
+            //     reinterpret_cast<fftw_complex*>(backwardOut), 
+            //     FFTW_BACKWARD, FFTW_ESTIMATE);
 
             this->method = method;
             this->rhoUpdate = rhoUpdate;
 
-            this->snapshotPath = path;
+            this->snapshotPath = savePath;
+            this->debugPath = debugPath;
+
+            this->debugViaMatlab = debugViaMatlab;
+
+            std::cout << "Clearing Files" << std::endl;
+
+            std::string electronFileName = snapshotPath + "/particles.csv";
+            std::string phiFileName = snapshotPath + "/phi.csv";
+            std::string A1FileName = snapshotPath + "/A1.csv";
+            std::string A2FileName = snapshotPath + "/A2.csv";
+            std::string ddx_phiFileName = snapshotPath + "/ddx_phi.csv";
+            std::string ddy_phiFileName = snapshotPath + "/ddy_phi.csv";
+            std::string ddx_A1FileName = snapshotPath + "/ddx_A1.csv";
+            std::string ddy_A1FileName = snapshotPath + "/ddy_A1.csv";
+            std::string ddx_A2FileName = snapshotPath + "/ddx_A2.csv";
+            std::string ddy_A2FileName = snapshotPath + "/ddy_A2.csv";
+            std::string rhoFileName = snapshotPath + "/rho.csv";
+            std::string J1FileName = snapshotPath + "/J1.csv";
+            std::string J2FileName = snapshotPath + "/J2.csv";
+            std::string ddt_phiFileName = snapshotPath + "/ddt_phi.csv";
+            
+            std::ofstream fileClear;
+            fileClear.open(electronFileName, std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(phiFileName     , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(A1FileName      , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(A2FileName      , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(ddx_phiFileName , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(ddy_phiFileName , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(ddx_A1FileName  , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(ddy_A1FileName  , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(ddx_A2FileName  , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(ddy_A2FileName  , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(rhoFileName     , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(J1FileName      , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(J2FileName      , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+            fileClear.open(ddt_phiFileName , std::ofstream::out | std::ofstream::trunc);
+            fileClear.close();
+
+            std::cout << "Cleared Files" << std::endl;
+
+            computePhysicalDiagnostics();
         }
         void step();
         void print();
@@ -365,10 +413,30 @@ class MOLTEngine {
         double getGaussL2_divA();
         double getGaussL2_wave();
         double getTotalCharge();
+        double getElecCharge();
+        double getIonsCharge();
         double getTotalMass();
+        double getForce();
+        double getKineticEnergy();
+        double getPotentialEnergy();
         double getTotalEnergy();
         double getTemperature();
+        double getMagneticMagnitude();
+        double getTotalMomentum();
         void printTimeDiagnostics();
+
+        std::vector<std::vector<std::complex<double>>> getRho() {
+            std::vector<std::vector<std::complex<double>>> currRho;
+            for (int i = 0; i < Nx; i++) {
+                std::vector<std::complex<double>> col(Nx);
+                for (int j = 0; j < Ny; j++) {
+                    int idx = i * Ny + j;
+                    col[j] = rho[lastStepIndex][idx];
+                }
+                currRho.push_back(col);
+            }
+            return currRho;
+        }
 
         void computePhysicalDiagnostics();
 
@@ -397,14 +465,25 @@ class MOLTEngine {
         double gaussL2_divE;
         double gaussL2_wave;
         double gaussL2_divA;
+        double rhoElecTotal;
+        double rhoIonsTotal;
         double rhoTotal;
+        double kineticEnergy;
+        double ionKineticEnergy;
+        double eleKineticEnergy;
+        double potentialEnergy;
+        double ionPotentialEnergy;
+        double elePotentialEnergy;
         double totalEnergy;
-        double totalMass;
         double ionTotalEnergy;
-        double ionTotalMass;
         double eleTotalEnergy;
+        double eleForce;
+        double totalMass;
+        double ionTotalMass;
         double eleTotalMass;
         double temperature;
+        double totalMomentum;
+        double magneticMagnitude;
         double dx;
         double dy;
         double dt;
@@ -452,6 +531,7 @@ class MOLTEngine {
         double* F1;
         double* F2;
         double* gauss_RHS;
+
         // ============= Variables for DIRK methods ===============
         std::complex<double>* S_1;
         std::complex<double>* S_2;
@@ -479,16 +559,22 @@ class MOLTEngine {
         std::complex<double>* ddt_A2_curr;
         std::complex<double>* ddt_divA_curr;
         // ============= Variables for DIRK methods ===============
-        std::vector<double> kx_deriv_1, ky_deriv_1;
-        std::vector<double> kx_deriv_2, ky_deriv_2;
-        std::complex<double>* forwardIn;
-        std::complex<double>* forwardOut;
-        std::complex<double>* backwardIn;
-        std::complex<double>* backwardOut;
-        fftw_plan forward_plan, inverse_plan;
+
+        // std::vector<double> kx_deriv_1, ky_deriv_1;
+        // std::vector<double> kx_deriv_2, ky_deriv_2;
+        // std::complex<double>* forwardIn;
+        // std::complex<double>* forwardOut;
+        // std::complex<double>* backwardIn;
+        // std::complex<double>* backwardOut;
+        // fftw_plan forward_plan, inverse_plan;
+        bool correctTheGauge;
+        bool debugViaMatlab;
         MOLTEngine::NumericalMethod method;
         MOLTEngine::RhoUpdate rhoUpdate;
         std::string snapshotPath;
+        std::string debugPath;
+        FFT fft_utility;
+
         // ============= Variables for pointers to delete in shuffle method ===============
         std::vector<double>* x_elec_dlt_ptr;
         std::vector<double>* y_elec_dlt_ptr;
@@ -515,11 +601,16 @@ class MOLTEngine {
 
         double timeComponent1, timeComponent2, timeComponent3, timeComponent4, timeComponent5, timeComponent6, timeComponent7;
 
+        void debug();
+        void computeForce();
         void computeGaugeL2();
         void computeGaussL2();
         void computeTotalEnergy();
         void computeTotalMass();
         void computeTemperature();
+        void computeMagneticMagnitude();
+        void computeTotalMomentum();
+        void correctGauge();
         void updateParticleLocations();
         void updateParticleVelocities();
         void scatterFields();
@@ -542,7 +633,7 @@ class MOLTEngine {
         void linear5_L(std::vector<std::complex<double>> v_ext, double gamma, std::vector<std::complex<double>>& J_L);
         void linear5_R(std::vector<std::complex<double>> v_ext, double gamma, std::vector<std::complex<double>>& J_R);
         void fast_convolution(std::vector<std::complex<double>> &I_L, std::vector<std::complex<double>> &I_R, double alpha);
-        void apply_A_and_B(std::vector<std::complex<double>> &I_, double* x, double dx, int N, double alpha, double A, double B);
+        void apply_A_and_B(std::vector<std::complex<double>> &I_, double* x, double dx, int N, double alpha, double A, double B, bool debug=false);
         double gatherField(double p_x, double p_y, std::complex<double>* field);
         void gatherFields(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& fields, std::vector<double>& fields_out);
         void scatterField(double p_x, double p_y, double value, std::complex<double>* field);
@@ -551,8 +642,9 @@ class MOLTEngine {
         void updateA1();
         void updateA2();
         std::vector<double> compute_wave_numbers(int N, double L);
-        void computeFirstDerivative_FFT(std::complex<double>* input_field, 
-                                        std::complex<double>* derivative_field, bool derivative_in_x);
+
+        // void computeFirstDerivative_FFT(std::complex<double>* input_field, 
+        //                                 std::complex<double>* derivative_field, bool derivative_in_x);
         void computeSecondDerivative_FFT(std::complex<double>* input_field, 
                                          std::complex<double>* derivative_field, bool derivative_in_x);
         void computeFirstDerivative_FD6(std::complex<double>* input_field, 
@@ -563,19 +655,19 @@ class MOLTEngine {
 
         void compute_ddx_FFT(std::complex<double>* inputField, 
                              std::complex<double>* derivativeField) {
-            computeFirstDerivative_FFT(inputField, derivativeField, true);
+            fft_utility.computeFirstDerivative_FFT(inputField, derivativeField, true);
         }
         void compute_ddy_FFT(std::complex<double>* inputField, 
                              std::complex<double>* derivativeField) {
-            computeFirstDerivative_FFT(inputField, derivativeField, false);
+            fft_utility.computeFirstDerivative_FFT(inputField, derivativeField, false);
         }
         void compute_d2dx(std::complex<double>* inputField, 
                           std::complex<double>* derivativeField) {
-            computeSecondDerivative_FFT(inputField, derivativeField, true);
+            fft_utility.computeSecondDerivative_FFT(inputField, derivativeField, true);
         }
         void compute_d2dy(std::complex<double>* inputField, 
                           std::complex<double>* derivativeField) {
-            computeSecondDerivative_FFT(inputField, derivativeField, false);
+            fft_utility.computeSecondDerivative_FFT(inputField, derivativeField, false);
         }
 
         void compute_ddx_FD6(std::complex<double>* inputField, 
@@ -586,6 +678,11 @@ class MOLTEngine {
                              std::complex<double>* derivativeField) {
             computeFirstDerivative_FD6(inputField, derivativeField, false);
         }
+        int computeIndex(int i, int j) {
+            return j*Nx + i;
+        }
+        void fft(std::vector<std::complex<double>> u, bool invert = false);
+        void fft2d(std::vector<std::vector<std::complex<double>>>& a);
 
         double dirk_qin_zhang_rhs(double rhs_prev, double rhs_curr) {
             double b1 = .5;  // 1/2;
@@ -619,4 +716,10 @@ class MOLTEngine {
         }
 
         void BDF1_advance_per(std::complex<double>* input_field, std::complex<double>* RHS);
+
+        void debugLocations();
+        void debugScatteredFields();
+        void debugComputedFields();
+        void debugVelocities();
+        void debugMomentums();
 };
