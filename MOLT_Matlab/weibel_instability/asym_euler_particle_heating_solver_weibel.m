@@ -34,25 +34,25 @@ while(steps < N_steps)
     %    Compute also the charge density used for updating psi
     %---------------------------------------------------------------------
 
-    J_rho_update_vanilla;
+    % J_rho_update_vanilla;
 %     J_rho_update_fft;
-%     J_rho_update_FD6;
+    J_rho_update_FD6;
     % J_rho_update_fft_iterative;    
     
     %---------------------------------------------------------------------
     % 5.1. Compute wave sources
     %---------------------------------------------------------------------
-    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:);
+    psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:,end);
     A1_src(:,:) = sigma_2*J1_mesh;
     A2_src(:,:) = sigma_2*J2_mesh;
 
     %---------------------------------------------------------------------
     % 5.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    update_waves;
-    % update_waves_hybrid_BDF;
+%     update_waves;
+%     update_waves_hybrid_BDF;
 %     update_waves_hybrid_FFT;
-%     update_waves_hybrid_FD6;
+    update_waves_hybrid_FD6;
     % update_waves_FFT_alt;
 %     update_waves_FFT;
 
@@ -122,25 +122,47 @@ while(steps < N_steps)
     gauge_error_inf(steps+1) = max(max(abs(gauge_residual)));
 
     %-----------------------------------------------------------------------
-    % 7.3 Measure the total mass and energy of the system (ions + electrons)
+    % 7.3 Compute and store diagnostics
     %-----------------------------------------------------------------------
+    total_mass_ions = compute_total_mass_species(rho_ions(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_ions, r_ions);
+    total_mass_elec = compute_total_mass_species(rho_elec(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_elec, r_elec);
+    
+    [kinetic_energy_ions, ...
+     potential_energy_ions, ...
+     total_energy_ions] = compute_total_energy(psi, A1, A2, ...
+                                             x1_ions, x2_ions, ...
+                                             P1_ions, P2_ions, ...
+                                             x, y, q_ions, r_ions);
+    
+    [kinetic_energy_elec, ...
+     potential_energy_elec, ...
+     total_energy_elec] = compute_total_energy(psi, A1, A2, ...
+                                             x1_elec_new, x2_elec_new, ...
+                                             P1_elec_new, P2_elec_new, ...
+                                             x, y, q_elec, r_elec);
+    
+    % Combine the results from both species
+    total_kinetic(steps+1) = kinetic_energy_ions + kinetic_energy_elec;
+    total_potential(steps+1) = potential_energy_ions + potential_energy_elec;
+    total_energy(steps+1) = total_energy_ions + total_energy_elec;
 
-    % Ions are stationary, so their total mass will not change
-%     total_mass_elec = get_total_mass_species(rho_elec, cell_volumes, q_elec, r_elec);
-%     
-%     total_energy_ions = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-%                                            x1_ions, x2_ions, ...
-%                                            P1_ions, P2_ions, ...
-%                                            x, y, q_ions, w_ions*r_ions, kappa);
-%     
-%     total_energy_elec = get_total_energy(psi(:,:,end), A1(:,:,end), A2(:,:,end), ...
-%                                          x1_elec_new, x2_elec_new, ...
-%                                          P1_elec_new, P2_elec_new, ...
-%                                          x, y, q_elec, w_elec*r_elec, kappa);
-%     
-%     % Combine the species information
-%     total_mass(steps+1) = total_mass_ions + total_mass_elec;
-%     total_energy(steps+1) = total_energy_ions + total_energy_elec;
+    total_mass(steps+1) = total_mass_ions + total_mass_elec;
+
+    Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(B3)),dx*dy);
+    Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(B3)),dx*dy);
+    Bz_L2_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
+
+    rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
+
+    var_v1 = var(v1_elec_new);
+    var_v2 = var(v2_elec_new);
+    v_elec_var_history(steps+1) = ( 0.5*(var_v1 + var_v2) );
+
+    p1_sum = sum(P1_elec_new);
+    p2_sum = sum(P2_elec_new);
+    p_norm = norm([p1_sum, p2_sum]);
+
+    p_elec_hist(steps+1) = p_norm;
     
     %---------------------------------------------------------------------
     % 7.4 Compute the error in Gauss' Law
@@ -183,42 +205,6 @@ while(steps < N_steps)
     P1_elec_old(:) = P1_elec_new(:);
     P2_elec_old(:) = P2_elec_new(:);
 
-    % The following diagnostic code requites us to store the results in
-    % steps+1, given the zeroth step has already been computed
-    % (MATLAB 1-indexing ruins yet another thing).
-    
-    % Measure the variance of the electron velocity distribution
-    % and store for later use
-    %
-    % Note that we average the variance here so we don't need an
-    % extra factor of two outside of this function
-    var_v1 = var(v1_elec_new);
-    var_v2 = var(v2_elec_new);
-    v_elec_var_history(steps+1) = ( 0.5*(var_v1 + var_v2) );
-
-    % Should these be taking weight into account?
-    total_mass_ions = compute_total_mass_species(rho_ions(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_ions, r_ions);
-    total_mass_elec = compute_total_mass_species(rho_elec(1:end-1,1:end-1), cell_volumes(1:end-1,1:end-1), q_elec, r_elec);
-    
-    total_energy_ions = compute_total_energy(psi, A1, A2, ...
-                                             x1_ions, x2_ions, ...
-                                             P1_ions, P2_ions, ...
-                                             x, y, q_ions, r_ions);
-    
-    total_energy_elec = compute_total_energy(psi, A1, A2, ...
-                                             x1_elec_new, x2_elec_new, ...
-                                             P1_elec_new, P2_elec_new, ...
-                                             x, y, q_elec, r_elec);
-    
-    % Combine the results from both species
-    total_mass(steps+1) = total_mass_ions + total_mass_elec;
-    total_energy(steps+1) = total_energy_ions + total_energy_elec;
-
-    Ex_L2_hist(steps+1) = get_L_2_error(E1,zeros(size(B3)),dx*dy);
-    Ey_L2_hist(steps+1) = get_L_2_error(E2,zeros(size(B3)),dx*dy);
-    Bz_L2_hist(steps+1) = get_L_2_error(B3,zeros(size(B3)),dx*dy);
-
-    rho_hist(steps+1) = sum(sum(rho_elec(1:end-1,1:end-1)));
 
     % Step is now complete
     steps = steps + 1;
@@ -262,9 +248,19 @@ mass_hist_array = zeros(length(ts),2);
 mass_hist_array(:,1) = ts;
 mass_hist_array(:,2) = total_mass;
 
-energy_hist_array = zeros(length(ts),2);
+energy_hist_array = zeros(length(ts),4);
 energy_hist_array(:,1) = ts;
-energy_hist_array(:,2) = total_energy;
+energy_hist_array(:,2) = total_kinetic;
+energy_hist_array(:,3) = total_potential;
+energy_hist_array(:,4) = total_energy;
+
+p_hist_array = zeros(length(ts),2);
+p_hist_array(:,1) = ts;
+p_hist_array(:,2) = p_elec_hist;
+
+v_var_hist_array = zeros(length(ts),2);
+v_var_hist_array(:,1) = ts;
+v_var_hist_array(:,2) = v_elec_var_history;
 
 if (write_csvs)
     save_csvs;
@@ -309,3 +305,5 @@ writematrix(E2_L2_array,csvPath + "E2_magnitude.csv");
 writematrix(rho_hist_array,csvPath + "rho_hist.csv");
 writematrix(mass_hist_array,csvPath + "mass_hist.csv");
 writematrix(energy_hist_array,csvPath + "energy_hist.csv");
+writematrix(p_hist_array,csvPath + "p_hist.csv");
+writematrix(v_var_hist_array,csvPath + "v_var_hist.csv");
