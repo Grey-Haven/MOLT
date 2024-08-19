@@ -16,10 +16,10 @@ function F_mesh = scatter_2D_vectorized(Nx, Ny, x1_p, x2_p, x, y, dx, dy, weight
 
     sz = [Ny,Nx];
     
-    F1 = accumarray([y_idx,x_idx],(1-fys).*(1-fxs).*weight,sz);
-    F2 = accumarray([y_idx,x_idx+1],(1-fys).*fxs.*weight,sz);
-    F3 = accumarray([y_idx+1,x_idx],fys.*(1-fxs).*weight,sz);
-    F4 = accumarray([y_idx+1,x_idx+1],fys.*fxs.*weight,sz);
+    F1 = accumarray([y_idx  ,x_idx  ],(1-fys).*(1-fxs).*weight,sz);
+    F2 = accumarray([y_idx  ,x_idx+1],(1-fys).*   fxs .*weight,sz);
+    F3 = accumarray([y_idx+1,x_idx  ],   fys .*(1-fxs).*weight,sz);
+    F4 = accumarray([y_idx+1,x_idx+1],   fys .*   fxs .*weight,sz);
 
     F_mesh = F1+F2+F3+F4;
 end
