@@ -29,7 +29,7 @@
  * Dependencies: scatterFields, shuffleSteps, updateParticleLocations, updateParticleVelocities, updateWaves
  */
 void MOLTEngine::step() {
-    struct timeval begin1, end1, begin2, end2, begin3, end3, begin4, end4, begin5, end5, begin6, end6, begin7, end7;
+    struct timeval begin1, end1, begin2, end2, begin3, end3, begin4, end4, begin5, end5, begin6, end6;
     // std::cout << "Updating Particle Locations" << std::endl;
     gettimeofday( &begin1, NULL );
     updateParticleLocations();
@@ -51,17 +51,11 @@ void MOLTEngine::step() {
     }
     gettimeofday( &begin5, NULL );
     computePhysicalDiagnostics();
-    gettimeofday( &end6, NULL );
-    if (n % 500 == 0) {
-        gettimeofday( &begin7, NULL );
-        print();
-        gettimeofday( &end7, NULL );
-        timeComponent7 += 1.0 * ( end7.tv_sec - begin7.tv_sec ) + 1.0e-6 * ( end7.tv_usec - begin7.tv_usec );
-    }
     gettimeofday( &end5, NULL );
     // std::cout << "Shuffling Steps" << std::endl;
     gettimeofday( &begin6, NULL );
     shuffleSteps();
+    gettimeofday( &end6, NULL );
     // std::cout << "Rinse, Repeat" << std::endl;
     timeComponent1 += 1.0 * ( end1.tv_sec - begin1.tv_sec ) + 1.0e-6 * ( end1.tv_usec - begin1.tv_usec );
     timeComponent2 += 1.0 * ( end2.tv_sec - begin2.tv_sec ) + 1.0e-6 * ( end2.tv_usec - begin2.tv_usec );
@@ -78,7 +72,7 @@ void MOLTEngine::printTimeDiagnostics() {
     std::cout << "scatterFields(): " << timeComponent2 << std::endl;
     std::cout << "updateWaves(): " << timeComponent3 << std::endl;
     std::cout << "updateParticleVelocities(): " << timeComponent4 << std::endl;
-    std::cout << "computePhysicalDiagnostics() + : " << timeComponent5 << std::endl;
+    std::cout << "computePhysicalDiagnostics(): " << timeComponent5 << std::endl;
     std::cout << "shuffleSteps(): " << timeComponent6 << std::endl;
     std::cout << "print(): " << timeComponent7 << std::endl;
 }
@@ -149,6 +143,44 @@ double MOLTEngine::getMagneticMagnitude() {
 
 double MOLTEngine::getTotalMomentum() {
     return totalMomentum;
+}
+
+void MOLTEngine::saveParticleInformation() {
+
+    std::ofstream electronFile;
+
+    std::string electronFileName = snapshotPath + "/particles.csv";
+    electronFile.open(electronFileName, std::ios_base::app);
+
+    electronFile << std::setprecision(16);
+    electronFile << t << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*x_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*x_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*y_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*y_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*vx_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*vx_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*vy_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*vy_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*Px_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*Px_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*Py_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*Py_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+
+    electronFile << std::endl;
+    electronFile.close();
 }
 
 void MOLTEngine::computePhysicalDiagnostics() {
@@ -670,7 +702,7 @@ void MOLTEngine::computeGaussL2() {
     std::vector<double> div_E(Nx*Ny);
 
     for (int i = 0; i < Nx*Ny; i++) {
-        div_E[i] = E1[i].real() + E2[i].real();
+        div_E[i] = ddx_E1[i].real() + ddy_E2[i].real();
     }
 
     compute_d2dx(phi[lastStepIndex], d2dx_phi_curr);
@@ -682,12 +714,12 @@ void MOLTEngine::computeGaussL2() {
         compute_d2dy(phi[lastStepIndex-1], d2dy_phi_prev);
 
         for (int i = 0; i < Nx*Ny; i++) {
-            double rho_prev = rho[lastStepIndex][i-1].real();
-            double rho_curr = rho[lastStepIndex][i  ].real();
+            double rho_prev = rho[lastStepIndex-1][i].real();
+            double rho_curr = rho[lastStepIndex  ][i].real();
             gauss_RHS[i] = dirk_qin_zhang_rhs(rho_prev, rho_curr) / sigma_1;
 
-            double laplacian_phi_prev = d2dx_phi_curr[i-1].real() + d2dy_phi_curr[i-1].real();
-            double laplacian_phi_curr = d2dx_phi_curr[i  ].real() + d2dy_phi_curr[i  ].real();
+            double laplacian_phi_prev = d2dx_phi_prev[i].real() + d2dx_phi_prev[i].real();
+            double laplacian_phi_curr = d2dx_phi_curr[i].real() + d2dy_phi_curr[i].real();
             laplacian_phi[i] = dirk_qin_zhang_rhs(laplacian_phi_prev, laplacian_phi_curr);
 
             double div_A_prev = ddx_A1[lastStepIndex-1][i].real() + ddy_A2[lastStepIndex-1][i].real();
@@ -713,7 +745,7 @@ void MOLTEngine::computeGaussL2() {
                 this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
                 d2dt_phi[i] = (phi[lastStepIndex][i] - 2.0*phi[lastStepIndex-1][i] + phi[lastStepIndex-2][i]).real()/(dt*dt);
             } else if (this->method == MOLTEngine::BDF2) {
-                d2dt_phi[i] = (phi[lastStepIndex][i] - 8.0/3.0*phi[lastStepIndex][i] + 22.0/9.0*phi[lastStepIndex][i] - 8.0/9.0*phi[lastStepIndex][i] + 1.0/9.0*phi[lastStepIndex][i]).real() / std::pow(2.0/3.0*dt, 2);
+                d2dt_phi[i] = (phi[lastStepIndex][i] - 8.0/3.0*phi[lastStepIndex-1][i] + 22.0/9.0*phi[lastStepIndex-2][i] - 8.0/9.0*phi[lastStepIndex-3][i] + 1.0/9.0*phi[lastStepIndex-4][i]).real() / std::pow(2.0/3.0*dt, 2);
             } else {
                 throw -1;
             }
@@ -759,17 +791,18 @@ void MOLTEngine::computeGaussL2() {
  * Dependencies: none
  */
 void MOLTEngine::print() {
+    struct timeval printBegin, printEnd;
+    gettimeofday( &printBegin, NULL );
+
     std::ofstream phiFile, A1File, A2File;
     std::ofstream ddx_phiFile, ddx_A1File, ddx_A2File;
     std::ofstream ddy_phiFile, ddy_A1File, ddy_A2File;
     std::ofstream rhoFile, J1File, J2File;
     std::ofstream ddt_phiFile;
-    std::ofstream electronFile;
 
     std::string nstr = std::to_string(n);
     int numlen = 5;
 
-    // std::string electronFileName = snapshotPath + "/particles.csv";
     std::string phiFileName = snapshotPath + "/phi.csv";
     std::string A1FileName = snapshotPath + "/A1.csv";
     std::string A2FileName = snapshotPath + "/A2.csv";
@@ -783,12 +816,10 @@ void MOLTEngine::print() {
     std::string J1FileName = snapshotPath + "/J1.csv";
     std::string J2FileName = snapshotPath + "/J2.csv";
     std::string ddt_phiFileName = snapshotPath + "/ddt_phi.csv";
-    
+
     std::ostringstream padder;
     padder << std::internal << std::setfill('0') << std::setw(numlen) << n;
     std::string paddedNum = padder.str();
-
-    // electronFile.open(electronFileName, std::ios_base::app);
 
     phiFile.open(phiFileName, std::ios_base::app);
     A1File.open(A1FileName, std::ios_base::app);
@@ -807,8 +838,7 @@ void MOLTEngine::print() {
     J1File.open(J1FileName, std::ios_base::app);
     J2File.open(J2FileName, std::ios_base::app);
     ddt_phiFile.open(ddt_phiFileName, std::ios_base::app);
-    
-    // electronFile << std::setprecision(16);
+
     phiFile      << std::setprecision(16);
     A1File       << std::setprecision(16);
     A2File       << std::setprecision(16);
@@ -823,7 +853,6 @@ void MOLTEngine::print() {
     J2File       << std::setprecision(16);
     ddt_phiFile  << std::setprecision(16);
     
-    electronFile << t << std::endl;
     phiFile      << t << std::endl;
     A1File       << t << std::endl;
     A2File       << t << std::endl;
@@ -838,6 +867,13 @@ void MOLTEngine::print() {
     J2File       << t << std::endl;
     ddt_phiFile  << t << std::endl;
 
+    /*
+     * The following values are all at lastStepIndex-1
+     * due to the assumption that print() will be called by
+     * an outside runner method, meaning the shuffleSteps()
+     * method will have been called, meaning the lastStepIndex
+     * slot will be junk.
+     */
     for (int i = 0; i < Nx*Ny - 1; i++) {
         phiFile     << phi[lastStepIndex-1][i].real() << ",";
         A1File      << A1[lastStepIndex-1][i].real() << ",";
@@ -867,32 +903,6 @@ void MOLTEngine::print() {
     J2File      << J2[lastStepIndex-1][Nx*Ny-1].real() << std::endl;
     ddt_phiFile << ddt_phi[1][Nx*Ny-1].real() << std::endl;
 
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*x_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*x_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*y_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*y_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*vx_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*vx_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*vy_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*vy_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*Px_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*Px_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*Py_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*Py_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-
-    // electronFile << std::endl;
     phiFile      << std::endl;
     A1File       << std::endl;
     A2File       << std::endl;
@@ -907,7 +917,6 @@ void MOLTEngine::print() {
     J2File       << std::endl;
     ddt_phiFile  << std::endl;
 
-    // electronFile.close();
     phiFile.close();
     A1File.close();
     A2File.close();
@@ -921,6 +930,9 @@ void MOLTEngine::print() {
     J1File.close();
     J2File.close();
     ddt_phiFile.close();
+
+    gettimeofday( &printEnd, NULL );
+    timeComponent7 += 1.0 * ( printEnd.tv_sec - printBegin.tv_sec ) + 1.0e-6 * ( printEnd.tv_usec - printBegin.tv_usec );
 }
 
 
@@ -972,11 +984,13 @@ void MOLTEngine::updateParticleLocations() {
 
     #pragma omp parallel for
     for (int i = 0; i < numElectrons; i++) {
-        // double vx_star = 2.0*(*vx_elec[lastStepIndex-1])[i] - (*vx_elec[lastStepIndex-2])[i];
-        // double vy_star = 2.0*(*vy_elec[lastStepIndex-1])[i] - (*vy_elec[lastStepIndex-2])[i];
+        double vx_star = 2.0*(*vx_elec[lastStepIndex-1])[i] - (*vx_elec[lastStepIndex-2])[i];
+        double vy_star = 2.0*(*vy_elec[lastStepIndex-1])[i] - (*vy_elec[lastStepIndex-2])[i];
 
-        (*x_elec[lastStepIndex])[i] = (*x_elec[lastStepIndex-1])[i] + dt*(*vx_elec[lastStepIndex-1])[i];
-        (*y_elec[lastStepIndex])[i] = (*y_elec[lastStepIndex-1])[i] + dt*(*vy_elec[lastStepIndex-1])[i];
+        // (*x_elec[lastStepIndex])[i] = (*x_elec[lastStepIndex-1])[i] + dt*(*vx_elec[lastStepIndex-1])[i];
+        // (*y_elec[lastStepIndex])[i] = (*y_elec[lastStepIndex-1])[i] + dt*(*vy_elec[lastStepIndex-1])[i];
+        (*x_elec[lastStepIndex])[i] = (*x_elec[lastStepIndex-1])[i] + dt*vx_star;
+        (*y_elec[lastStepIndex])[i] = (*y_elec[lastStepIndex-1])[i] + dt*vy_star;
 
         (*x_elec[lastStepIndex])[i] = (*x_elec[lastStepIndex])[i] - Lx*floor(((*x_elec[lastStepIndex])[i] - this->x[0]) / Lx);
         (*y_elec[lastStepIndex])[i] = (*y_elec[lastStepIndex])[i] - Ly*floor(((*y_elec[lastStepIndex])[i] - this->y[0]) / Ly);

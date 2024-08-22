@@ -255,12 +255,14 @@ class MOLTEngine {
                 // MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], (*vy_elec[lastStepIndex-1])[i]*w_ele*q_ele/(dx*dy), J2[lastStepIndex-1]);
             }
 
-            for (int i = 0; i < numElectrons; i++) {
-                totalMomentum += std::sqrt( std::pow((*Px_elec[lastStepIndex])[i], 2) + std::pow((*Py_elec[lastStepIndex])[i], 2) );
+            for (int i = 0; i < Nx*Ny; i++) {
+                for (int h = 0; h <= lastStepIndex; h++) {
+                    rho[h][i] = rho_eles[i] + rho_ions[i];
+                }
             }
 
-            for (int i = 0; i < Nx*Ny; i++) {
-                rho[lastStepIndex][i] = rho_eles[i] + rho_ions[i];
+            for (int i = 0; i < numElectrons; i++) {
+                totalMomentum += std::sqrt( std::pow((*Px_elec[lastStepIndex])[i], 2) + std::pow((*Py_elec[lastStepIndex])[i], 2) );
             }
 
             this->rhoTotal = 0.0;
@@ -423,6 +425,7 @@ class MOLTEngine {
         double getTemperature();
         double getMagneticMagnitude();
         double getTotalMomentum();
+        void saveParticleInformation();
         void printTimeDiagnostics();
 
         std::vector<std::vector<std::complex<double>>> getRho() {
@@ -430,7 +433,7 @@ class MOLTEngine {
             for (int i = 0; i < Nx; i++) {
                 std::vector<std::complex<double>> col(Nx);
                 for (int j = 0; j < Ny; j++) {
-                    int idx = i * Ny + j;
+                    int idx = computeIndex(i, j);
                     col[j] = rho[lastStepIndex][idx];
                 }
                 currRho.push_back(col);
@@ -679,7 +682,7 @@ class MOLTEngine {
             computeFirstDerivative_FD6(inputField, derivativeField, false);
         }
         int computeIndex(int i, int j) {
-            return j*Nx + i;
+            return fft_utility.computeIndex(i,j);
         }
         void fft(std::vector<std::complex<double>> u, bool invert = false);
         void fft2d(std::vector<std::vector<std::complex<double>>>& a);
