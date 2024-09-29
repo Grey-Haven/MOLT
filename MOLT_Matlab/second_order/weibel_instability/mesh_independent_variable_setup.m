@@ -75,7 +75,7 @@ beta_BDF1 = 1;
 beta_BDF2 = 1/(2/3);
 beta_BDF3 = 1/(6/11);
 % Centered Difference K methods
-beta_CDF1 = sqrt(2);
+beta_CDF2 = sqrt(2);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % BEGIN Domain Parameters
