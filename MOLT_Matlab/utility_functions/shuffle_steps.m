@@ -8,13 +8,21 @@ function u = shuffle_steps(u)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Identify the number of time levels
-    num_dimensions = ndims(u);
-    num_levels = size(u,num_dimensions);
-
-    otherdims = repmat({':'},1,num_dimensions-1);
-    
-    % Transfer the time history starting from the oldest available data
-    for level = 1:num_levels-1
-        u(otherdims{:},level) = u(otherdims{:},level + 1);
+    % num_dimensions = ndims(u);
+    % num_levels = size(u,num_dimensions);
+    % 
+    % otherdims = repmat({':'},1,num_dimensions-1);
+    % 
+    % % Transfer the time history starting from the oldest available data
+    % for level = 1:num_levels-1
+    %     u(otherdims{:},level) = u(otherdims{:},level + 1);
+    % end
+    if (ndims(u) == 2)
+        u(:,1:end-1) = u(:,2:end);
+    elseif (ndims(u) == 3)
+        u(:,:,1:end-1) = u(:,:,2:end);
+    else
+        ME = MException('ShuffleException','Cannot shuffle an array with more than 2 spatial components');
+        throw(ME);
     end
 end

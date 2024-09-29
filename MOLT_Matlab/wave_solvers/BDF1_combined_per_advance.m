@@ -40,7 +40,7 @@ function ddx = BDF1_ddx_advance_per(v, src_data, x, y, t, ...
     
             % Time history (v doesn't include the extension region)
             % There are three time levels here
-            R(j,i) = 2*v(j,i,2) - v(j,i,1);
+            R(j,i) = 2*v(j,i,end-1) - v(j,i,end-2);
 
             % Contribution from the source term (at t_{n+1})
             R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);
@@ -78,7 +78,7 @@ function ddy = BDF1_ddy_advance_per(v, src_data, x, y, t, ...
     
             % Time history (v doesn't include the extension region)
             % There are three time levels here
-            R(j,i) = 2*v(j,i,2) - v(j,i,1);
+            R(j,i) = 2*v(j,i,end-1) - v(j,i,end-2);
 
             % Contribution from the source term (at t_{n+1})
             R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);

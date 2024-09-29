@@ -29,8 +29,8 @@ function F_ps = gather_2D_vectorized_multiple(F_meshes, x1_p, x2_p, x, y, dx, dy
         F_mesh = F_meshes(:,:,i);
 
         F1 = F_mesh(idx1).*(1-fys).*(1-fxs);
-        F2 = F_mesh(idx2).*   fys .*(1-fxs);
-        F3 = F_mesh(idx3).*(1-fys).*   fxs;
+        F2 = F_mesh(idx2).*(1-fys).*   fxs;
+        F3 = F_mesh(idx3).*   fys .*(1-fxs);
         F4 = F_mesh(idx4).*   fys .*   fxs;
         
         F_p = F1+F2+F3+F4;
