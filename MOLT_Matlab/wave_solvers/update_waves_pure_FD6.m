@@ -15,16 +15,11 @@ elseif waves_update_method == waves_update_method_BDF2_FD6
     psi_source_with_prev = BDF2_d2_update(psi(:,:,1:end-1), (1/sigma_1)*rho_mesh(:,:,end), alpha);
     A1_source_with_prev  = BDF2_d2_update(A1(:,:,1:end-1), sigma_2*J1_mesh(:,:,end), alpha);
     A2_source_with_prev  = BDF2_d2_update(A2(:,:,1:end-1), sigma_2*J2_mesh(:,:,end), alpha);
+
 else
     ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
     throw(ME);
 end
-
-% psi(1:end-1,1:end-1,end) = solve_helmholtz_FD6(psi_source_with_prev(1:end-1,1:end-1), alpha, dx, dy);
-% 
-% A1(1:end-1,1:end-1,end)  = solve_helmholtz_FD6(A1_source_with_prev(1:end-1,1:end-1) , alpha, dx, dy);
-% 
-% A2(1:end-1,1:end-1,end)  = solve_helmholtz_FD6(A2_source_with_prev(1:end-1,1:end-1) , alpha, dx, dy);
 
 guess = zeros(size(psi(1:end-1,1:end-1,end)));
 
@@ -39,7 +34,7 @@ A1(:,:,end) = copy_periodic_boundaries(A1(:,:,end));
 A2(:,:,end) = copy_periodic_boundaries(A2(:,:,end));
 
 %---------------------------------------------------------------------
-% 5.2.1. Compute their derivatives using the FFT
+% 5.2.1. Compute their derivatives using the FD6
 %---------------------------------------------------------------------
 
 [ddx_psi(:,:,end), ddy_psi(:,:,end)] = compute_gradient_FD6_per(psi(1:end-1,1:end-1,end), dx, dy);
