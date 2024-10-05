@@ -2,8 +2,36 @@
 #include <iostream>
 #include <iomanip>
 
-std::complex<double> to_std_complex(const fftw_complex& fc) {
-    return std::complex<double>(fc[0], fc[1]);
+FFT::FFT(int Nx, int Ny, double Lx, double Ly) : Derivative(Nx, Ny, Lx, Ly) {
+
+    std::cout << "Entering FFT Constructor" << std::endl;
+
+    this->forwardIn   = new std::complex<double>[Nx * Ny];
+    this->forwardOut  = new std::complex<double>[Nx * Ny];
+    this->backwardIn  = new std::complex<double>[Nx * Ny];
+    this->backwardOut = new std::complex<double>[Nx * Ny];
+
+    std::cout << "Created Arrays" << std::endl;
+
+    // Create FFTW plans for the forward and inverse FFT
+    this->forward_plan = fftw_plan_dft_2d(Nx, Ny,
+                                          reinterpret_cast<fftw_complex*>(forwardIn), 
+                                          reinterpret_cast<fftw_complex*>(forwardOut), 
+                                          FFTW_FORWARD, FFTW_ESTIMATE);
+    std::cout << "Created Forward Plans" << std::endl;
+    this->inverse_plan = fftw_plan_dft_2d(Nx, Ny,
+                                          reinterpret_cast<fftw_complex*>(backwardIn), 
+                                          reinterpret_cast<fftw_complex*>(backwardOut), 
+                                          FFTW_BACKWARD, FFTW_ESTIMATE);
+    std::cout << "Created Plans" << std::endl;
+
+    this->kx_deriv_1 = compute_wave_numbers(Nx, Lx, true);
+    this->ky_deriv_1 = compute_wave_numbers(Ny, Ly, true);
+
+    this->kx_deriv_2 = compute_wave_numbers(Nx, Lx, false);
+    this->ky_deriv_2 = compute_wave_numbers(Ny, Ly, false);
+
+    std::cout << "Exiting FFT Constructor" << std::endl;
 }
 
 /**
@@ -17,7 +45,7 @@ std::complex<double> to_std_complex(const fftw_complex& fc) {
  * Output: technically none, but derivativeField is the 2D mesh (vector of vectors) in which the results are stored.
  * Dependencies: fftw, to_std_complex
  */
-void FFT::computeFirstDerivative_FFT(std::complex<double>* inputField, 
+void FFT::computeFirstDerivative(std::complex<double>* inputField, 
                                      std::complex<double>* derivativeField,
                                      bool isDerivativeInX) {
 
@@ -25,15 +53,10 @@ void FFT::computeFirstDerivative_FFT(std::complex<double>* inputField,
     // fft_execute_dft(plan, in, out)
     for (int i = 0; i < Nx; i++) {
         for (int j = 0; j < Ny; j++) {
-    // for (int i = 0; i < Ny; ++i) {
-    //     for (int j = 0; j < Nx; ++j) {
-    //         in[i * Nx + j][0] = inputField[j * Nx + i].real(); // Real part
-    //         in[i * Nx + j][1] = 0.0; // Imaginary part
             forwardIn[j * Nx + i] = inputField[j * Nx + i];
         }
     }
     fftw_execute(forward_plan);
-    // fftw_execute_dft(forward_plan, reinterpret_cast<fftw_complex*>(inputField), reinterpret_cast<fftw_complex*>(forwardOut));
 
     // Compute the wave numbers in the appropriate direction
     std::vector<double> k = isDerivativeInX ? kx_deriv_1 : ky_deriv_1;
@@ -76,9 +99,9 @@ void FFT::computeFirstDerivative_FFT(std::complex<double>* inputField,
  * Output: technically none, but derivativeField is the 2D mesh (vector of vectors) in which the results are stored.
  * Dependencies: fftw, to_std_complex
  */
-void FFT::computeSecondDerivative_FFT(std::complex<double>* inputField, 
-                                      std::complex<double>* derivativeField,
-                                      bool isDerivativeInX) {
+void FFT::computeSecondDerivative(std::complex<double>* inputField, 
+                                  std::complex<double>* derivativeField,
+                                  bool isDerivativeInX) {
 
     // Execute the forward FFT
     fftw_execute_dft(forward_plan, reinterpret_cast<fftw_complex*>(inputField), reinterpret_cast<fftw_complex*>(forwardOut));
@@ -144,3 +167,5 @@ void FFT::solveHelmholtzEquation(std::complex<double>* RHS,
         LHS[i] = backwardOut[i] / double(Nx * Ny);
     }
 }
+
+Derivative::DerivativeMethod FFT::getMethod() { return Derivative::DerivativeMethod::FFT; }

@@ -10,6 +10,7 @@
 #include <random>
 #include "../MOLTEngine.h"
 
+#include <unistd.h>
 #include <stdio.h>
 #include <omp.h>
 
@@ -97,11 +98,10 @@ int main(int argc, char *argv[])
     // Particle Setup
     const int N_px = 500;
     const int N_py = 500;
-    const int numParticles = 2*(N_px*N_py);
+    const int numHalfParticles = N_px*N_py;
+    const int numParticles = 2*numHalfParticles;
     
-    double macroparticleWeight = (L_x*L_y) / numParticles;
-
-    // const int numParticles = N*N*100;
+    double macroparticleWeight = double(L_x*L_y) / double(numParticles);
 
     assert(numParticles % 2 == 0 && "There are an even number of particles.");
 
@@ -137,108 +137,171 @@ int main(int argc, char *argv[])
         v1_elec_hist[h] = new std::vector<double>(numParticles);
         v2_elec_hist[h] = new std::vector<double>(numParticles);
     }
- 
-    // Subtract off a dx given periodic, don't want to double up particles on endpoints a and b given our domain [a,b)
-    double dx_p = L_x / double(N_px);
-    double dy_p = L_y / double(N_py);
+   
+    std::string nxn = std::to_string(Nx) + "x" + std::to_string(Ny);
 
-    int idx = 0;
+    std::string elec_file_path = "./initial_conditions/electron_phase_space.csv";
 
-    for (int i = 0; i < N_px; i++) {
-        for (int j = 0; j < N_py; j++) {
+    std::cout << elec_file_path << std::endl;
 
-            double x_p = a_x + dx_p * i;
-            double y_p = a_y + dy_p * j;
+    std::string line;
+    std::vector<std::vector<std::string>> data;
 
-            (*x1_elec_hist[N_h - 1])[idx] = x_p;
-            (*x2_elec_hist[N_h - 1])[idx] = y_p;
-            (*x1_elec_hist[N_h - 2])[idx] = x_p;
-            (*x2_elec_hist[N_h - 2])[idx] = y_p;
+    std::ifstream elec_file(elec_file_path);
 
-            (*x1_elec_hist[N_h - 1])[idx+numParticles/2] = x_p;
-            (*x2_elec_hist[N_h - 1])[idx+numParticles/2] = y_p;
-            (*x1_elec_hist[N_h - 2])[idx+numParticles/2] = x_p;
-            (*x2_elec_hist[N_h - 2])[idx+numParticles/2] = y_p;
+    if (access( elec_file_path.c_str(), F_OK ) != -1) {
 
-            x1_ion[idx] = x_p;
-            x2_ion[idx] = y_p;
+        std::cout << "Loading particle data from cold storage" << std::endl;
 
-            x1_ion[idx+numParticles/2] = x_p;
-            x2_ion[idx+numParticles/2] = y_p;
+        while (std::getline(elec_file, line)) {
+            std::vector<std::string> row;
+            std::stringstream ss(line);
+            std::string value;
 
-            idx++;
+            // Parse each line
+            while (std::getline(ss, value, ',')) {
+                row.push_back(value);
+            }
+            data.push_back(row);
         }
+
+        // Close the file
+        elec_file.close();
+        int numCols = data.size();
+
+        for (int i = 0; i < numCols; i++) {
+            double x1  = stod(data[i][0]);
+            double x2  = stod(data[i][1]);
+            double vx1 = stod(data[i][2]);
+            double vx2 = stod(data[i][3]);
+
+            (*x1_elec_hist[N_h - 1])[i] = x1;
+            (*x2_elec_hist[N_h - 1])[i] = x2;
+            (*x1_elec_hist[N_h - 2])[i] = x1;
+            (*x2_elec_hist[N_h - 2])[i] = x2;
+            (*x1_elec_hist[N_h - 3])[i] = x1;
+            (*x2_elec_hist[N_h - 3])[i] = x2;
+
+            (*v1_elec_hist[N_h - 1])[i] = vx1;
+            (*v2_elec_hist[N_h - 1])[i] = vx2;
+            (*v1_elec_hist[N_h - 2])[i] = vx1;
+            (*v2_elec_hist[N_h - 2])[i] = vx2;
+            (*v1_elec_hist[N_h - 3])[i] = vx1;
+            (*v2_elec_hist[N_h - 3])[i] = vx2;
+
+            x1_ion[i] = x1;
+            x2_ion[i] = x2;
+            v1_ion[i] = 0;
+            v2_ion[i] = 0;
+        }
+
+    } else {
+
+        std::cout << "Generating particle data" << std::endl;
+
+        // Subtract off a dx given periodic, don't want to double up particles on endpoints a and b given our domain [a,b)
+        double dx_p = L_x / double(N_px);
+        double dy_p = L_y / double(N_py);
+
+        int idx = 0;
+
+        for (int i = 0; i < N_px; i++) {
+            for (int j = 0; j < N_py; j++) {
+
+                double x_p = a_x + dx_p * i;
+                double y_p = a_y + dy_p * j;
+
+                (*x1_elec_hist[N_h - 1])[idx] = x_p;
+                (*x2_elec_hist[N_h - 1])[idx] = y_p;
+                (*x1_elec_hist[N_h - 2])[idx] = x_p;
+                (*x2_elec_hist[N_h - 2])[idx] = y_p;
+
+                (*x1_elec_hist[N_h - 1])[idx + numHalfParticles] = x_p;
+                (*x2_elec_hist[N_h - 1])[idx + numHalfParticles] = y_p;
+                (*x1_elec_hist[N_h - 2])[idx + numHalfParticles] = x_p;
+                (*x2_elec_hist[N_h - 2])[idx + numHalfParticles] = y_p;
+
+                x1_ion[idx] = x_p;
+                x2_ion[idx] = y_p;
+
+                x1_ion[idx + numHalfParticles] = x_p;
+                x2_ion[idx + numHalfParticles] = y_p;
+
+                idx++;
+            }
+        }
+
+        double v_perp = kappa / 2.0;
+        double v_parallel = kappa / 100.0;
+
+        double dv = v_parallel / numParticles;
+
+        double* parallel_velocities = new double[numHalfParticles];
+
+        double v = -v_parallel;
+
+        // ensures an absolutely uniform distribution of parallel velocities
+        for (int i = 0; i < numHalfParticles; i++) {
+            parallel_velocities[i] = v;
+            v += dv;
+        }
+
+        std::uniform_int_distribution<> shuffle(0, numHalfParticles - 1);
+
+        // shuffle to make random
+        for (int i = 0; i < numHalfParticles; i++) {
+            int r_idx1 = shuffle(generator);
+            int r_idx2 = shuffle(generator);
+            /* In-place Swap:
+            * Given two numbers in an array      A = (...,a,...,b,...)
+            * A[r_idx1] += A[r_idx2];            A = (...,a+b,...,b,...)
+            * A[r_idx2] = A[r_idx1] - A[r_idx2]; A = (...,a+b,...,(a+b)-b,...)
+            *                                      = (...,a+b,...,a,...)
+            * A[r_idx1] -= A[r_idx2];            A = (...,(a+b)-a,...,a,...)
+            *                                      = (...,b,...,a,...)
+            */
+
+            parallel_velocities[r_idx1] += parallel_velocities[r_idx2];
+            parallel_velocities[r_idx2] = parallel_velocities[r_idx1] - parallel_velocities[r_idx2];
+            parallel_velocities[r_idx1] -= parallel_velocities[r_idx2];
+        }
+
+        for (int i = 0; i < numHalfParticles; i++) {
+
+            (*v1_elec_hist[N_h - 1])[i] = v_perp;
+            (*v2_elec_hist[N_h - 1])[i] = parallel_velocities[i];
+            (*v1_elec_hist[N_h - 2])[i] = v_perp;
+            (*v2_elec_hist[N_h - 2])[i] = parallel_velocities[i];
+            (*v1_elec_hist[N_h - 3])[i] = v_perp;
+            (*v2_elec_hist[N_h - 3])[i] = parallel_velocities[i];
+
+            (*v1_elec_hist[N_h - 1])[i + numHalfParticles] = -v_perp;
+            (*v2_elec_hist[N_h - 1])[i + numHalfParticles] = -parallel_velocities[i];
+            (*v1_elec_hist[N_h - 2])[i + numHalfParticles] = -v_perp;
+            (*v2_elec_hist[N_h - 2])[i + numHalfParticles] = -parallel_velocities[i];
+            (*v1_elec_hist[N_h - 3])[i + numHalfParticles] = -v_perp;
+            (*v2_elec_hist[N_h - 3])[i + numHalfParticles] = -parallel_velocities[i];
+
+            v1_ion[i] = 0;
+            v2_ion[i] = 0;
+            v1_ion[i + numHalfParticles] = 0;
+            v2_ion[i + numHalfParticles] = 0;
+
+        }
+        delete[] parallel_velocities;
+
     }
-
-    double v_perp = kappa / 2.0;
-    double v_parallel = kappa / 100.0;
-
-    double dv = v_parallel / numParticles;
-
-    double* parallel_velocities = new double[numParticles / 2];
-
-    double v = -v_parallel;
-
-    // ensures an absolutely uniform distribution of parallel velocities
-    for (int i = 0; i < numParticles / 2; i++) {
-        parallel_velocities[i] = v;
-        v += dv;
-    }
-
-    std::uniform_int_distribution<> shuffle(0, numParticles / 2 - 1);
-
-    // shuffle to make random
-    for (int i = 0; i < numParticles; i++) {
-        int r_idx1 = shuffle(generator);
-        int r_idx2 = shuffle(generator);
-        /* In-place Swap:
-         * Given two numbers in an array      A = (...,a,...,b,...)
-         * A[r_idx1] += A[r_idx2];            A = (...,a+b,...,b,...)
-         * A[r_idx2] = A[r_idx1] - A[r_idx2]; A = (...,a+b,...,(a+b)-b,...)
-         *                                      = (...,a+b,...,a,...)
-         * A[r_idx1] -= A[r_idx2];            A = (...,(a+b)-a,...,a,...)
-         *                                      = (...,b,...,a,...)
-         */
-
-        parallel_velocities[r_idx1] += parallel_velocities[r_idx2];
-        parallel_velocities[r_idx2] = parallel_velocities[r_idx1] - parallel_velocities[r_idx2];
-        parallel_velocities[r_idx1] -= parallel_velocities[r_idx2];
-    }
-
-    for (int i = 0; i < numParticles / 2; i++) {
-
-        (*v1_elec_hist[N_h - 1])[i] = v_perp;
-        (*v2_elec_hist[N_h - 1])[i] = parallel_velocities[i];
-        (*v1_elec_hist[N_h - 2])[i] = v_perp;
-        (*v2_elec_hist[N_h - 2])[i] = parallel_velocities[i];
-        (*v1_elec_hist[N_h - 3])[i] = v_perp;
-        (*v2_elec_hist[N_h - 3])[i] = parallel_velocities[i];
-
-        (*v1_elec_hist[N_h - 1])[i+numParticles/2] = -v_perp;
-        (*v2_elec_hist[N_h - 1])[i+numParticles/2] = -parallel_velocities[i];
-        (*v1_elec_hist[N_h - 2])[i+numParticles/2] = -v_perp;
-        (*v2_elec_hist[N_h - 2])[i+numParticles/2] = -parallel_velocities[i];
-        (*v1_elec_hist[N_h - 3])[i+numParticles/2] = -v_perp;
-        (*v2_elec_hist[N_h - 3])[i+numParticles/2] = -parallel_velocities[i];
-
-        v1_ion[i] = 0;
-        v2_ion[i] = 0;
-        v1_ion[i+numParticles/2] = 0;
-        v2_ion[i+numParticles/2] = 0;
-
-    }
-    delete[] parallel_velocities;
 
     // dxs[g] = dx;
     // double dt = dx / (sqrt(2) * kappa);
     // int N_steps = int(T_final / dt);
-    int N_steps = 40000;
+    int N_steps = 50000;
     const double dt = T_final / N_steps;
-    const double MAX_DT = dx/6.0;
+    const double MAX_DT = dx / 6.0;
 
     std::cout << dt << " < " << MAX_DT << std::endl;
     if (dt >= MAX_DT) {
-        std::cout << dt << "TOO HIGH" << std::endl;
+        std::cout << dt << " TOO HIGH" << std::endl;
         throw -1;
     }
 
@@ -283,108 +346,129 @@ int main(int argc, char *argv[])
     std::cout << "============================" << std::endl;
 
 
-    std::cout << "dx: " << dx << std::endl;
     std::cout << "N: " << N << std::endl;
     std::cout << "lambda_D: " << lambda_D << std::endl;
     std::cout << "w_p^-1: " << double(1)/w_p << std::endl;
-    std::cout << "lambda_D/dx : " << lambda_D / dx << std::endl;
     std::cout << "v_th = lambda_D*w_p : " << lambda_D*w_p << std::endl;
     std::cout << "sigma_1 : " << sig_1 << std::endl;
     std::cout << "sigma_2 : " << sig_2 << std::endl;
     std::cout << "kappa: " << kappa << std::endl;
 
-    // std::cout << std::setprecision(15) << "dx = " << dx << " kappa = " << kappa << std::endl;
-    // std::cout << std::setprecision(15) << "sqrt(2)*kappa = " << sqrt(2)*kappa << std::endl;
-    // std::cout << std::setprecision(15) << "dt = " << dt << std::endl;
-
-    // int N_steps = floor(T_final / dt);
-   
-    std::string nxn = std::to_string(Nx) + "x" + std::to_string(Ny);
-
-    // std::cout << "MOLTing" << std::endl;
     MOLTEngine::RhoUpdate rhoUpdate;
-    MOLTEngine::NumericalMethod method;
+    Derivative::DerivativeMethod derivativeMethod;
+    MOLTEngine::NumericalMethod numericalMethod;
+    MOLTEngine::MOLTMethod moltMethod;
 
-    if (strcmp(argv[2], "CONSERVING") == 0) {
+    if (strcmp(argv[2], "INTEGRAL") == 0) {
+        moltMethod = MOLTEngine::Integral;
+    } else if (strcmp(argv[2], "HELMHOLTZ") == 0) {
+        moltMethod = MOLTEngine::Helmholtz;
+    } else {
+        throw -1;
+    }
+
+    if (strcmp(argv[3], "CONSERVING") == 0) {
         rhoUpdate = MOLTEngine::CONSERVING;
-    } else if (strcmp(argv[2], "NAIVE") == 0) {
+    } else if (strcmp(argv[3], "NAIVE") == 0) {
         rhoUpdate = MOLTEngine::NAIVE;
     } else {
         throw -1;
     }
 
-    if (strcmp(argv[3], "BDF1") == 0) {
-        method = MOLTEngine::BDF1;
-    } else if (strcmp(argv[3], "BDF2") == 0) {
-        method = MOLTEngine::BDF2;
-    } else if (strcmp(argv[3], "CDF1") == 0) {
-        method = MOLTEngine::CDF1;
-    } else if (strcmp(argv[3], "DIRK2") == 0) {
-        method = MOLTEngine::DIRK2;
-    } else if (strcmp(argv[3], "DIRK3") == 0) {
-        method = MOLTEngine::DIRK3;
-    } else if (strcmp(argv[3], "MOLT_BDF1") == 0) {
-        method = MOLTEngine::MOLT_BDF1;
-    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FFT") == 0) {
-        method = MOLTEngine::MOLT_BDF1_HYBRID_FFT;
-    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FD6") == 0) {
-        method = MOLTEngine::MOLT_BDF1_HYBRID_FD6;
+    if (strcmp(argv[4], "BDF1") == 0) {
+        numericalMethod = MOLTEngine::BDF1;
+    } else if (strcmp(argv[4], "BDF2") == 0) {
+        numericalMethod = MOLTEngine::BDF2;
+    } else if (strcmp(argv[4], "CDF2") == 0) {
+        numericalMethod = MOLTEngine::CDF2;
+    } else if (strcmp(argv[4], "DIRK2") == 0) {
+        numericalMethod = MOLTEngine::DIRK2;
+    } else if (strcmp(argv[4], "DIRK3") == 0) {
+        numericalMethod = MOLTEngine::DIRK3;
     } else {
         throw -1;
     }
+
+    if (strcmp(argv[5], "MOLT") == 0) {
+        derivativeMethod = Derivative::MOLT;
+    } else if (strcmp(argv[5], "FFT") == 0) {
+        derivativeMethod = Derivative::FFT;
+    } else if (strcmp(argv[5], "FD6") == 0) {
+        derivativeMethod = Derivative::FD6;
+    } else {
+        throw -1;
+    }
+
+    bool correctGauge = false;
+
+    if (strcmp(argv[6], "CORRECT_GAUGE") == 0) {
+        correctGauge = true;
+    } else {
+        correctGauge = false;
+    }
+
     std::string subpath = "";
 
+    if (moltMethod == MOLTEngine::Integral) {
+        subpath += "Integral";
+    } else if (moltMethod == MOLTEngine::Helmholtz) {
+        subpath += "Helmholtz";
+    }
+
     if (rhoUpdate == MOLTEngine::CONSERVING) {
-        subpath += "conserving";
+        subpath += "/conserving";
     } else if (rhoUpdate == MOLTEngine::NAIVE) {
-        subpath += "naive";
+        subpath += "/naive";
     }
 
-    if (method == MOLTEngine::BDF1) {
+    if (numericalMethod == MOLTEngine::BDF1) {
         subpath += "/BDF1";
-    } else if (method == MOLTEngine::BDF2) {
+    } else if (numericalMethod == MOLTEngine::BDF2) {
         subpath += "/BDF2";
-    } else if (method == MOLTEngine::DIRK2) {
+    } else if (numericalMethod == MOLTEngine::DIRK2) {
         subpath += "/DIRK2";
-    } else if (method == MOLTEngine::DIRK3) {
+    } else if (numericalMethod == MOLTEngine::DIRK3) {
         subpath += "/DIRK3";
-    } else if (method == MOLTEngine::CDF1) {
-        subpath += "/CDF1";
-    } else if (method == MOLTEngine::MOLT_BDF1) {
-        subpath += "/MOLT_BDF1";
-    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FFT) {
-        subpath += "/MOLT_BDF1_HYBRID_FFT";
-    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
-        subpath += "/MOLT_BDF1_HYBRID_FD6";
+    } else if (numericalMethod == MOLTEngine::CDF2) {
+        subpath += "/CDF2";
     }
 
-    uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    if (derivativeMethod == Derivative::DerivativeMethod::MOLT) {
+        subpath += "/MOLT_deriv";
+    } else if (derivativeMethod == Derivative::DerivativeMethod::FFT) {
+        subpath += "/FFT_deriv";
+    } else if (derivativeMethod == Derivative::DerivativeMethod::FD6) {
+        subpath += "/FD6_deriv";
+    }
 
-    std::string path = "./results/" + subpath + "/" + nxn + "/" + "run_" + std::to_string(timestamp);
-    std::cout << path << std::endl;
+    std::cout << "Arguments:" << std::endl;
+
+    std::cout << argv[1] << std:: endl;
+    std::cout << argv[2] << std:: endl;
+    std::cout << argv[3] << std:: endl;
+    std::cout << argv[4] << std:: endl;
+    std::cout << argv[5] << std:: endl;
+    std::cout << argv[6] << std:: endl;
+
+
+    // uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+    std::string savePath = "./results/" + subpath + "/" + nxn + "/" + "run" + (correctGauge ? "_correct_gauge" : "");
+    std::string debugPath = "./debug/" + subpath + "/" + nxn;
+    std::cout << savePath << std::endl;
 
     // Create results folder
-    std::filesystem::create_directories(path);
-    // std::filesystem::create_directories(path + "/particles");
-    // std::filesystem::create_directories(path + "/phi");
-    // std::filesystem::create_directories(path + "/A1");
-    // std::filesystem::create_directories(path + "/A2");
-    // std::filesystem::create_directories(path + "/ddx_phi");
-    // std::filesystem::create_directories(path + "/ddx_A1");
-    // std::filesystem::create_directories(path + "/ddx_A2");
-    // std::filesystem::create_directories(path + "/ddy_phi");
-    // std::filesystem::create_directories(path + "/ddy_A1");
-    // std::filesystem::create_directories(path + "/ddy_A2");
-    // std::filesystem::create_directories(path + "/rho");
-    // std::filesystem::create_directories(path + "/J1");
-    // std::filesystem::create_directories(path + "/J2");
-    // std::filesystem::create_directories(path + "/ddt_phi");
+    std::filesystem::create_directories(savePath);
+
+    std::cout << "MOLTing" << std::endl;
 
     MOLTEngine molt(Nx, Ny, numParticles, numParticles, N_h, x, y,
                     x1_elec_hist, x2_elec_hist, v1_elec_hist, v2_elec_hist,
                     x1_ion, x2_ion, v1_ion, v2_ion,
                     dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, q_ions, m_ions,
-                    macroparticleWeight, macroparticleWeight, method, rhoUpdate, path);
+                    macroparticleWeight, macroparticleWeight,
+                    numericalMethod, moltMethod, derivativeMethod, rhoUpdate, correctGauge, savePath, debugPath, false);
+    std::cout << "Created MOLT" << std::endl;
     
     struct timeval begin, end;
     gettimeofday( &begin, NULL );
@@ -396,9 +480,15 @@ int main(int argc, char *argv[])
     std::vector<double> gauss_L2_divA(N_steps+1);
     std::vector<double> gauss_L2_wave(N_steps+1);
     std::vector<double> rho_total(N_steps+1);
+    std::vector<double> rho_elec(N_steps+1);
+    std::vector<double> rho_ions(N_steps+1);
     std::vector<double> mass_total(N_steps+1);
+    std::vector<double> kinetic_energy(N_steps+1);
+    std::vector<double> potential_energy(N_steps+1);
     std::vector<double> energy_total(N_steps+1);
     std::vector<double> temperature(N_steps+1);
+    std::vector<double> magneticMagnitude(N_steps+1);
+    std::vector<double> totalMomentum(N_steps+1);
     
     molt.computePhysicalDiagnostics();
 
@@ -406,63 +496,95 @@ int main(int argc, char *argv[])
     gauss_L2_divA[0] = molt.getGaussL2_divA();
     gauss_L2_wave[0] = molt.getGaussL2_wave();
     gauge_L2[0] = molt.getGaugeL2();
+    rho_elec[0] = molt.getElecCharge();
+    rho_ions[0] = molt.getIonsCharge();
     rho_total[0] = molt.getTotalCharge();
+    kinetic_energy[0] = molt.getKineticEnergy();
+    potential_energy[0] = molt.getPotentialEnergy();
     energy_total[0] = molt.getTotalEnergy();
     mass_total[0] = molt.getTotalMass();
     temperature[0] = molt.getTemperature();
+    magneticMagnitude[0] = molt.getMagneticMagnitude();
+    totalMomentum[0] = molt.getTotalMomentum();
 
     std::ofstream gaugeFile;
     std::ofstream gaussFile;
-    std::ofstream rhoFile;
+    std::ofstream chargeFile;
     std::ofstream energyFile;
     std::ofstream massFile;
     std::ofstream tempFile;
+    std::ofstream magnFile;
+    std::ofstream momFile;
 
     for (int n = 0; n < N_steps; n++) {
+
+        // std::cout << "Total     Charge: " << molt.getTotalCharge() << std::endl;
+        // std::cout << "Total Ele Charge: " << molt.getElecCharge() << std::endl;
+        // std::cout << "Total Ion Charge: " << molt.getIonsCharge() << std::endl;
+        // std::cout << "Total Mass: " << molt.getTotalMass() << std::endl;
+
+        // std::cout << std::setprecision(16) << n*dt << ": " << rho_elec[n] << ", " << rho_ions[n] << ", " << rho_total[n] << std::endl;
         if (n % 1000 == 0) {
             std::cout << "Step: " << n << "/" << N_steps << " = " << 100*(double(n)/double(N_steps)) << "\% complete" << std::endl;
         }
         if (n % (N_steps / 100) == 0) {
-            gaugeFile.open(path + "/gauge_" + nxn + "_unfinished_recent" + ".csv");
+        // if (true) {
+            gaugeFile.open(savePath + "/gauge_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 gaugeFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauge_L2[n_sub] << std::endl;
             }
             gaugeFile.close();
-            gaussFile.open(path + "/gauss_" + nxn + "_unfinished_recent" + ".csv");
+            gaussFile.open(savePath + "/gauss_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 gaussFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauss_L2_divE[n_sub] << "," << gauss_L2_divA[n_sub] << "," << gauss_L2_wave[n_sub] << std::endl;
             }
             gaussFile.close();
-            rhoFile.open(path + "/rho_total_" + nxn + "_unfinished_recent" + ".csv");
+            chargeFile.open(savePath + "/charge_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
-                rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
+                chargeFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_elec[n_sub] << "," << rho_ions[n_sub] << "," << rho_total[n_sub] << std::endl;
             }
-            rhoFile.close();
-            energyFile.open(path + "/energy_" + nxn + "_unfinished_recent" + ".csv");
+            chargeFile.close();
+            energyFile.open(savePath + "/energy_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
-                energyFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << energy_total[n_sub] << std::endl;
+                energyFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << kinetic_energy[n_sub] << "," << potential_energy[n_sub] << "," << energy_total[n_sub] << std::endl;
             }
             energyFile.close();
-            massFile.open(path + "/mass_" + nxn + "_unfinished_recent" + ".csv");
+            massFile.open(savePath + "/mass_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << mass_total[n_sub] << std::endl;
             }
             massFile.close();
-            tempFile.open(path + "/temperature_" + nxn + "_unfinished_recent" + ".csv");
+            tempFile.open(savePath + "/temperature_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
-                massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << temperature[n_sub] << std::endl;
+                tempFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << temperature[n_sub] << std::endl;
             }
             tempFile.close();
+            magnFile.open(savePath + "/B3_magnitude_" + nxn + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                magnFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << magneticMagnitude[n_sub] << std::endl;
+            }
+            magnFile.close();
+            momFile.open(savePath + "/total_momentum_" + nxn + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                momFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << totalMomentum[n_sub] << std::endl;
+            }
+            momFile.close();
         }
         molt.step();
         gauge_L2[n+1] = molt.getGaugeL2();
         gauss_L2_divE[n+1] = molt.getGaussL2_divE();
         gauss_L2_divA[n+1] = molt.getGaussL2_divA();
         gauss_L2_wave[n+1] = molt.getGaussL2_wave();
+        rho_elec[n+1] = molt.getElecCharge();
+        rho_ions[n+1] = molt.getIonsCharge();
         rho_total[n+1] = molt.getTotalCharge();
         mass_total[n+1] = molt.getTotalMass();
+        kinetic_energy[n+1] = molt.getKineticEnergy();
+        potential_energy[n+1] = molt.getPotentialEnergy();
         energy_total[n+1] = molt.getTotalEnergy();
         temperature[n+1] = molt.getTemperature();
+        magneticMagnitude[n+1] = molt.getMagneticMagnitude();
+        totalMomentum[n+1] = molt.getTotalMomentum();
 
     }
     std::cout << "Done running!" << std::endl;
@@ -474,36 +596,46 @@ int main(int argc, char *argv[])
     // }
     molt.printTimeDiagnostics();
 
-    gaugeFile.open(path + "/gauge_" + nxn + ".csv");
+    gaugeFile.open(savePath + "/gauge_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         gaugeFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauge_L2[n] << std::endl;
     }
     gaugeFile.close();
-    gaussFile.open(path + "/gauss_" + nxn + ".csv");
+    gaussFile.open(savePath + "/gauss_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         gaussFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauss_L2_divE[n] << "," << gauss_L2_divA[n] << "," << gauss_L2_wave[n] << std::endl;
     }
     gaussFile.close();
-    rhoFile.open(path + "/rho_total_" + nxn + ".csv");
+    chargeFile.open(savePath + "/charge_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
-        rhoFile << std::setprecision(16) << std::to_string(dt*n) << "," << rho_total[n] << std::endl;
+        chargeFile << std::setprecision(16) << std::to_string(dt*n) << ","  << rho_elec[n] << "," << rho_ions[n] << "," << rho_total[n] << std::endl;
     }
-    rhoFile.close();
-    energyFile.open(path + "/energy_" + nxn + ".csv");
+    chargeFile.close();
+    energyFile.open(savePath + "/energy_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
-        energyFile << std::setprecision(16) << std::to_string(dt*n) << "," << energy_total[n] << std::endl;
+        energyFile << std::setprecision(16) << std::to_string(dt*n) << "," << kinetic_energy[n] << "," << potential_energy[n] << "," << energy_total[n] << std::endl;
     }
     energyFile.close();
-    massFile.open(path + "/mass_" + nxn + ".csv");
+    massFile.open(savePath + "/mass_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         massFile << std::setprecision(16) << std::to_string(dt*n) << "," << mass_total[n] << std::endl;
     }
     massFile.close();
-    tempFile.open(path + "/temperature_" + nxn + ".csv");
+    tempFile.open(savePath + "/temperature_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
-        massFile << std::setprecision(16) << std::to_string(dt*n) << "," << temperature[n] << std::endl;
+        tempFile << std::setprecision(16) << std::to_string(dt*n) << "," << temperature[n] << std::endl;
     }
     tempFile.close();
+    magnFile.open(savePath + "/B3_magnitude_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        magnFile << std::setprecision(16) << std::to_string(dt*n) << "," << magneticMagnitude[n] << std::endl;
+    }
+    magnFile.close();
+    momFile.open(savePath + "/total_momentum_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        momFile << std::setprecision(16) << std::to_string(dt*n) << "," << totalMomentum[n] << std::endl;
+    }
+    momFile.close();
 
     return 0;
 }

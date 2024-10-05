@@ -1,7 +1,7 @@
 # Makefile for building main.cpp
 # and other files in subdirectory
 
-EXE_NAME = BlobRunner
+EXE_NAME = WeibelRunner
 
 # Compiler
 CC = gcc
@@ -10,9 +10,9 @@ CC = gcc
 CFLAGS = -Wall -g -lfftw3 -lm -lstdc++ -fopenmp
 
 # Source files
-SRCS = BlobRunner.cpp
+SRCS = WeibelRunner.cpp
 
-OBJS = BlobRunner.o
+OBJS = WeibelRunner.o
 
 LDLIBS = ../Derivative.o ../FFT.o ../FD6.o ../MOLTEngine.o
 
@@ -26,8 +26,8 @@ EXECUTABLE = ${EXE_NAME}.host
 all: $(OBJS) ../libbase
 	$(CC) $(CFLAGS) -o $(EXECUTABLE) $(OBJS) $(LDLIBS)
 
-BlobRunner.o: BlobRunner.cpp ../Derivative.h ../FFT.h ../FD6.h ../MOLTEngine.h 
-	$(CC) $(CFLAGS) -c BlobRunner.cpp
+WeibelRunner.o: WeibelRunner.cpp ../Derivative.h ../FFT.h ../FD6.h ../MOLTEngine.h 
+	$(CC) $(CFLAGS) -c WeibelRunner.cpp
 
 ../libbase:
 	$(MAKE) -C ..
@@ -43,4 +43,4 @@ iter:
 	make;
 
 run:
-	./BlobRunner.host
+	./WeibelRunner.host
