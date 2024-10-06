@@ -69,7 +69,6 @@ while(steps < N_steps)
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
                                                                v1_star, v2_star, dt);
 
-
     % Apply the particle boundary conditions
     % Need to include the shift function here
     x1_elec_new = periodic_shift(x1_elec_new, x(1), L_x);
@@ -87,14 +86,12 @@ while(steps < N_steps)
         J_rho_update_vanilla_staggered;
     elseif ismember(J_rho_update_method, J_rho_BDF_FFT_Family)
         J_rho_update_fft;
+    elseif ismember(J_rho_update_method, J_rho_BDF_FD6_Family)
+        J_rho_update_FD6;
+    elseif ismember(J_rho_update_method, J_rho_BDF_FD8_Family)
+        J_rho_update_FD8;
     elseif J_rho_update_method == J_rho_update_method_DIRK2
         J_rho_update_DIRK2;
-    elseif J_rho_update_method == J_rho_update_method_FD2
-        J_rho_update_FD2;
-    elseif J_rho_update_method == J_rho_update_method_FD4
-        J_rho_update_FD4;
-    elseif J_rho_update_method == J_rho_update_method_FD6
-        J_rho_update_FD6;
     else
         ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
         throw(ME);
@@ -103,29 +100,38 @@ while(steps < N_steps)
     %---------------------------------------------------------------------
     % 3.1. Compute wave sources
     %---------------------------------------------------------------------
-    % psi_src_hist(:,:,end-1) = (1/sigma_1)*rho_mesh(:,:,end-1);
-    % A1_src_hist(:,:,end-1)  = sigma_2*J1_mesh(:,:,end-1);
-    % A2_src_hist(:,:,end-1)  = sigma_2*J2_mesh(:,:,end-1);
-    % 
-    % psi_src_hist(:,:,end) = (1/sigma_1)*rho_mesh(:,:,end);
-    % A1_src_hist(:,:,end)  = sigma_2*J1_mesh(:,:,end);
-    % A2_src_hist(:,:,end)  = sigma_2*J2_mesh(:,:,end);
 
     %---------------------------------------------------------------------
     % 3.2 Update the scalar (phi) and vector (A) potentials waves. 
     %---------------------------------------------------------------------
-    if waves_update_method == waves_update_method_vanilla
-        update_waves_vanilla_second_order;
+    if waves_update_method == waves_update_method_BDF1_MOLT_Pure
+        psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:,end);
+        A1_src(:,:)  = sigma_2*J1_mesh(:,:,end);
+        A2_src(:,:)  = sigma_2*J2_mesh(:,:,end);
+        update_waves;
+    elseif waves_update_method == waves_update_method_BDF2_MOLT_Pure
+        psi_src(:,:) = (1/sigma_1)*rho_mesh(:,:,end);
+        A1_src(:,:)  = sigma_2*J1_mesh(:,:,end);
+        A2_src(:,:)  = sigma_2*J2_mesh(:,:,end);
+        update_waves_BDF2;
+    elseif waves_update_method == waves_update_method_CDF2_implicit_MOLT_Pure
+        psi_src = 1/sigma_1 * (rho_mesh(:,:,end) + rho_mesh(:,:,end-2));
+        A1_src  =   sigma_2 * ( J1_mesh(:,:,end) +  J1_mesh(:,:,end-2));
+        A2_src  =   sigma_2 * ( J2_mesh(:,:,end) +  J2_mesh(:,:,end-2));
+        update_waves_CDF2;
+    elseif waves_update_method == waves_update_method_CDF2_semi_implicit_MOLT_Pure
+        psi_src = 1/sigma_1 * rho_mesh(:,:,end);
+        A1_src  =   sigma_2 *  J1_mesh(:,:,end);
+        A2_src  =   sigma_2 *  J2_mesh(:,:,end);
+        update_waves_CDF2;
     elseif ismember(waves_update_method, waves_BDF_FFT_Family)
         update_waves_pure_FFT_second_order;
+    elseif ismember(waves_update_method, waves_BDF_FD6_Family)
+        update_waves_pure_FD6;
+    elseif ismember(waves_update_method, waves_BDF_FD8_Family)
+        update_waves_pure_FD8;
     elseif waves_update_method == waves_update_method_DIRK2
         update_waves_hybrid_DIRK2;
-    elseif waves_update_method == waves_update_method_FD2
-        update_waves_hybrid_FD2_second_order;
-    elseif waves_update_method == waves_update_method_FD4
-        update_waves_hybrid_FD4_second_order;
-    elseif waves_update_method == waves_update_method_FD6
-        update_waves_hybrid_FD6_second_order;
     elseif waves_update_method == waves_update_method_poisson_phi
         update_waves_poisson_phi_second_order;
     elseif waves_update_method == waves_update_method_pure_FFT
@@ -157,7 +163,7 @@ while(steps < N_steps)
     % Fields are taken implicitly and we use the "lagged" velocity
     %
     % This will give us new momenta and velocities for the next step
-    if waves_update_method == waves_update_method_CDF1_FFT
+    if waves_update_method == waves_update_method_CDF2_FFT || waves_update_method == run_type_MOLT_Pure_CDF2_implicit_ng
         % A1_ave = (A1(:,:,end) + A1(:,:,end-1))/2;
         % ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1))/2;
         % ddy_A1_ave = (ddy_A1(:,:,end) + ddy_A1(:,:,end-1))/2;
@@ -193,10 +199,14 @@ while(steps < N_steps)
     % 5. Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
 
-    if ismember(waves_update_method, waves_BDF_FFT_Family)
-        if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_CDF1_FFT
+    if ismember(waves_update_method, waves_BDF_FFT_Family) || ismember(waves_update_method, waves_BDF_FD6_Family) || ismember(waves_update_method, waves_BDF_FD8_Family)
+        if waves_update_method == waves_update_method_BDF1_FFT ...
+        || waves_update_method == waves_update_method_BDF1_FD6 ...
+        || waves_update_method == waves_update_method_BDF1_FD8
             ddt_psi(:,:) = BDF1_d(psi,dt);
-        elseif waves_update_method == waves_update_method_BDF2_FFT
+        elseif waves_update_method == waves_update_method_BDF2_FFT ...
+            || waves_update_method == waves_update_method_BDF2_FD6 ...
+            || waves_update_method == waves_update_method_BDF2_FD8
             ddt_psi(:,:) = BDF2_d(psi,dt);
         elseif waves_update_method == waves_update_method_BDF3_FFT
             ddt_psi(:,:) = BDF3_d(psi,dt);
@@ -212,8 +222,14 @@ while(steps < N_steps)
         div_A_prev = ddx_A1(:,:,end-1) + ddy_A2(:,:,end-1);
 
         div_A = DIRK2_d_RHS(div_A_curr, div_A_prev);
-    elseif waves_update_method == waves_update_method_vanilla
+    elseif waves_update_method == waves_update_method_BDF1_MOLT_Pure
         ddt_psi(:,:) = ( psi(:,:,end) - psi(:,:,end-1) ) / dt;
+        div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
+    elseif waves_update_method == waves_update_method_BDF2_MOLT_Pure
+        ddt_psi(:,:) = BDF2_d(psi,dt);
+        div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
+    elseif  ismember(waves_update_method, waves_CDF_Hybrid_Family)
+        ddt_psi(:,:) = BDF1_d(psi,dt);
         div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
     else
         ME = MException('SourceException','Wave Method ' + waves_update_method + " not an option");
@@ -231,8 +247,8 @@ while(steps < N_steps)
     % gauge_residual(:,:) = (psi(:,:,end) - psi(:,:,end-1)) - kappa^2 * dt * (b1*phi_1 + b2*phi_2);
 
 
-    gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(:,:), ...
-                                            zeros(size(gauge_residual(:,:))), ...
+    gauge_error_L2(steps+1) = get_L_2_error(gauge_residual(1:end-1,1:end-1), ...
+                                            zeros(size(gauge_residual(1:end-1,1:end-1))), ...
                                             dx*dy);
     gauge_error_inf(steps+1) = max(max(abs(gauge_residual)));
 
@@ -307,6 +323,10 @@ gauss_error_array(:,5) = gauss_law_gauge_err_inf(1:N_steps);
 gauss_error_array(:,6) = gauss_law_field_err_L2(1:N_steps);
 gauss_error_array(:,7) = gauss_law_field_err_inf(1:N_steps);
 
+rho_hist_array = zeros(length(ts),2);
+rho_hist_array(:,1) = ts;
+rho_hist_array(:,2) = rho_hist;
+
 Bz_L2_array = zeros(length(ts),2);
 Bz_L2_array(:,1) = ts;
 Bz_L2_array(:,2) = Bz_magnitude_hist(1:N_steps);
@@ -325,6 +345,7 @@ end
 
 writematrix(gauge_error_array, csvPath + "gauge_error.csv");
 writematrix(gauss_error_array, csvPath + "gauss_error.csv");
+writematrix(rho_hist_array, csvPath + "rho_hist.csv");
 writematrix(Bz_L2_array, csvPath + "Bz_magnitude.csv");
 
 figure;
@@ -351,7 +372,7 @@ subtitle(update_method_title + " " + tag,'FontSize',24);
 
 % sgtitle(update_method_title + " " + tag,'FontSize',32);
 
-saveas(gcf,figPath + "_gauss_residuals.jpg");
+saveas(gcf,figPath + tag + "_gauss_residuals.jpg");
 
 figure;
 x0=200 + width;
@@ -367,6 +388,14 @@ title("Gauge Error",'FontSize',32);
 subtitle(update_method_title + " " + tag,'FontSize',24);
 
 saveas(gcf,figPath + tag + "_gauge_residuals.jpg");
+
+figure;
+semilogy(ts, Bz_magnitude_hist(1:steps), 'LineWidth', 2)
+hold on
+semilogy(ts, 1e-1*exp(.319734*ts), 'k', 'linestyle', '--', 'LineWidth',2)
+xlabel("Angular Plasma Periods", "FontSize", 32)
+ylabel("$||B_z||_2$", "FontSize", 32, "Interpreter", "Latex")
+subtitle(update_method_title + " " + tag,'FontSize',24);
 
 % quarter_len = floor(length(ts) / 4);
 % 

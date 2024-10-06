@@ -51,7 +51,13 @@ ddy_J2_FD6 = copy_periodic_boundaries(ddy_J2_FD6);
 J1_star_deriv = ddx_J1_FD6(1:end-1,1:end-1);
 J2_star_deriv = ddy_J2_FD6(1:end-1,1:end-1);
 
-rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end) - dt*(J1_star_deriv + J2_star_deriv);
+if J_rho_update_method == J_rho_update_method_BDF1_FD6 || J_rho_update_method == J_rho_update_method_BDF1_FD8
+    rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end-1) - dt*(J1_star_deriv + J2_star_deriv);
+elseif J_rho_update_method == J_rho_update_method_BDF2_FD6 || J_rho_update_method == J_rho_update_method_BDF2_FD8
+    rho_mesh(1:end-1,1:end-1,end) = 4/3*rho_mesh(1:end-1,1:end-1,end-1) - 1/3*rho_mesh(1:end-1,1:end-1,end-2) - ((2/3)*dt)*(J1_star_deriv + J2_star_deriv);
+else
+    ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");
+    throw(ME);
+end
+
 rho_mesh(:,:,end) = copy_periodic_boundaries(rho_mesh(:,:,end));
-% rho_mesh(end,:) = rho_mesh(1,:);
-% rho_mesh(:,end) = rho_mesh(:,1);

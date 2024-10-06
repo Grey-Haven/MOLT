@@ -1,12 +1,16 @@
+psi_src = 1/sigma_1 * rho_mesh(:,:,end);
+A1_src  =   sigma_2 *  J1_mesh(:,:,end);
+A2_src  =   sigma_2 *  J2_mesh(:,:,end);
+
 %---------------------------------------------------------------------
 % 5.2.1. Advance the waves
 %---------------------------------------------------------------------
 
-psi(:,:,end) = BDF2_advance_per(psi, psi_src(:,:), x, y, dx, dy, dt, kappa, beta_BDF2);
+psi(:,:,end) = BDF1_per_advance(psi, psi_src, x, y, dx, dy, dt, kappa, beta_BDF1);
 
-A1(:,:,end)  = BDF2_advance_per(A1 , A1_src(:,:) , x, y, dx, dy, dt, kappa, beta_BDF2);
+A1(:,:,end)  = BDF1_per_advance(A1 , A1_src , x, y, dx, dy, dt, kappa, beta_BDF1);
 
-A2(:,:,end)  = BDF2_advance_per(A2 , A2_src(:,:) , x, y, dx, dy, dt, kappa, beta_BDF2);
+A2(:,:,end)  = BDF1_per_advance(A2 , A2_src , x, y, dx, dy, dt, kappa, beta_BDF1);
 
 %---------------------------------------------------------------------
 % 5.2.1. Compute their derivatives using the FFT

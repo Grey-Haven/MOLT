@@ -36,7 +36,7 @@
 ddt_A1  = (A1(:,:,end)  - A1(:,:,end-1))  / dt;
 ddt_A2  = (A2(:,:,end)  - A2(:,:,end-1))  / dt;
 
-if waves_update_method == waves_update_method_CDF1_FFT
+if waves_update_method == waves_update_method_CDF2_FFT
     E1(:,:) = -(ddx_psi(:,:,end) + ddx_psi(:,:,end-2))/2 - ddt_A1(:,:);
     E2(:,:) = -(ddy_psi(:,:,end) + ddy_psi(:,:,end-2))/2 - ddt_A2(:,:);
     B3(:,:) = ddx_A2(:,:,end) - ddy_A1(:,:,end);
@@ -47,20 +47,21 @@ else
 end
 
 % Want to ensure the spatial derivatives we're taking are consistent.
-if ismember(waves_update_method, [waves_update_method_vanilla, waves_update_method_FD2])
+if waves_update_method == waves_update_method_BDF1_MOLT_Pure ...
+|| waves_update_method == waves_update_method_BDF2_MOLT_Pure ...
+|| waves_update_method == waves_update_method_CDF2_implicit_MOLT_Pure ...
+|| waves_update_method == waves_update_method_CDF2_semi_implicit_MOLT_Pure
     ddx_E1 = compute_ddx_FD(E1, dx);
     ddy_E2 = compute_ddy_FD(E2, dy);
 elseif ismember(waves_update_method, [waves_BDF_FFT_Family, waves_update_method_FFT, waves_update_method_DIRK2])
     ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
     ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
-elseif waves_update_method == waves_update_method_FD4
-    [ddx_E1,ddy_E1__] = compute_gradient_FD4_dir(E1,dx,dy);
-    [ddx_E2__,ddy_E2] = compute_gradient_FD4_dir(E2,dx,dy);
-elseif waves_update_method == waves_update_method_FD6
-    ME = MException('WaveException',"FD6 Derivative not implemented yet.");
-    throw(ME);
-    % ddx_E1 = compute_ddx_FD6(E1, dx);
-    % ddy_E2 = compute_ddy_FD6(E2, dy);
+elseif ismember(waves_update_method, waves_BDF_FD6_Family)
+    ddx_E1 = compute_ddx_FD6_per(E1, dx);
+    ddy_E2 = compute_ddy_FD6_per(E2, dy);
+elseif ismember(waves_update_method, waves_BDF_FD8_Family)
+    ddx_E1 = compute_ddx_FD8_per(E1, dx);
+    ddy_E2 = compute_ddy_FD8_per(E2, dy);
 elseif ismember(waves_update_method, [waves_update_method_poisson_phi, waves_update_method_pure_FFT])
     ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
     ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
@@ -135,13 +136,18 @@ if waves_update_method == waves_update_method_DIRK2
 
 else
     % METHOD 2:
-    if waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
+    if waves_update_method == waves_update_method_BDF1_FFT ...
+    || waves_update_method == waves_update_method_BDF1_FD6 ...
+    || waves_update_method == waves_update_method_BDF1_FD8 ...
+    || waves_update_method == waves_update_method_pure_FFT ...
+    || waves_update_method == waves_update_method_BDF1_MOLT_Pure
         ddt2_phi = BDF1_d2(psi, dt);
-    elseif waves_update_method == waves_update_method_BDF2_FFT
+    elseif waves_update_method == waves_update_method_BDF2_FFT ...
+        || waves_update_method == waves_update_method_BDF2_FD6 ...
+        || waves_update_method == waves_update_method_BDF2_FD8 ...
+        || waves_update_method == waves_update_method_BDF2_MOLT_Pure
         ddt2_phi = BDF2_d2(psi, dt);
-    elseif waves_update_method == waves_update_method_vanilla
-        ddt2_phi = BDF2_d2(psi, dt);
-    elseif waves_update_method == waves_update_method_CDF1_FFT
+    elseif ismember(waves_update_method, waves_CDF_Hybrid_Family)
         ddt2_phi = BDF1_d2(psi, dt);
     else
         ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
@@ -151,23 +157,27 @@ else
     % METHOD 3:
     div_A_hist = ddx_A1 + ddy_A2;
 
-    if waves_update_method == waves_update_method_CDF1_FFT
+    if ismember(waves_update_method, waves_CDF_Hybrid_Family)
 %         div_A_ave_curr = (div_A_hist(:,:,end  ) + div_A_hist(:,:,end-1)) / 2;
 %         div_A_ave_prev = (div_A_hist(:,:,end-1) + div_A_hist(:,:,end-2)) / 2;
 %         ddt_div_A = (div_A_ave_curr - div_A_ave_prev) / dt;
         ddt_div_A = BDF1_d(div_A_hist, dt); % Double check, but this should line up with theory
-    elseif waves_update_method == waves_update_method_BDF1_FFT || waves_update_method == waves_update_method_pure_FFT
+    elseif waves_update_method == waves_update_method_BDF1_FFT ...
+        || waves_update_method == waves_update_method_BDF1_FD6 ...
+        || waves_update_method == waves_update_method_BDF1_FD8 ...
+        || waves_update_method == waves_update_method_pure_FFT
         ddt_div_A = BDF1_d(div_A_hist, dt);
-    elseif waves_update_method == waves_update_method_BDF2_FFT
-        ddt_div_A = BDF2_d(div_A_hist, dt);
-    elseif waves_update_method == waves_update_method_vanilla
+    elseif waves_update_method == waves_update_method_BDF2_FFT ...
+        || waves_update_method == waves_update_method_BDF2_FD6 ...
+        || waves_update_method == waves_update_method_BDF2_FD8 ...
+        || waves_update_method == waves_update_method_BDF2_MOLT_Pure
         ddt_div_A = BDF2_d(div_A_hist, dt);
     else
         ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
         throw(ME);
     end
 
-    if waves_update_method == waves_update_method_CDF1_FFT
+    if ismember(waves_update_method, waves_CDF_Hybrid_Family)
         RHS = (rho_mesh(:,:,end) + rho_mesh(:,:,end-2)) / (2*sigma_1);
         laplacian_phi_FFT = compute_Laplacian_FFT((psi(:,:,end) + psi(:,:,end-2))/2,kx_deriv_2,ky_deriv_2);
         % phi_ave_curr = (psi(:,:,end) + psi(:,:,end-1)) / 2;

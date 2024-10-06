@@ -1,4 +1,4 @@
-function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF,kx_deriv_1,ky_deriv_1)
+function [u,dudx,dudy] = CDF2_combined_per_advance(u, dudx, dudy, src_data, x, y, dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Performs the derivative and field advance function for a 2-D scalar field.
     % The function assumes we are working with a scalar field,
@@ -7,15 +7,15 @@ function [u,dudx,dudy] = BDF1_combined_per_advance(u, dudx, dudy, src_data, x, y
     % Shuffles for time stepping are performed later, outside of this utility.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    dudx(:,:,end) = BDF1_ddx_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    dudx(:,:,end) = CDF2_ddx_advance_per(u, src_data, x, y, dx, dy, dt, c, beta);
 
-    dudy(:,:,end) = BDF1_ddy_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
+    dudy(:,:,end) = CDF2_ddy_advance_per(u, src_data, x, y, dx, dy, dt, c, beta);
     
-    u(:,:,end) = BDF1_advance_per(u, src_data, x, y, t_n, dx, dy, dt, c, beta_BDF);
-    
+    u(:,:,end) = CDF2_advance_per(u, src_data, x, y, dx, dy, dt, c, beta);
+
 end
 
-function ddx = BDF1_ddx_advance_per(v, src_data, x, y, t, ...
+function ddx = CDF2_ddx_advance_per(v, src_data, x, y, ...
                                     dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculates the ddx of the solution to the wave equation using the first-order BDF method. 
@@ -27,35 +27,20 @@ function ddx = BDF1_ddx_advance_per(v, src_data, x, y, t, ...
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Build the convolution integral over the time history R
-    N_x = length(x);
-    N_y = length(y);
     alpha = beta/(c*dt);
     
-    % Variables for the integrands
-    R   = zeros(N_y, N_x); % time history
-    tmp = zeros(N_y, N_x); % tmp storage for the inverse
-    
-    for i = 1:N_x
-        for j = 1:N_y
-    
-            % Time history (v doesn't include the extension region)
-            % There are three time levels here
-            R(j,i) = 2*v(j,i,end-1) - v(j,i,end-2);
+    R = 2*v(:,:,end-1) + 1/(alpha^2)*src_data(:,:);
 
-            % Contribution from the source term (at t_{n+1})
-            R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);
-        end
-    end
     % Invert the y operator and apply to R, storing in tmp
     tmp = get_L_y_inverse_per(R, x, y, dx, dy, dt, c, beta);
     
     % Invert the x operator and apply to tmp, then store in the derivative array
-    ddx = get_ddx_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta);
+    ddx = get_ddx_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta) - v(:,:,end-2);
     
     % Shuffle is performed outside this function
 end
 
-function ddy = BDF1_ddy_advance_per(v, src_data, x, y, t, ...
+function ddy = CDF2_ddy_advance_per(v, src_data, x, y, ...
                                     dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculates the ddy of the solution to the wave equation using the first-order BDF method. 
@@ -65,37 +50,20 @@ function ddy = BDF1_ddy_advance_per(v, src_data, x, y, t, ...
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Build the convolution integral over the time history R
-    N_x = length(x);
-    N_y = length(y);
     alpha = beta/(c*dt);
     
-    % Variables for the integrands
-    R   = zeros(N_y, N_x); % time history
-    tmp = zeros(N_y, N_x); % tmp storage for the inverse
-    
-    for i = 1:N_x
-        for j = 1:N_y
-    
-            % Time history (v doesn't include the extension region)
-            % There are three time levels here
-            R(j,i) = 2*v(j,i,end-1) - v(j,i,end-2);
-
-            % Contribution from the source term (at t_{n+1})
-            R(j,i) = R(j,i) + ( 1/(alpha^2) )*src_data(j,i);
-        end
-    end
+    R = 2*v(:,:,end-1) + 1/(alpha^2)*src_data(:,:);
             
     % Invert the y operator and apply to R, storing in tmp
     tmp = get_ddy_L_y_inverse_per(R, x, y, dx, dy, dt, c, beta);
     
     % Invert the x operator and apply to tmp, then store in the derivative array
-    ddy = get_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta);
+    ddy = get_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta) - v(:,:,end-2);
     
     % Shuffle is performed outside this function
-    
 end
 
-function u = BDF1_advance_per(v, src_data, x, y, t, ...
+function u = CDF2_advance_per(v, src_data, x, y, ...
                               dx, dy, dt, c, beta)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculates a solution to the wave equation using the first-order BDF method. 
@@ -107,33 +75,16 @@ function u = BDF1_advance_per(v, src_data, x, y, t, ...
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Build the convolution integral over the time history R
-    N_x = length(x);
-    N_y = length(y);
     alpha = beta/(c*dt);
-    
-    % Variables for the integrands
-    R   = zeros(N_y, N_x); % time history
-    tmp = zeros(N_y, N_x); % tmp storage for the inverse
-    
-    for i = 1:N_x
-        for j = 1:N_y
-    
-            % Time history (v doesn't include the extension region)
-            % There are three time levels here
-            R(j,i) = 2*v(j,i,end-1) - v(j,i,end-2);
 
-            % Contribution from the source term (at t_{n+1})
-            R(j,i) = R(j,i) + (  1/(alpha^2) )*src_data(j,i);
-        end
-    end
+    R = 2*v(:,:,end-1) + 1/(alpha^2)*src_data(:,:);
 
     % Invert the y operator and apply to R, storing in tmp
     tmp = get_L_y_inverse_per(R, x, y, dx, dy, dt, c, beta);
 
     % Invert the x operator and apply to tmp, then store in the new time level
-    u = get_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta);
+    u = get_L_x_inverse_per(tmp, x, y, dx, dy, dt, c, beta) - v(:,:,end-2);
 
     % Shuffle is performed outside this function
-    
 end
     

@@ -1,4 +1,4 @@
-div_A = ddx_A1 + ddy_A2;
+div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
 
 psi_prev = psi(:,:,end-1);
 psi_A = psi(:,:,end);
