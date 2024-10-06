@@ -7,8 +7,7 @@ CC = gcc
 # Compiler flags
 CFLAGS = -Wall -g -lfftw3 -lm -lstdc++ -fopenmp
 
-OBJS = Derivative.o FD6.o FFT.o MOLTEngine.o
-# OBJS = Derivative.o FD6.o FFT.o
+OBJS = QuadraticInterpolate.o LinearInterpolate.o Derivative.o FD6.o FFT.o MOLTEngine.o
 
 # Target for building the executable
 all: $(OBJS)
@@ -22,7 +21,13 @@ FFT.o: FFT.cpp FFT.h Derivative.h
 FD6.o: FD6.cpp FD6.h Derivative.h
 	$(CC) $(CFLAGS) -c FD6.cpp
 
-MOLTEngine.o: MOLTEngine.cpp MOLTEngine.h Derivative.h FD6.h FFT.h
+LinearInterpolate.o: LinearInterpolate.cpp LinearInterpolate.h Interpolate.h
+	$(CC) $(CFLAGS) -c LinearInterpolate.cpp
+
+QuadraticInterpolate.o: QuadraticInterpolate.cpp QuadraticInterpolate.h Interpolate.h
+	$(CC) $(CFLAGS) -c QuadraticInterpolate.cpp
+
+MOLTEngine.o: MOLTEngine.cpp MOLTEngine.h Derivative.h FD6.h FFT.h Interpolate.h
 	$(CC) $(CFLAGS) -c MOLTEngine.cpp
 
 

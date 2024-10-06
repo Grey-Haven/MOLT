@@ -10,6 +10,9 @@
 #include <sys/time.h>
 
 #include "Derivative.h"
+#include "Interpolate.h"
+#include "LinearInterpolate.h"
+#include "QuadraticInterpolate.h"
 #include "FFT.h"
 #include "FD6.h"
 
@@ -28,8 +31,8 @@ class MOLTEngine {
                    double dx, double dy, double dt, double sigma_1, double sigma_2, double kappa,
                    double q_elec, double m_elec, double q_ions, double m_ions,
                    double w_elec, double w_ion,
-                   MOLTEngine::NumericalMethod updateMethod, MOLTEngine::MOLTMethod moltMethod,
-                   Derivative::DerivativeMethod derivativeMethod, MOLTEngine::RhoUpdate rhoUpdate,
+                   MOLTEngine::NumericalMethod updateMethod, MOLTEngine::MOLTMethod moltMethod, MOLTEngine::RhoUpdate rhoUpdate,
+                   Derivative::DerivativeMethod derivativeMethod, Interpolate::InterpolateMethod interpolateMethod,
                    bool correctGauge, std::string savePath, std::string debugPath, bool debugViaMatlab=false) {
 
             this->Nx = Nx;
@@ -73,8 +76,6 @@ class MOLTEngine {
             double Lx = x[Nx-1] - x[0] + dx;
             double Ly = y[Nx-1] - y[0] + dy;
 
-            std::cout << "Creating Derivative Utility" << std::endl;
-
             if (derivativeMethod == Derivative::DerivativeMethod::FD6) {
                 std::cout << "Creating FD6" << std::endl;
                 derivative_utility = new FD6(Nx, Ny, Lx, Ly);
@@ -85,7 +86,15 @@ class MOLTEngine {
                 derivative_utility = nullptr;
                 // Derivatives will be solved by MOLT
             }
-            std::cout << "Created Derivative Utility" << std::endl;
+
+            if (interpolateMethod == Interpolate::Linear) {
+                interpolate_utility = new LinearInterpolate(Nx, Ny, x, y);
+            } else if (interpolateMethod == Interpolate::Quadratic) {
+                interpolate_utility = new QuadraticInterpolate(Nx, Ny, x, y);
+            } else {
+                std::cout << "NO SUCH INTERPOLATE METHOD" << std::endl;
+                throw -1;
+            }
 
             if (updateMethod == MOLTEngine::BDF1) {
                 beta = 1.0;
@@ -263,17 +272,16 @@ class MOLTEngine {
                 rho_eles[i] = 0.0;
             }
 
-            for (int i = 0; i < numIons; i++) {
-                MOLTEngine::scatterField(x_ion[i], y_ion[i], w_ion*q_ion/(dx*dy), rho_ions);
-            }
-
             std::cout << "w_ele*q_ele/(dx*dy): " << w_ele*q_ele/(dx*dy) << std::endl;
+            std::cout << "w_ion*q_ion/(dx*dy): " << w_ele*q_ele/(dx*dy) << std::endl;
 
-            for (int i = 0; i < numElectrons; i++) {
-                MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], w_ele*q_ele/(dx*dy), rho_eles);
-                // MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], (*vx_elec[lastStepIndex-1])[i]*w_ele*q_ele/(dx*dy), J1[lastStepIndex-1]);
-                // MOLTEngine::scatterField((*x_elec[lastStepIndex])[i], (*y_elec[lastStepIndex])[i], (*vy_elec[lastStepIndex-1])[i]*w_ele*q_ele/(dx*dy), J2[lastStepIndex-1]);
-            }
+            std::vector<std::vector<double>> electron_weights(1, std::vector<double>(numElectrons, w_ele*q_ele/(dx*dy)));
+            std::vector<std::vector<double>> ion_weights(1, std::vector<double>(numElectrons, w_ion*q_ion/(dx*dy)));
+
+            std::cout << "Scattering Particles" << std::endl;
+            interpolate_utility->scatterParticles(&rho_eles, *x_elec[lastStepIndex], *y_elec[lastStepIndex], 1, numElectrons, electron_weights);
+            interpolate_utility->scatterParticles(&rho_ions, *x_elec[lastStepIndex], *y_elec[lastStepIndex], 1, numElectrons, ion_weights);
+            std::cout << "Scattered Particles" << std::endl;
 
             for (int i = 0; i < Nx*Ny; i++) {
                 for (int h = 0; h <= lastStepIndex; h++) {
@@ -577,6 +585,7 @@ class MOLTEngine {
         std::string debugPath;
 
         Derivative* derivative_utility;
+        Interpolate* interpolate_utility;
 
         // ============= Variables for pointers to delete in shuffle method ===============
         std::vector<double>* x_elec_dlt_ptr;

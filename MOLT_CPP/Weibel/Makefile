@@ -14,7 +14,7 @@ SRCS = WeibelRunner.cpp
 
 OBJS = WeibelRunner.o
 
-LDLIBS = ../Derivative.o ../FFT.o ../FD6.o ../MOLTEngine.o
+LDLIBS = ../QuadraticInterpolate.o ../LinearInterpolate.o ../Derivative.o ../FFT.o ../FD6.o ../MOLTEngine.o
 
 # Executable
 EXECUTABLE = ${EXE_NAME}.host
@@ -26,7 +26,7 @@ EXECUTABLE = ${EXE_NAME}.host
 all: $(OBJS) ../libbase
 	$(CC) $(CFLAGS) -o $(EXECUTABLE) $(OBJS) $(LDLIBS)
 
-WeibelRunner.o: WeibelRunner.cpp ../Derivative.h ../FFT.h ../FD6.h ../MOLTEngine.h 
+WeibelRunner.o: WeibelRunner.cpp ../Derivative.h ../FFT.h ../FD6.h ../Interpolate.h ../LinearInterpolate.h ../MOLTEngine.h 
 	$(CC) $(CFLAGS) -c WeibelRunner.cpp
 
 ../libbase:

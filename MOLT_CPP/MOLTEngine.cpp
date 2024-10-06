@@ -716,6 +716,14 @@ void MOLTEngine::computeGaussL2() {
         delete this->derivative_utility;
         this->derivative_utility = nullptr;
 
+    } else {
+
+        compute_ddx_numerical(E1, ddx_E1);
+        compute_ddy_numerical(E2, ddy_E2);
+
+        compute_d2dx_numerical(phi[lastStepIndex], d2dx_phi_curr);
+        compute_d2dy_numerical(phi[lastStepIndex], d2dy_phi_curr);
+
     }
 
     std::vector<double> div_E(Nx*Ny);
@@ -986,6 +994,9 @@ void MOLTEngine::correctGauge() {
         delete this->derivative_utility;
         this->derivative_utility = nullptr;
 
+    } else {
+        compute_ddx_numerical(phi[lastStepIndex], ddx_phi[lastStepIndex]);
+        compute_ddy_numerical(phi[lastStepIndex], ddy_phi[lastStepIndex]);
     }
 }
 
@@ -1261,9 +1272,9 @@ void MOLTEngine::updateWaves() {
                 }
             } else if (this->updateMethod == MOLTEngine::CDF2) {
                 for (int i = 0; i < Nx*Ny; i++) {
-                    phi_src[i] =        2.0/alpha2 * rho[lastStepIndex-1][i] / sigma_1 + 2.0*phi[lastStepIndex-1][i];
-                    A1_src[i] = 2.0*sigma_2/alpha2 *  J1[lastStepIndex-1][i]           + 2.0* A1[lastStepIndex-1][i];
-                    A2_src[i] = 2.0*sigma_2/alpha2 *  J2[lastStepIndex-1][i]           + 2.0* A2[lastStepIndex-1][i];
+                    phi_src[i] =        2.0/alpha2 * (rho[lastStepIndex][i] + rho[lastStepIndex-2][i]) / sigma_1 + 2.0*phi[lastStepIndex-1][i];
+                    A1_src[i] = 2.0*sigma_2/alpha2 * ( J1[lastStepIndex][i] + J1[lastStepIndex-2][i] )           + 2.0* A1[lastStepIndex-1][i];
+                    A2_src[i] = 2.0*sigma_2/alpha2 * ( J2[lastStepIndex][i] + J2[lastStepIndex-2][i] )           + 2.0* A2[lastStepIndex-1][i];
                 }
             }
 
@@ -1304,100 +1315,41 @@ void MOLTEngine::updateWaves() {
  */
 void MOLTEngine::updateParticleVelocities() {
 
+    int numFields = 8;
+
+    std::complex<double>* ddx_phi = new std::complex<double>[Nx*Ny];
+    std::complex<double>* ddy_phi = new std::complex<double>[Nx*Ny];
+
+    if (this->updateMethod == MOLTEngine::CDF2) {
+        for (int i = 0; i < Nx*Ny; i++) {
+            ddx_phi[i] = (this->ddx_phi[lastStepIndex][i] + this->ddx_phi[lastStepIndex-1][i]) / 2.0;
+            ddy_phi[i] = (this->ddy_phi[lastStepIndex][i] + this->ddx_phi[lastStepIndex-1][i]) / 2.0;
+        }
+    } else {
+        for (int i = 0; i < Nx*Ny; i++) {
+            ddx_phi[i] = this->ddx_phi[lastStepIndex][i];
+            ddy_phi[i] = this->ddy_phi[lastStepIndex][i];
+        }
+    }
+
+    std::complex<double>* fields[numFields] = {ddx_phi, ddy_phi, A1[lastStepIndex], ddx_A1[lastStepIndex], ddy_A1[lastStepIndex], A2[lastStepIndex], ddx_A2[lastStepIndex], ddy_A2[lastStepIndex]};
+    std::vector<std::vector<std::complex<double>>> vals(8, std::vector<std::complex<double>>(numElectrons));
+
+    delete[] ddx_phi;
+    delete[] ddy_phi;
+
+    this->interpolate_utility->gatherFields(fields, (*x_elec[lastStepIndex]), (*y_elec[lastStepIndex]), numFields, numElectrons, vals);
+
     #pragma omp parallel for
     for (int i = 0; i < numElectrons; i++) {
-        double ddx_phi_p = 0;
-        double ddy_phi_p = 0;
-        double A1_p = 0;
-        double ddx_A1_p = 0;
-        double ddy_A1_p = 0;
-        double A2_p = 0;
-        double ddx_A2_p = 0;
-        double ddy_A2_p = 0;
-        const double p_x = (*x_elec[lastStepIndex])[i];
-        const double p_y = (*y_elec[lastStepIndex])[i];
-        // ------------------------------
-        // Gather Fields
-        // We convert from cartesian to logical space
-        const double x0 = this->x[0];
-        const double y0 = this->y[0];
-        const int lc_x = floor((p_x - x0)/dx);
-        const int lc_y = floor((p_y - y0)/dy);
-
-        const int lc_x_p1 = (lc_x+1) % Nx;
-        const int lc_y_p1 = (lc_y+1) % Ny;
-
-        const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-        const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-        const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-        const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-        const double xNode = this->x[lc_x];
-        const double yNode = this->y[lc_y];
-
-        // We compute the fractional distance of a particle from
-        // the nearest node.
-        // eg x=[0,.1,.2,.3], particleX = [.225]
-        // The particle's fractional is 1/4
-        const double fx = (p_x - xNode)/dx;
-        const double fy = (p_y - yNode)/dy;
-
-        const double w_ld = (1-fx)*(1-fy);
-        const double w_lu = (1-fx)*(  fy);
-        const double w_rd = (  fx)*(1-fy);
-        const double w_ru = (  fx)*(  fy);
-
-        if (this->updateMethod == MOLTEngine::CDF2) {
-            ddx_phi_p += w_ld*( ddx_phi[lastStepIndex][ld].real() + ddx_phi[lastStepIndex-1][ld].real() ) / 2;
-            ddx_phi_p += w_lu*( ddx_phi[lastStepIndex][lu].real() + ddx_phi[lastStepIndex-1][lu].real() ) / 2;
-            ddx_phi_p += w_rd*( ddx_phi[lastStepIndex][rd].real() + ddx_phi[lastStepIndex-1][rd].real() ) / 2;
-            ddx_phi_p += w_ru*( ddx_phi[lastStepIndex][ru].real() + ddx_phi[lastStepIndex-1][ru].real() ) / 2;
-
-            ddy_phi_p += w_ld*( ddy_phi[lastStepIndex][ld].real() + ddy_phi[lastStepIndex-1][ld].real() ) / 2;
-            ddy_phi_p += w_lu*( ddy_phi[lastStepIndex][lu].real() + ddy_phi[lastStepIndex-1][lu].real() ) / 2;
-            ddy_phi_p += w_rd*( ddy_phi[lastStepIndex][rd].real() + ddy_phi[lastStepIndex-1][rd].real() ) / 2;
-            ddy_phi_p += w_ru*( ddy_phi[lastStepIndex][ru].real() + ddy_phi[lastStepIndex-1][ru].real() ) / 2;
-        } else {
-            ddx_phi_p += w_ld*ddx_phi[lastStepIndex][ld].real();
-            ddx_phi_p += w_lu*ddx_phi[lastStepIndex][lu].real();
-            ddx_phi_p += w_rd*ddx_phi[lastStepIndex][rd].real();
-            ddx_phi_p += w_ru*ddx_phi[lastStepIndex][ru].real();
-
-            ddy_phi_p += w_ld*ddy_phi[lastStepIndex][ld].real();
-            ddy_phi_p += w_lu*ddy_phi[lastStepIndex][lu].real();
-            ddy_phi_p += w_rd*ddy_phi[lastStepIndex][rd].real();
-            ddy_phi_p += w_ru*ddy_phi[lastStepIndex][ru].real();
-        }
-
-        A1_p += w_ld*A1[lastStepIndex][ld].real();
-        A1_p += w_lu*A1[lastStepIndex][lu].real();
-        A1_p += w_rd*A1[lastStepIndex][rd].real();
-        A1_p += w_ru*A1[lastStepIndex][ru].real();
-
-        ddx_A1_p += w_ld*ddx_A1[lastStepIndex][ld].real();
-        ddx_A1_p += w_lu*ddx_A1[lastStepIndex][lu].real();
-        ddx_A1_p += w_rd*ddx_A1[lastStepIndex][rd].real();
-        ddx_A1_p += w_ru*ddx_A1[lastStepIndex][ru].real();
-
-        ddy_A1_p += w_ld*ddy_A1[lastStepIndex][ld].real();
-        ddy_A1_p += w_lu*ddy_A1[lastStepIndex][lu].real();
-        ddy_A1_p += w_rd*ddy_A1[lastStepIndex][rd].real();
-        ddy_A1_p += w_ru*ddy_A1[lastStepIndex][ru].real();
-
-        A2_p += w_ld*A2[lastStepIndex][ld].real();
-        A2_p += w_lu*A2[lastStepIndex][lu].real();
-        A2_p += w_rd*A2[lastStepIndex][rd].real();
-        A2_p += w_ru*A2[lastStepIndex][ru].real();
-
-        ddx_A2_p += w_ld*ddx_A2[lastStepIndex][ld].real();
-        ddx_A2_p += w_lu*ddx_A2[lastStepIndex][lu].real();
-        ddx_A2_p += w_rd*ddx_A2[lastStepIndex][rd].real();
-        ddx_A2_p += w_ru*ddx_A2[lastStepIndex][ru].real();
-
-        ddy_A2_p += w_ld*ddy_A2[lastStepIndex][ld].real();
-        ddy_A2_p += w_lu*ddy_A2[lastStepIndex][lu].real();
-        ddy_A2_p += w_rd*ddy_A2[lastStepIndex][rd].real();
-        ddy_A2_p += w_ru*ddy_A2[lastStepIndex][ru].real();
+        double ddx_phi_p = vals[0][i].real();
+        double ddy_phi_p = vals[1][i].real();
+        double A1_p = vals[2][i].real();
+        double ddx_A1_p = vals[3][i].real();
+        double ddy_A1_p = vals[4][i].real();
+        double A2_p = vals[5][i].real();
+        double ddx_A2_p = vals[6][i].real();
+        double ddy_A2_p = vals[7][i].real();
 
         double vx_star = (*vx_elec[lastStepIndex-1])[i] + ( (*vx_elec[lastStepIndex-1])[i] - (*vx_elec[lastStepIndex-2])[i] );
         double vy_star = (*vy_elec[lastStepIndex-1])[i] + ( (*vy_elec[lastStepIndex-1])[i] - (*vy_elec[lastStepIndex-2])[i] );
@@ -1511,60 +1463,6 @@ void MOLTEngine::shuffleSteps() {
 }
 
 /**
- * Name: gatherFields
- * Author: Stephen White
- * Date Created: 5/28/24
- * Date Last Modified: 5/28/24 (Stephen White)
- * Description: Eliminates redundancies in the gatherField method, instead of multiple calls to gatherField
- *              we pass in a vector of fields and compute the fractional weight for each particle, using this
- *              for each field.
- * Inputs: p_x, p_y, fields, fields_out
- * Output: technically none, but fields_out is where the results are stored.
- * Dependencies: none
- */
-void MOLTEngine::gatherFields(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& fields, std::vector<double>& fields_out) {
-    // We convert from cartesian to logical space
-    const double x0 = this->x[0];
-    const double y0 = this->y[0];
-    const int lc_x = floor((p_x - x0)/dx);
-    const int lc_y = floor((p_y - y0)/dy);
-
-    const int lc_x_p1 = (lc_x+1) % Nx;
-    const int lc_y_p1 = (lc_y+1) % Ny;
-
-    const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-    const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-    const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-    const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-    const double xNode = this->x[lc_x];
-    const double yNode = this->y[lc_y];
-
-    // We compute the fractional distance of a particle from
-    // the nearest node.
-    // eg x=[0,.1,.2,.3], particleX = [.225]
-    // The particle's fractional is 1/4
-    const double fx = (p_x - xNode)/dx;
-    const double fy = (p_y - yNode)/dy;
-
-    const int N = fields.size();
-
-    double field_00, field_01, field_10, field_11;
-
-    for (int i = 0; i < N; i++) {
-        // Now we acquire the field values at the surrounding nodes
-        field_00 = fields[i][ld].real();
-        field_01 = fields[i][lu].real();
-        field_10 = fields[i][rd].real();
-        field_11 = fields[i][ru].real();
-
-        // Returning the combined total of all the fields in proportion
-        // with the fractional distance
-        fields_out[i] = (1-fx)*(1-fy)*field_00 + (1-fx)*(fy)*field_01 + (fx)*(1-fy)*field_10 + (fx)*(fy)*field_11;
-    }
-}
-
-/**
  * Name: scatterFields
  * Author: Stephen White
  * Date Created: 5/28/24
@@ -1580,57 +1478,14 @@ void MOLTEngine::scatterFields() {
         J1[lastStepIndex][i] = 0.0;
         J2[lastStepIndex][i] = 0.0;
     }
-
-    for (int i = 0; i < numElectrons; i++) {
-        // double vx_star = 2.0*(*vx_elec[lastStepIndex-1])[i] - (*vx_elec[lastStepIndex-2])[i];
-        // double vy_star = 2.0*(*vy_elec[lastStepIndex-1])[i] - (*vy_elec[lastStepIndex-2])[i];
-
-        // double x_value = q_ele*vx_star*w_ele;
-        // double y_value = q_ele*vy_star*w_ele;
-        double x_value = q_ele*(*vx_elec[lastStepIndex-1])[i]*w_ele;
-        double y_value = q_ele*(*vy_elec[lastStepIndex-1])[i]*w_ele;
-
-        double x_p = (*x_elec[lastStepIndex])[i];
-        double y_p = (*y_elec[lastStepIndex])[i];
-
-        // We convert from cartesian to logical space
-        int lc_x = floor((x_p - x[0])/dx);
-        int lc_y = floor((y_p - y[0])/dy);
-
-        const int lc_x_p1 = (lc_x+1) % Nx;
-        const int lc_y_p1 = (lc_y+1) % Ny;
-
-        const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-        const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-        const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-        const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-        double xNode = this->x[lc_x];
-        double yNode = this->y[lc_y];
-
-        // We compute the fractional distance of a particle from
-        // the nearest node.
-        // eg x=[0,.1,.2,.3], particleX = [.225]
-        // The particle's fractional is 1/4
-        double fx = (x_p - xNode)/dx;
-        double fy = (y_p - yNode)/dy;
-
-        // Now we acquire the particle value and add it to the corresponding field
-        J1[lastStepIndex][ld] += (1-fx)*(1-fy)*x_value;
-        J1[lastStepIndex][lu] += (1-fx)*(  fy)*x_value;
-        J1[lastStepIndex][rd] += (  fx)*(1-fy)*x_value;
-        J1[lastStepIndex][ru] += (  fx)*(  fy)*x_value;
-
-        J2[lastStepIndex][ld] += (1-fx)*(1-fy)*y_value;
-        J2[lastStepIndex][lu] += (1-fx)*(  fy)*y_value;
-        J2[lastStepIndex][rd] += (  fx)*(1-fy)*y_value;
-        J2[lastStepIndex][ru] += (  fx)*(  fy)*y_value;
+    std::vector<std::vector<double>> weights(2,std::vector<double>(numElectrons));
+    for (int p = 0; p < numElectrons; p++) {
+        weights[0][p] = q_ele*(*vx_elec[lastStepIndex-1])[p]*w_ele/(dx*dy);
+        weights[1][p] = q_ele*(*vy_elec[lastStepIndex-1])[p]*w_ele/(dx*dy);
     }
-    double volume = 1.0/(dx*dy);
-    for (int i = 0; i < Nx*Ny; i++) {
-        J1[lastStepIndex][i] *= volume;
-        J2[lastStepIndex][i] *= volume;
-    }
+    std::complex<double>* fields[2] = {J1[lastStepIndex], J2[lastStepIndex]};
+
+    this->interpolate_utility->scatterParticles(fields, (*x_elec[lastStepIndex]), (*y_elec[lastStepIndex]), 2, numElectrons, weights);
 
     if (this->rhoUpdate == MOLTEngine::CONSERVING) {
 
@@ -1734,9 +1589,6 @@ void MOLTEngine::scatterFields() {
             double x_p = this->updateMethod == MOLTEngine::CDF2 ? ( (*x_elec[lastStepIndex])[i] + (*x_elec[lastStepIndex-1])[i] ) / 2 : (*x_elec[lastStepIndex])[i];
             double y_p = this->updateMethod == MOLTEngine::CDF2 ? ( (*y_elec[lastStepIndex])[i] + (*y_elec[lastStepIndex-1])[i] ) / 2 : (*y_elec[lastStepIndex])[i];
 
-            // scatterField(x_p, y_p, x_value, J1[lastStepIndex]);
-            // scatterField(x_p, y_p, y_value, J2[lastStepIndex]);
-
             // We convert from cartesian to logical space
             int lc_x = floor((x_p - x[0])/dx);
             int lc_y = floor((y_p - y[0])/dy);
@@ -1759,15 +1611,6 @@ void MOLTEngine::scatterFields() {
             double fx = (x_p - xNode)/dx;
             double fy = (y_p - yNode)/dy;
 
-            // Now we acquire the particle value and add it to the corresponding field
-            // rho[lastStepIndex][ld] += (1-fx)*(1-fy)*charge_value;
-            // rho[lastStepIndex][lu] += (1-fx)*(  fy)*charge_value;
-            // rho[lastStepIndex][rd] += (  fx)*(1-fy)*charge_value;
-            // rho[lastStepIndex][ru] += (  fx)*(  fy)*charge_value;
-            // rho_eles[ld] += (1-fx)*(1-fy)*charge_value;
-            // rho_eles[lu] += (1-fx)*(  fy)*charge_value;
-            // rho_eles[rd] += (  fx)*(1-fy)*charge_value;
-            // rho_eles[ru] += (  fx)*(  fy)*charge_value;
             S[ld] += (1-fx)*(1-fy)*charge_value;
             S[lu] += (1-fx)*(  fy)*charge_value;
             S[rd] += (  fx)*(1-fy)*charge_value;
