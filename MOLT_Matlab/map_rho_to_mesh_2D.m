@@ -6,24 +6,19 @@ function rho_mesh = map_rho_to_mesh_2D(x, y, dx, dy, x1, x2, ...
     %
     % Assumes a single species is present
     %%%%%%%%%
-    
+
     Nx = length(x);
     Ny = length(y);
-    
-    % Number of simulation particles
-    N_part = length(x1);
-    
+
     weight = w_s*q_s;
 
-%     rho_mesh = zeros(Ny,Nx);
-        
-    % Scatter particle charge data to the mesh
-%     for i = 1:N_part
-%         rho_mesh = rho_mesh + scatter_2D(Nx, Ny, x1(i), x2(i), x', y', dx, dy, weight);
-%     end
+    rho_mesh_inner = scatter_2D_vectorized_linear(Nx-1, Ny-1, x1(:), x2(:), x', y', dx, dy, weight*ones(length(x1),1));
+    % rho_mesh_inner = scatter_2D_vectorized_quadratic(Nx-1, Ny-1, x1(:), x2(:), x', y', dx, dy, weight*ones(length(x1),1));
+    % rho_mesh_inner = scatter_2D_vectorized_cubic(Nx-1, Ny-1, x1(:), x2(:), x', y', dx, dy, weight*ones(length(x1),1));
+    rho_mesh = zeros(Ny,Nx);
+    rho_mesh(1:end-1,1:end-1) = rho_mesh_inner;
+    rho_mesh = copy_periodic_boundaries(rho_mesh);
 
-    rho_mesh = scatter_2D_vectorized(Nx, Ny, x1(:), x2(:), x', y', dx, dy, weight);
-        
     % End of particle loop
     
     % Divide by the cell volumes to compute the number density

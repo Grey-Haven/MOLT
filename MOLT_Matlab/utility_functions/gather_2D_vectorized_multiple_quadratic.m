@@ -6,7 +6,7 @@ function F_ps = gather_2D_vectorized_multiple_quadratic(F_meshes, x1_p, x2_p, x,
     %
     % This function uses quadratic splines to map mesh data to the particle
     %
-    % Unlike the linear method, this assumes a grid of 
+    % This assumes a grid of 
     % [a_x, b_x) x [a_y, b_y), that is, it does not include the right and
     % top boundaries.
     %%%%%%%%
@@ -15,7 +15,7 @@ function F_ps = gather_2D_vectorized_multiple_quadratic(F_meshes, x1_p, x2_p, x,
 
         Nx = length(x)-1;
         Ny = length(y)-1;
-                            
+
         F_ps = zeros(length(x1_p),size(F_meshes,3));
     
         index_offset = 1;
@@ -92,15 +92,6 @@ function F_ps = gather_2D_vectorized_multiple_quadratic(F_meshes, x1_p, x2_p, x,
     
             F_ps(:,i) = F_p;
         end
-    %     F_p = F(i,j,k).*(1-d1).*(1-d2).*(1-d3);  %contribution from (i,j,k)
-    %     F_p = F_p + F(i+1,j,k).*d1.*(1-d2).*(1-d3);  %(i+1,j,k)
-    %     F_p = F_p + F(i,j+1,k).*(1-d1).*d2.*(1-d3);  %(i,j+1,k)
-    %     F_p = F_p + F(i+1,j+1,k).*d1.*d2.*(1-d3);  %(i+1,j+1,k)
-    % 
-    %     F_p = F_p + F(i+1,j,k+1).*(1-d1).*d2.*d3;
-    %     F_p = F_p + F(i+1,j,k+1).*d1.*(1-d2).*d3;  %(i+1,j,k)
-    %     F_p = F_p + F(i,j+1,k+1).*(1-d1).*d2.*d3;  %(i,j+1,k)
-    %     F_p = F_p + F(i+1,j+1,k+1).*d1.*d2.*d3;  %(i+1,j+1,k)
     catch exception
         throw(exception);
     end
