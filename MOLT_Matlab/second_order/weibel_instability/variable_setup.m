@@ -286,9 +286,6 @@ rho_ions = map_rho_to_mesh_2D(x, y, dx, dy, ...
 rho_elec = map_rho_to_mesh_2D(x, y, dx, dy, ...
                               x1_elec_hist(:,end), x2_elec_hist(:,end), ...
                               q_elec, cell_volumes, w_elec);
-% Need to enforce periodicity for the charge on the mesh
-rho_ions = enforce_periodicity(rho_ions(:,:));
-rho_elec = enforce_periodicity(rho_elec(:,:));
 
 % rho_mesh = rho_ions + rho_elec;
 rho_mesh = zeros([size(rho_elec),N_h]);
@@ -299,9 +296,6 @@ J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
                         v1_elec_hist(:,end-1), v2_elec_hist(:,end-1), ...
                         q_elec, cell_volumes, w_elec);
 
-% Need to enforce periodicity for the current on the mesh
-J_mesh(:,:,1) = enforce_periodicity(J_mesh(:,:,1));
-J_mesh(:,:,2) = enforce_periodicity(J_mesh(:,:,2));
 
 J1_mesh(:,:,end) = J_mesh(:,:,1);
 J2_mesh(:,:,end) = J_mesh(:,:,2);
@@ -345,7 +339,7 @@ filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
 resultsPath = projectRoot + "/results/conserving/" + ...
-              "CFL_" + CFL + "/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
+              "CFL_" + CFL + "/" + gauge_correction + "/linear_interpolation/" + update_method_folder + "/" + tag + "/";
 figPath = resultsPath + "figures/";
 csvPath = resultsPath + "csv_files/";
 disp(resultsPath);

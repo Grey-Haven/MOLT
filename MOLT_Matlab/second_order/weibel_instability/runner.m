@@ -11,7 +11,7 @@ set(0,'defaulttextinterpreter','latex')
 set(0,'DefaultTextFontname', 'cmss')
 set(0,'DefaultAxesFontName', 'cmss')
 
-grid_refinement = [32,64,16,128]; % Run FFT BDF BDF for 64x64
+grid_refinement = [128,64,32,16];
 CFLs = [1];
 
 debug = true;
@@ -32,6 +32,7 @@ J_rho_update_method_BDF4_FFT = "BDF4-FFT";
 J_rho_update_method_CDF2_FFT = "CDF2-FFT";
 J_rho_update_method_BDF1_FD6 = "BDF1-FD6";
 J_rho_update_method_BDF2_FD6 = "BDF2-FD6";
+J_rho_update_method_CDF2_FD6 = "CDF2-FD6";
 J_rho_update_method_BDF1_FD8 = "BDF1-FD8";
 J_rho_update_method_BDF2_FD8 = "BDF2-FD8";
 J_rho_update_method_DIRK2 = "DIRK2";
@@ -44,10 +45,14 @@ waves_update_method_BDF2_MOLT_Pure = "BDF2-MOLT-PURE";
 waves_update_method_CDF2_implicit_MOLT_Pure = "CDF2-implicit-MOLT-PURE";
 waves_update_method_CDF2_semi_implicit_MOLT_Pure = "CDF2-semi-implicit-MOLT-PURE";
 waves_update_method_FFT = "NA";
-waves_update_method_BDF1_MOLT_Hybrid = "BDF1-MOLT";
-waves_update_method_BDF2_MOLT_Hybrid = "BDF2-MOLT";
-waves_update_method_BDF3_MOLT_Hybrid = "BDF3-MOLT";
-waves_update_method_BDF4_MOLT_Hybrid = "BDF4-MOLT";
+waves_update_method_BDF1_MOLT_FD6_Hybrid = "BDF1-MOLT-Hybrid-FD6";
+waves_update_method_BDF2_MOLT_FD6_Hybrid = "BDF2-MOLT-Hybrid-FD6";
+waves_update_method_BDF3_MOLT_FD6_Hybrid = "BDF3-MOLT-Hybrid-FD6";
+waves_update_method_BDF4_MOLT_FD6_Hybrid = "BDF4-MOLT-Hybrid-FD6";
+waves_update_method_BDF1_MOLT_FFT_Hybrid = "BDF1-MOLT-Hybrid-FFT";
+waves_update_method_BDF2_MOLT_FFT_Hybrid = "BDF2-MOLT-Hybrid-FFT";
+waves_update_method_BDF3_MOLT_FFT_Hybrid = "BDF3-MOLT-Hybrid-FFT";
+waves_update_method_BDF4_MOLT_FFT_Hybrid = "BDF4-MOLT-Hybrid-FFT";
 waves_update_method_BDF1_FFT = "BDF1-FFT";
 waves_update_method_BDF2_FFT = "BDF2-FFT";
 waves_update_method_BDF3_FFT = "BDF3-FFT";
@@ -87,6 +92,12 @@ run_type_FD8_BDF2_gc = "BDF2_FD8_gauge_cleaning";
 run_type_FD8_CDF2_ng = "CDF2_FD8_no_gauge_cleaning";
 run_type_FD8_CDF2_gc = "CDF2_FD8_gauge_cleaning";
 
+run_type_MOLT_HYBRID_FD6_BDF1_ng = "BDF1_MOLT_HYBRID_FD6_no_gauge_cleaning";
+run_type_MOLT_HYBRID_FD6_BDF2_ng = "BDF2_MOLT_HYBRID_FD6_no_gauge_cleaning";
+
+run_type_MOLT_HYBRID_FFT_BDF1_ng = "BDF1_MOLT_HYBRID_FFT_no_gauge_cleaning";
+run_type_MOLT_HYBRID_FFT_BDF2_ng = "BDF2_MOLT_HYBRID_FFT_no_gauge_cleaning";
+
 run_type_MOLT_Pure_BDF1_ng = "BDF1_MOLT_PURE_no_gauge_cleaning";
 run_type_MOLT_Pure_BDF2_ng = "BDF2_MOLT_PURE_no_gauge_cleaning";
 
@@ -109,62 +120,66 @@ run_type_poisson_ng = "FFT_A_poisson_phi_no_gauge_cleaning";
 
 run_type_DIRK2_ng = "DIRK_FFT_deriv_no_gauge_cleaning";
 
-J_rho_BDF_FFT_Family = [J_rho_update_method_BDF1_FFT, J_rho_update_method_BDF2_FFT, J_rho_update_method_BDF3_FFT, J_rho_update_method_BDF4_FFT, J_rho_update_method_CDF2_FFT];
-waves_BDF_FFT_Family = [waves_update_method_BDF1_FFT, waves_update_method_BDF2_FFT, waves_update_method_BDF3_FFT, waves_update_method_BDF4_FFT, waves_update_method_CDF2_FFT];
+J_rho_FFT_Family = [J_rho_update_method_BDF1_FFT, J_rho_update_method_BDF2_FFT, J_rho_update_method_BDF3_FFT, J_rho_update_method_BDF4_FFT, J_rho_update_method_CDF2_FFT];
+waves_FFT_Family = [waves_update_method_BDF1_FFT, waves_update_method_BDF2_FFT, waves_update_method_BDF3_FFT, waves_update_method_BDF4_FFT, waves_update_method_CDF2_FFT];
 
-J_rho_BDF_FD6_Family = [J_rho_update_method_BDF1_FD6, J_rho_update_method_BDF2_FD6];
-waves_BDF_FD6_Family = [waves_update_method_BDF1_FD6, waves_update_method_BDF2_FD6];
+J_rho_FD6_Family = [J_rho_update_method_BDF1_FD6, J_rho_update_method_BDF2_FD6, J_rho_update_method_CDF2_FD6];
+waves_FD6_Family = [waves_update_method_BDF1_FD6, waves_update_method_BDF2_FD6, waves_update_method_CDF2_FD6];
 
-J_rho_BDF_FD8_Family = [J_rho_update_method_BDF1_FD8, J_rho_update_method_BDF2_FD8];
-waves_BDF_FD8_Family = [waves_update_method_BDF1_FD8, waves_update_method_BDF2_FD8];
+J_rho_FD8_Family = [J_rho_update_method_BDF1_FD8, J_rho_update_method_BDF2_FD8];
+waves_FD8_Family = [waves_update_method_BDF1_FD8, waves_update_method_BDF2_FD8];
 
 % MOLT for the wave, FFT for the derivatives
-waves_BDF_Hybrid_Family = [waves_update_method_BDF1_MOLT_Hybrid, waves_update_method_BDF2_MOLT_Hybrid, waves_update_method_BDF3_MOLT_Hybrid, waves_update_method_BDF4_MOLT_Hybrid];
+waves_BDF_Hybrid_Family = [waves_update_method_BDF1_MOLT_FD6_Hybrid, waves_update_method_BDF2_MOLT_FD6_Hybrid, waves_update_method_BDF1_MOLT_FFT_Hybrid, waves_update_method_BDF2_MOLT_FFT_Hybrid];
 waves_CDF_Hybrid_Family = [waves_update_method_CDF2_implicit_MOLT_Pure, waves_update_method_CDF2_semi_implicit_MOLT_Pure, waves_update_method_CDF2_FFT, waves_update_method_CDF2_FD6];
 
-for g = grid_refinement
-    for iter = 6:6
+iterations = [13];
+
+for iter = iterations
+    for g = grid_refinement
     
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
         % THIS IS THE ONLY PARAMETER TO TWEAK
         %
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % run_type = run_type_vanilla_ng;
-        % run_type = run_type_pure_FFT_ng;
-        % run_type = run_type_FFT_BDF1_ng;
-        % run_type = run_type_FFT_BDF2_ng;
-        % run_type = run_type_poisson_ng;
-        % run_type = run_type_DIRK2_ng;
         
         if iter == 1
             run_type = run_type_FFT_BDF1_ng;
         elseif iter == 2
             run_type = run_type_FFT_BDF2_ng;
         elseif iter == 3
-            run_type = run_type_FD6_BDF1_ng;
-        elseif iter == 4
-            run_type = run_type_FD6_BDF2_ng;
-        elseif iter == 5
-            run_type = run_type_FD8_BDF1_ng;
-        elseif iter == 6
-            run_type = run_type_FD8_BDF2_ng;
-        elseif iter == 7
-            run_type = run_type_DIRK2_ng;
-        elseif iter == 8
             run_type = run_type_FFT_CDF2_ng;
-        elseif iter == 9
-            run_type = run_type_vanilla_J_rho_CDF2_wave_ng;
-        elseif iter == 10
-            run_type = run_type_MOLT_Pure_BDF1_ng;
-        elseif iter == 11
-            run_type = run_type_MOLT_Pure_BDF2_ng;
-        elseif iter == 12
-            run_type = run_type_MOLT_Pure_CDF2_implicit_ng;
-        elseif iter == 13
-            run_type = run_type_MOLT_Pure_CDF2_semi_implicit_ng;
-        elseif iter == 14
+        elseif iter == 4
+            run_type = run_type_FD6_BDF1_ng;
+        elseif iter == 5
+            run_type = run_type_FD6_BDF2_ng;
+        elseif iter == 6
             run_type = run_type_FD6_CDF2_ng;
+        elseif iter == 7
+            run_type = run_type_MOLT_HYBRID_FD6_BDF1_ng;
+        elseif iter == 8
+            run_type = run_type_MOLT_HYBRID_FD6_BDF2_ng;
+        elseif iter == 9
+            run_type = run_type_MOLT_HYBRID_FFT_BDF1_ng;
+        elseif iter == 10
+            run_type = run_type_MOLT_HYBRID_FFT_BDF2_ng;
+        elseif iter == 11
+            run_type = run_type_FD8_BDF1_ng;
+        elseif iter == 12
+            run_type = run_type_FD8_BDF2_ng;
+        elseif iter == 13
+            run_type = run_type_DIRK2_ng;
+        elseif iter == 14
+            run_type = run_type_vanilla_J_rho_CDF2_wave_ng;
+        elseif iter == 15
+            run_type = run_type_MOLT_Pure_BDF1_ng;
+        elseif iter == 16
+            run_type = run_type_MOLT_Pure_BDF2_ng;
+        elseif iter == 17
+            run_type = run_type_MOLT_Pure_CDF2_implicit_ng;
+        elseif iter == 18
+            run_type = run_type_MOLT_Pure_CDF2_semi_implicit_ng;
         end
     
         if run_type == run_type_MOLT_Pure_BDF1_ng
@@ -194,6 +209,46 @@ for g = grid_refinement
         
             J_rho_update_method = J_rho_update_method_vanilla;
             waves_update_method = waves_update_method_BDF2_MOLT_Pure;
+        
+            gauge_correction = gauge_correction_none;
+    
+        elseif run_type == run_type_MOLT_HYBRID_FD6_BDF1_ng
+        
+            update_method_title = "Conserving Charge Update, BDF-1 Wave Update, Hybrid MOLT Wave FD6 Derivatives";
+            update_method_folder = "FD6_charge_BDF1_hybrid_wave_update";
+        
+            J_rho_update_method = J_rho_update_method_BDF1_FD6;
+            waves_update_method = waves_update_method_BDF1_MOLT_FD6_Hybrid;
+        
+            gauge_correction = gauge_correction_none;
+    
+        elseif run_type == run_type_MOLT_HYBRID_FD6_BDF2_ng
+        
+            update_method_title = "Conserving Charge Update, BDF-2 Wave Update, Hybrid MOLT Wave FD6 Derivatives";
+            update_method_folder = "FD6_charge_BDF2_hybrid_wave_update";
+
+            J_rho_update_method = J_rho_update_method_BDF2_FD6;
+            waves_update_method = waves_update_method_BDF2_MOLT_FD6_Hybrid;
+        
+            gauge_correction = gauge_correction_none;
+    
+        elseif run_type == run_type_MOLT_HYBRID_FFT_BDF1_ng
+        
+            update_method_title = "Conserving Charge Update, BDF-1 Wave Update, Hybrid MOLT Wave FFT Derivatives";
+            update_method_folder = "FFT_charge_BDF1_hybrid_wave_update";
+        
+            J_rho_update_method = J_rho_update_method_BDF1_FFT;
+            waves_update_method = waves_update_method_BDF1_MOLT_FFT_Hybrid;
+        
+            gauge_correction = gauge_correction_none;
+    
+        elseif run_type == run_type_MOLT_HYBRID_FFT_BDF2_ng
+        
+            update_method_title = "Conserving Charge Update, BDF-2 Wave Update, Hybrid MOLT Wave FFT Derivatives";
+            update_method_folder = "FFT_charge_BDF2_hybrid_wave_update";
+
+            J_rho_update_method = J_rho_update_method_BDF2_FFT;
+            waves_update_method = waves_update_method_BDF2_MOLT_FFT_Hybrid;
         
             gauge_correction = gauge_correction_none;
     
@@ -262,7 +317,7 @@ for g = grid_refinement
             update_method_title = "Second Order FD6 Charge Update, CDF-2 Wave Update, FD6 Derivative";
             update_method_folder = "FD6_charge_CDF2_wave_update_FD6_derivative";
         
-            J_rho_update_method = J_rho_update_method_BDF1_FD6;
+            J_rho_update_method = J_rho_update_method_CDF2_FD6;
             waves_update_method = waves_update_method_CDF2_FD6;
         
             gauge_correction = gauge_correction_none;
@@ -336,10 +391,11 @@ for g = grid_refinement
             gauge_correction = gauge_correction_FFT;
         elseif run_type == run_type_FFT_CDF2_ng
     
-            update_method_title = "Second Order FFT Charge Update, BDF-1 Wave Update, Time Centered, FFT Derivative";
-            update_method_folder = "FFT_charge_CDF2_wave_update_FFT_derivative";
+            update_method_title = "Vanilla Charge Update, CDF-2 Wave Update, FFT Derivative";
+            update_method_folder = "vanilla_charge_CDF2_wave_update_FFT_derivative";
         
-            J_rho_update_method = J_rho_update_method_CDF2_FFT;
+            % J_rho_update_method = J_rho_update_method_CDF2_FFT;
+            J_rho_update_method = J_rho_update_method_vanilla;
             waves_update_method = waves_update_method_CDF2_FFT;
         
             gauge_correction = gauge_correction_none;
@@ -373,7 +429,7 @@ for g = grid_refinement
         for CFL = CFLs
             close all;
             variable_setup;
-            % make_vpa;
+            steps = 0;
             engine;
         end
     end

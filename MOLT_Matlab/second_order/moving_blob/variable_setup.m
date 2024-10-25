@@ -15,10 +15,8 @@ disp(tag);
 % BEGIN Domain Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% L_x = 32.0;
-% L_y = 32.0;
-L_x = 1.0;
-L_y = 1.0;
+L_x = 16.0;
+L_y = 16.0;
 
 a_x = -L_x/2;
 b_x = L_x/2;
@@ -46,7 +44,7 @@ v2_drift = kappa/100;
 % v2_drift = 0;
 
 % Number of particles for each species
-N_p = floor(particle_count_multiplier * 2.5e3);
+N_p = floor(2.5e4);
 % N_p = 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -131,8 +129,8 @@ P2_elec = v2_elec*r_elec;
 
 % Compute the normalized particle weights
 % L_x and L_y are the non-dimensional domain lengths
-w_ions = 10*(L_x*L_y)/N_p;
-w_elec = 10*(L_x*L_y)/N_p;
+w_ions = (L_x*L_y)/N_p;
+w_elec = (L_x*L_y)/N_p;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % END Derived Parameters
@@ -386,8 +384,7 @@ tag = (length(x)-1) + "x" + (length(y)-1);
 filePath = matlab.desktop.editor.getActiveFilename;
 projectRoot = fileparts(filePath);
 
-resultsPath = projectRoot + "/results/conserving/p_mult_" + particle_count_multiplier + ...
-              "/CFL_" + CFL + "/" + gauge_correction + "/" + update_method_folder + "/" + tag + "/";
+resultsPath = projectRoot + "/results/" + gauge_correction + "/linear_interpolation/" + update_method_folder + "/" + tag + "/";
 figPath = resultsPath + "figures/";
 csvPath = resultsPath + "csv_files/";
 disp(resultsPath);
