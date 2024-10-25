@@ -15,6 +15,10 @@
 #include <omp.h>
 #include "MOLTEngine.h"
 
+#include "Derivative.h"
+#include "FFT.h"
+#include "FD6.h"
+
 /**
  * Name: step
  * Author: Stephen White
@@ -29,7 +33,7 @@
  * Dependencies: scatterFields, shuffleSteps, updateParticleLocations, updateParticleVelocities, updateWaves
  */
 void MOLTEngine::step() {
-    struct timeval begin1, end1, begin2, end2, begin3, end3, begin4, end4, begin5, end5, begin6, end6, begin7, end7;
+    struct timeval begin1, end1, begin2, end2, begin3, end3, begin4, end4, begin5, end5, begin6, end6;
     // std::cout << "Updating Particle Locations" << std::endl;
     gettimeofday( &begin1, NULL );
     updateParticleLocations();
@@ -51,17 +55,11 @@ void MOLTEngine::step() {
     }
     gettimeofday( &begin5, NULL );
     computePhysicalDiagnostics();
-    gettimeofday( &end6, NULL );
-    if (n % 500 == 0) {
-        gettimeofday( &begin7, NULL );
-        print();
-        gettimeofday( &end7, NULL );
-        timeComponent7 += 1.0 * ( end7.tv_sec - begin7.tv_sec ) + 1.0e-6 * ( end7.tv_usec - begin7.tv_usec );
-    }
     gettimeofday( &end5, NULL );
     // std::cout << "Shuffling Steps" << std::endl;
     gettimeofday( &begin6, NULL );
     shuffleSteps();
+    gettimeofday( &end6, NULL );
     // std::cout << "Rinse, Repeat" << std::endl;
     timeComponent1 += 1.0 * ( end1.tv_sec - begin1.tv_sec ) + 1.0e-6 * ( end1.tv_usec - begin1.tv_usec );
     timeComponent2 += 1.0 * ( end2.tv_sec - begin2.tv_sec ) + 1.0e-6 * ( end2.tv_usec - begin2.tv_usec );
@@ -78,7 +76,7 @@ void MOLTEngine::printTimeDiagnostics() {
     std::cout << "scatterFields(): " << timeComponent2 << std::endl;
     std::cout << "updateWaves(): " << timeComponent3 << std::endl;
     std::cout << "updateParticleVelocities(): " << timeComponent4 << std::endl;
-    std::cout << "computePhysicalDiagnostics() + : " << timeComponent5 << std::endl;
+    std::cout << "computePhysicalDiagnostics(): " << timeComponent5 << std::endl;
     std::cout << "shuffleSteps(): " << timeComponent6 << std::endl;
     std::cout << "print(): " << timeComponent7 << std::endl;
 }
@@ -151,15 +149,62 @@ double MOLTEngine::getTotalMomentum() {
     return totalMomentum;
 }
 
+void MOLTEngine::saveParticleInformation() {
+
+    std::ofstream electronFile;
+
+    std::string electronFileName = snapshotPath + "/particles.csv";
+    electronFile.open(electronFileName, std::ios_base::app);
+
+    electronFile << std::setprecision(16);
+    electronFile << t << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*x_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*x_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*y_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*y_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*vx_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*vx_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*vy_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*vy_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*Px_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*Px_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+    for (int p = 0; p < numElectrons-1; p++) {
+        electronFile << (*Py_elec[lastStepIndex-1])[p] << ",";
+    }
+    electronFile << (*Py_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
+
+    electronFile << std::endl;
+    electronFile.close();
+}
+
 void MOLTEngine::computePhysicalDiagnostics() {
+    // std::cout << "computeTotalEnergy" << std::endl;
     computeTotalEnergy();
+    // std::cout << "computeForce" << std::endl;
     computeForce();
+    // std::cout << "computeTotalMass" << std::endl;
     computeTotalMass();
+    // std::cout << "computeGaugeL2" << std::endl;
     computeGaugeL2();
+    // std::cout << "computeGaussL2" << std::endl;
     computeGaussL2();
+    // std::cout << "computeMagneticMagnitude" << std::endl;
     computeMagneticMagnitude();
+    // std::cout << "computeTemperature" << std::endl;
     computeTemperature();
+    // std::cout << "computeTotalMomentum" << std::endl;
     computeTotalMomentum();
+    // std::cout << "Done computing physical diagnostics." << std::endl;
 }
 
 void MOLTEngine::computeTotalMomentum() {
@@ -255,7 +300,7 @@ void MOLTEngine::computeForce() {
             const double w_rd = (  fx)*(1-fy);
             const double w_ru = (  fx)*(  fy);
 
-            if (this->method == MOLTEngine::CDF1) {
+            if (this->updateMethod == MOLTEngine::CDF2) {
                 ddx_phi_p += w_ld*( ddx_phi[lastStepIndex][ld].real() + ddx_phi[lastStepIndex-1][ld].real() ) / 2.0;
                 ddx_phi_p += w_lu*( ddx_phi[lastStepIndex][lu].real() + ddx_phi[lastStepIndex-1][lu].real() ) / 2.0;
                 ddx_phi_p += w_rd*( ddx_phi[lastStepIndex][rd].real() + ddx_phi[lastStepIndex-1][rd].real() ) / 2.0;
@@ -385,7 +430,7 @@ void MOLTEngine::computeTotalEnergy() {
         const double w_rd = (  fx)*(1-fy);
         const double w_ru = (  fx)*(  fy);
 
-        if (this->method == MOLTEngine::CDF1) {
+        if (this->updateMethod == MOLTEngine::CDF2) {
             phi_p += w_ld*( phi[lastStepIndex][ld].real() + phi[lastStepIndex-1][ld].real() ) / 2.0;
             phi_p += w_lu*( phi[lastStepIndex][lu].real() + phi[lastStepIndex-1][lu].real() ) / 2.0;
             phi_p += w_rd*( phi[lastStepIndex][rd].real() + phi[lastStepIndex-1][rd].real() ) / 2.0;
@@ -468,7 +513,7 @@ void MOLTEngine::computeTotalEnergy() {
         const double w_rd = (  fx)*(1-fy);
         const double w_ru = (  fx)*(  fy);
 
-        if (this->method == MOLTEngine::CDF1) {
+        if (this->updateMethod == MOLTEngine::CDF2) {
             phi_p += w_ld*( phi[lastStepIndex][ld].real() + phi[lastStepIndex-1][ld].real() ) / 2;
             phi_p += w_lu*( phi[lastStepIndex][lu].real() + phi[lastStepIndex-1][lu].real() ) / 2;
             phi_p += w_rd*( phi[lastStepIndex][rd].real() + phi[lastStepIndex-1][rd].real() ) / 2;
@@ -555,7 +600,7 @@ void MOLTEngine::computeGaugeL2() {
     double l2 = 0;
     
     for (int i = 0; i < Nx*Ny; i++) {
-        if (this->method == MOLTEngine::DIRK2 || this->method == MOLTEngine::DIRK3) {
+        if (this->updateMethod == MOLTEngine::DIRK2 || this->updateMethod == MOLTEngine::DIRK3) {
 
             double b1;
             double b2;
@@ -563,14 +608,14 @@ void MOLTEngine::computeGaugeL2() {
             double c1;
             double c2;
 
-            if (this->method == MOLTEngine::DIRK2) {
+            if (this->updateMethod == MOLTEngine::DIRK2) {
                 // Qin and Zhang's update scheme
                 b1 = 1.0/2.0;
                 b2 = 1.0/2.0;
 
                 c1 = 1.0/4.0;
                 c2 = 3.0/4.0;
-            } else if (this->method == MOLTEngine::DIRK3) {
+            } else if (this->updateMethod == MOLTEngine::DIRK3) {
                 // Crouzeix's update scheme
                 b1 = 1.0/2.0;
                 b2 = 1.0/2.0;
@@ -593,18 +638,15 @@ void MOLTEngine::computeGaugeL2() {
 
         } else {
 
-            if (this->method == MOLTEngine::BDF1 ||
-                this->method == MOLTEngine::CDF1 ||
-                this->method == MOLTEngine::MOLT_BDF1 ||
-                this->method == MOLTEngine::MOLT_BDF1_HYBRID_FFT ||
-                this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
+            if (this->updateMethod == MOLTEngine::BDF1 ||
+                this->updateMethod == MOLTEngine::CDF2) {
 
                 this->ddt_phi[1][i] = (phi[lastStepIndex][i].real() - phi[lastStepIndex-1][i].real()) / dt;
 
                 ddt_phi = (phi[lastStepIndex][i].real() - phi[lastStepIndex-1][i].real()) / dt;
                 div_A = ddx_A1[lastStepIndex][i].real() + ddy_A2[lastStepIndex][i].real();
 
-            } else if (this->method == MOLTEngine::BDF2) {
+            } else if (this->updateMethod == MOLTEngine::BDF2) {
 
                 this->ddt_phi[1][i] = (phi[lastStepIndex][i].real() - (4.0/3.0)*phi[lastStepIndex-1][i].real() + (1.0/3.0)*phi[lastStepIndex-2][i].real()) / (dt*(2.0/3.0));
 
@@ -637,21 +679,18 @@ void MOLTEngine::computeGaussL2() {
     double ddt_A2;
 
     for (int i = 0; i < Nx*Ny; i++) {
-        if (this->method == MOLTEngine::BDF1 ||
-            this->method == MOLTEngine::MOLT_BDF1 ||
-            this->method == MOLTEngine::CDF1 ||
-            this->method == MOLTEngine::DIRK2 ||
-            this->method == MOLTEngine::MOLT_BDF1_HYBRID_FFT ||
-            this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
+        if (this->updateMethod == MOLTEngine::BDF1 ||
+            this->updateMethod == MOLTEngine::CDF2 ||
+            this->updateMethod == MOLTEngine::DIRK2) {
             ddt_A1 = (A1[lastStepIndex][i].real() - A1[lastStepIndex-1][i].real()) / dt;
             ddt_A2 = (A2[lastStepIndex][i].real() - A2[lastStepIndex-1][i].real()) / dt;
-        } else if (this->method == MOLTEngine::BDF2) {
+        } else if (this->updateMethod == MOLTEngine::BDF2) {
             ddt_A1 = (A1[lastStepIndex][i].real() - (4.0/3.0)*A1[lastStepIndex-1][i].real() + (1.0/3.0)*A1[lastStepIndex-2][i].real()) / ((2.0/3.0)*dt);
             ddt_A2 = (A2[lastStepIndex][i].real() - (4.0/3.0)*A2[lastStepIndex-1][i].real() + (1.0/3.0)*A2[lastStepIndex-2][i].real()) / ((2.0/3.0)*dt);
         } else {
             throw -1;
         }
-        if (this->method == MOLTEngine::CDF1) {
+        if (this->updateMethod == MOLTEngine::CDF2) {
             E1[i] = -(ddx_phi[lastStepIndex][i].real() + ddx_phi[lastStepIndex-2][i].real())/2.0 - ddt_A1;
             E2[i] = -(ddy_phi[lastStepIndex][i].real() + ddy_phi[lastStepIndex-2][i].real())/2.0 - ddt_A2;
         } else {
@@ -660,34 +699,51 @@ void MOLTEngine::computeGaussL2() {
         }
     }
 
-    if (this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
-        compute_ddx_FD6(E1, ddx_E1);
-        compute_ddy_FD6(E2, ddy_E2);
+    // Extremely clunky, need to fix.
+    if (this->derivative_utility == nullptr) {
+
+        double Lx = x[Nx-1] - x[0] + dx;
+        double Ly = y[Nx-1] - y[0] + dy;
+
+        this->derivative_utility = new FD6(Nx, Ny, Lx, Ly);
+
+        compute_ddx_numerical(E1, ddx_E1);
+        compute_ddy_numerical(E2, ddy_E2);
+
+        compute_d2dx_numerical(phi[lastStepIndex], d2dx_phi_curr);
+        compute_d2dy_numerical(phi[lastStepIndex], d2dy_phi_curr);
+
+        delete this->derivative_utility;
+        this->derivative_utility = nullptr;
+
     } else {
-        compute_ddx_FFT(E1, ddx_E1);
-        compute_ddy_FFT(E2, ddy_E2);
+
+        compute_ddx_numerical(E1, ddx_E1);
+        compute_ddy_numerical(E2, ddy_E2);
+
+        compute_d2dx_numerical(phi[lastStepIndex], d2dx_phi_curr);
+        compute_d2dy_numerical(phi[lastStepIndex], d2dy_phi_curr);
+
     }
+
     std::vector<double> div_E(Nx*Ny);
 
     for (int i = 0; i < Nx*Ny; i++) {
-        div_E[i] = E1[i].real() + E2[i].real();
+        div_E[i] = ddx_E1[i].real() + ddy_E2[i].real();
     }
 
-    compute_d2dx(phi[lastStepIndex], d2dx_phi_curr);
-    compute_d2dy(phi[lastStepIndex], d2dy_phi_curr);
+    if (this->updateMethod == MOLTEngine::DIRK2) {
 
-    if (this->method == MOLTEngine::DIRK2) {
-
-        compute_d2dx(phi[lastStepIndex-1], d2dx_phi_prev);
-        compute_d2dy(phi[lastStepIndex-1], d2dy_phi_prev);
+        compute_d2dx_numerical(phi[lastStepIndex-1], d2dx_phi_prev);
+        compute_d2dy_numerical(phi[lastStepIndex-1], d2dy_phi_prev);
 
         for (int i = 0; i < Nx*Ny; i++) {
-            double rho_prev = rho[lastStepIndex][i-1].real();
-            double rho_curr = rho[lastStepIndex][i  ].real();
+            double rho_prev = rho[lastStepIndex-1][i].real();
+            double rho_curr = rho[lastStepIndex  ][i].real();
             gauss_RHS[i] = dirk_qin_zhang_rhs(rho_prev, rho_curr) / sigma_1;
 
-            double laplacian_phi_prev = d2dx_phi_curr[i-1].real() + d2dy_phi_curr[i-1].real();
-            double laplacian_phi_curr = d2dx_phi_curr[i  ].real() + d2dy_phi_curr[i  ].real();
+            double laplacian_phi_prev = d2dx_phi_prev[i].real() + d2dx_phi_prev[i].real();
+            double laplacian_phi_curr = d2dx_phi_curr[i].real() + d2dy_phi_curr[i].real();
             laplacian_phi[i] = dirk_qin_zhang_rhs(laplacian_phi_prev, laplacian_phi_curr);
 
             double div_A_prev = ddx_A1[lastStepIndex-1][i].real() + ddy_A2[lastStepIndex-1][i].real();
@@ -705,15 +761,12 @@ void MOLTEngine::computeGaussL2() {
         }
 
         for (int i = 0; i < Nx*Ny; i++) {
-            if (this->method == MOLTEngine::BDF1 ||
-                this->method == MOLTEngine::MOLT_BDF1 ||
-                this->method == MOLTEngine::DIRK2 ||
-                this->method == MOLTEngine::CDF1 ||
-                this->method == MOLTEngine::MOLT_BDF1_HYBRID_FFT ||
-                this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
+            if (this->updateMethod == MOLTEngine::BDF1 ||
+                this->updateMethod == MOLTEngine::DIRK2 ||
+                this->updateMethod == MOLTEngine::CDF2) {
                 d2dt_phi[i] = (phi[lastStepIndex][i] - 2.0*phi[lastStepIndex-1][i] + phi[lastStepIndex-2][i]).real()/(dt*dt);
-            } else if (this->method == MOLTEngine::BDF2) {
-                d2dt_phi[i] = (phi[lastStepIndex][i] - 8.0/3.0*phi[lastStepIndex][i] + 22.0/9.0*phi[lastStepIndex][i] - 8.0/9.0*phi[lastStepIndex][i] + 1.0/9.0*phi[lastStepIndex][i]).real() / std::pow(2.0/3.0*dt, 2);
+            } else if (this->updateMethod == MOLTEngine::BDF2) {
+                d2dt_phi[i] = (phi[lastStepIndex][i] - 8.0/3.0*phi[lastStepIndex-1][i] + 22.0/9.0*phi[lastStepIndex-2][i] - 8.0/9.0*phi[lastStepIndex-3][i] + 1.0/9.0*phi[lastStepIndex-4][i]).real() / std::pow(2.0/3.0*dt, 2);
             } else {
                 throw -1;
             }
@@ -759,17 +812,18 @@ void MOLTEngine::computeGaussL2() {
  * Dependencies: none
  */
 void MOLTEngine::print() {
+    struct timeval printBegin, printEnd;
+    gettimeofday( &printBegin, NULL );
+
     std::ofstream phiFile, A1File, A2File;
     std::ofstream ddx_phiFile, ddx_A1File, ddx_A2File;
     std::ofstream ddy_phiFile, ddy_A1File, ddy_A2File;
     std::ofstream rhoFile, J1File, J2File;
     std::ofstream ddt_phiFile;
-    std::ofstream electronFile;
 
     std::string nstr = std::to_string(n);
     int numlen = 5;
 
-    // std::string electronFileName = snapshotPath + "/particles.csv";
     std::string phiFileName = snapshotPath + "/phi.csv";
     std::string A1FileName = snapshotPath + "/A1.csv";
     std::string A2FileName = snapshotPath + "/A2.csv";
@@ -783,12 +837,10 @@ void MOLTEngine::print() {
     std::string J1FileName = snapshotPath + "/J1.csv";
     std::string J2FileName = snapshotPath + "/J2.csv";
     std::string ddt_phiFileName = snapshotPath + "/ddt_phi.csv";
-    
+
     std::ostringstream padder;
     padder << std::internal << std::setfill('0') << std::setw(numlen) << n;
     std::string paddedNum = padder.str();
-
-    // electronFile.open(electronFileName, std::ios_base::app);
 
     phiFile.open(phiFileName, std::ios_base::app);
     A1File.open(A1FileName, std::ios_base::app);
@@ -807,8 +859,7 @@ void MOLTEngine::print() {
     J1File.open(J1FileName, std::ios_base::app);
     J2File.open(J2FileName, std::ios_base::app);
     ddt_phiFile.open(ddt_phiFileName, std::ios_base::app);
-    
-    // electronFile << std::setprecision(16);
+
     phiFile      << std::setprecision(16);
     A1File       << std::setprecision(16);
     A2File       << std::setprecision(16);
@@ -823,7 +874,6 @@ void MOLTEngine::print() {
     J2File       << std::setprecision(16);
     ddt_phiFile  << std::setprecision(16);
     
-    electronFile << t << std::endl;
     phiFile      << t << std::endl;
     A1File       << t << std::endl;
     A2File       << t << std::endl;
@@ -838,6 +888,13 @@ void MOLTEngine::print() {
     J2File       << t << std::endl;
     ddt_phiFile  << t << std::endl;
 
+    /*
+     * The following values are all at lastStepIndex-1
+     * due to the assumption that print() will be called by
+     * an outside runner method, meaning the shuffleSteps()
+     * method will have been called, meaning the lastStepIndex
+     * slot will be junk.
+     */
     for (int i = 0; i < Nx*Ny - 1; i++) {
         phiFile     << phi[lastStepIndex-1][i].real() << ",";
         A1File      << A1[lastStepIndex-1][i].real() << ",";
@@ -867,32 +924,6 @@ void MOLTEngine::print() {
     J2File      << J2[lastStepIndex-1][Nx*Ny-1].real() << std::endl;
     ddt_phiFile << ddt_phi[1][Nx*Ny-1].real() << std::endl;
 
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*x_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*x_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*y_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*y_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*vx_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*vx_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*vy_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*vy_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*Px_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*Px_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-    // for (int p = 0; p < numElectrons-1; p++) {
-    //     electronFile << (*Py_elec[lastStepIndex-1])[p] << ",";
-    // }
-    // electronFile << (*Py_elec[lastStepIndex-1])[numElectrons-1] << std::endl;
-
-    // electronFile << std::endl;
     phiFile      << std::endl;
     A1File       << std::endl;
     A2File       << std::endl;
@@ -907,7 +938,6 @@ void MOLTEngine::print() {
     J2File       << std::endl;
     ddt_phiFile  << std::endl;
 
-    // electronFile.close();
     phiFile.close();
     A1File.close();
     A2File.close();
@@ -921,6 +951,9 @@ void MOLTEngine::print() {
     J1File.close();
     J2File.close();
     ddt_phiFile.close();
+
+    gettimeofday( &printEnd, NULL );
+    timeComponent7 += 1.0 * ( printEnd.tv_sec - printBegin.tv_sec ) + 1.0e-6 * ( printEnd.tv_usec - printBegin.tv_usec );
 }
 
 
@@ -947,12 +980,23 @@ void MOLTEngine::correctGauge() {
         phi[lastStepIndex][i] += phi_C[i];
     }
 
-    if (this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
-        compute_ddx_FD6(phi[lastStepIndex], ddx_phi[lastStepIndex]);
-        compute_ddy_FD6(phi[lastStepIndex], ddy_phi[lastStepIndex]);
+    // Extremely clunky, need to fix.
+    if (this->derivative_utility == nullptr) {
+
+        double Lx = x[Nx-1] - x[0] + dx;
+        double Ly = y[Nx-1] - y[0] + dy;
+
+        this->derivative_utility = new FD6(Nx, Ny, Lx, Ly);
+
+        compute_ddx_numerical(phi[lastStepIndex], ddx_phi[lastStepIndex]);
+        compute_ddy_numerical(phi[lastStepIndex], ddy_phi[lastStepIndex]);
+
+        delete this->derivative_utility;
+        this->derivative_utility = nullptr;
+
     } else {
-        compute_ddx_FFT(phi[lastStepIndex], ddx_phi[lastStepIndex]);
-        compute_ddy_FFT(phi[lastStepIndex], ddy_phi[lastStepIndex]);
+        compute_ddx_numerical(phi[lastStepIndex], ddx_phi[lastStepIndex]);
+        compute_ddy_numerical(phi[lastStepIndex], ddy_phi[lastStepIndex]);
     }
 }
 
@@ -977,6 +1021,8 @@ void MOLTEngine::updateParticleLocations() {
 
         (*x_elec[lastStepIndex])[i] = (*x_elec[lastStepIndex-1])[i] + dt*(*vx_elec[lastStepIndex-1])[i];
         (*y_elec[lastStepIndex])[i] = (*y_elec[lastStepIndex-1])[i] + dt*(*vy_elec[lastStepIndex-1])[i];
+        // (*x_elec[lastStepIndex])[i] = (*x_elec[lastStepIndex-1])[i] + dt*vx_star;
+        // (*y_elec[lastStepIndex])[i] = (*y_elec[lastStepIndex-1])[i] + dt*vy_star;
 
         (*x_elec[lastStepIndex])[i] = (*x_elec[lastStepIndex])[i] - Lx*floor(((*x_elec[lastStepIndex])[i] - this->x[0]) / Lx);
         (*y_elec[lastStepIndex])[i] = (*y_elec[lastStepIndex])[i] - Ly*floor(((*y_elec[lastStepIndex])[i] - this->y[0]) / Ly);
@@ -1018,8 +1064,8 @@ void MOLTEngine::DIRK2_advance_per(std::complex<double>* u, std::complex<double>
             S_2[i] = (1-c2)*src_prev[i] + c2*src_curr[i];
         }
 
-        compute_d2dx(u, d2dx_u);
-        compute_d2dy(u, d2dy_u);
+        compute_d2dx_numerical(u, d2dx_u);
+        compute_d2dy_numerical(u, d2dy_u);
 
         for (int i = 0; i < Nx*Ny; i++) {
             laplacian_u[i] = d2dx_u[i] + d2dy_u[i];
@@ -1029,10 +1075,10 @@ void MOLTEngine::DIRK2_advance_per(std::complex<double>* u, std::complex<double>
             RHS1[i] = v[i] + dt*a11*kappa*kappa*(laplacian_u[i] + S_1[i]);
         }
 
-        fft_utility.solveHelmholtzEquation(RHS1, u1, alpha_1);
+        solveHelmholtzEquation(RHS1, u1, alpha_1);
 
-        compute_d2dx(u1, d2dx_u);
-        compute_d2dy(u1, d2dy_u);
+        compute_d2dx_numerical(u1, d2dx_u);
+        compute_d2dy_numerical(u1, d2dy_u);
 
         for (int i = 0; i < Nx*Ny; i++) {
             laplacian_u1[i] = d2dx_u[i] + d2dy_u[i];
@@ -1046,10 +1092,10 @@ void MOLTEngine::DIRK2_advance_per(std::complex<double>* u, std::complex<double>
             RHS2[i] = v[i] + dt*a21*v1[i] + dt*a22*kappa*kappa*(laplacian_u[i] + dt*a21*laplacian_u1[i] + S_2[i]);
         }
 
-        fft_utility.solveHelmholtzEquation(RHS2, u2, alpha_2);
+        solveHelmholtzEquation(RHS2, u2, alpha_2);
 
-        compute_d2dx(u2, d2dx_u);
-        compute_d2dy(u2, d2dy_u);
+        compute_d2dx_numerical(u2, d2dx_u);
+        compute_d2dy_numerical(u2, d2dy_u);
 
         for (int i = 0; i < Nx*Ny; i++) {
             laplacian_u2[i] = d2dx_u[i] + d2dy_u[i];
@@ -1100,8 +1146,8 @@ void MOLTEngine::DIRK3_advance_per(std::complex<double>* u, std::complex<double>
             S_2[i] = (1-c2)*src_prev[i] + c2*src_curr[i];
         }
 
-        compute_d2dx(u, d2dx_u);
-        compute_d2dy(u, d2dy_u);
+        compute_d2dx_numerical(u, d2dx_u);
+        compute_d2dy_numerical(u, d2dy_u);
 
         for (int i = 0; i < Nx*Ny; i++) {
             laplacian_u[i] = d2dx_u[i] + d2dy_u[i];
@@ -1111,10 +1157,10 @@ void MOLTEngine::DIRK3_advance_per(std::complex<double>* u, std::complex<double>
             RHS1[i] = v[i] + dt*a11*kappa*kappa*(laplacian_u[i] + S_1[i]);
         }
 
-        fft_utility.solveHelmholtzEquation(RHS1, u1, alpha_1);
+        solveHelmholtzEquation(RHS1, u1, alpha_1);
 
-        compute_d2dx(u1, d2dx_u);
-        compute_d2dy(u1, d2dy_u);
+        compute_d2dx_numerical(u1, d2dx_u);
+        compute_d2dy_numerical(u1, d2dy_u);
 
         for (int i = 0; i < Nx*Ny; i++) {
             laplacian_u1[i] = d2dx_u[i] + d2dy_u[i];
@@ -1128,10 +1174,10 @@ void MOLTEngine::DIRK3_advance_per(std::complex<double>* u, std::complex<double>
             RHS2[i] = v[i] + dt*a21*v1[i] + dt*a22*kappa*kappa*(laplacian_u[i] + dt*a21*laplacian_u1[i] + S_2[i]);
         }
 
-        fft_utility.solveHelmholtzEquation(RHS2, u2, alpha_2);
+        solveHelmholtzEquation(RHS2, u2, alpha_2);
 
-        compute_d2dx(u2, d2dx_u);
-        compute_d2dy(u2, d2dy_u);
+        compute_d2dx_numerical(u2, d2dx_u);
+        compute_d2dy_numerical(u2, d2dy_u);
 
         for (int i = 0; i < Nx*Ny; i++) {
             laplacian_u2[i] = d2dx_u[i] + d2dy_u[i];
@@ -1164,26 +1210,26 @@ void MOLTEngine::updateWaves() {
     double alpha = beta/(kappa*dt);
     double alpha2 = alpha*alpha;
 
-    if (this->method == MOLTEngine::MOLT_BDF1 || this->method == MOLTEngine::MOLT_BDF1_HYBRID_FFT || this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
+    if (this->moltMethod == MOLTMethod::Integral) {
         std::complex<double>* phi_RHS = new std::complex<double>[Nx*Ny];
         std::complex<double>*  A1_RHS = new std::complex<double>[Nx*Ny];
         std::complex<double>*  A2_RHS = new std::complex<double>[Nx*Ny];
 
         for (int i = 0; i < Nx*Ny; i++) {
             phi_RHS[i] = 1.0/sigma_1 * rho[lastStepIndex][i];
-            A1_RHS[i] = sigma_2 * J1[lastStepIndex][i];
-            A2_RHS[i] = sigma_2 * J2[lastStepIndex][i];
+            A1_RHS[i] =      sigma_2 *  J1[lastStepIndex][i];
+            A2_RHS[i] =      sigma_2 *  J2[lastStepIndex][i];
         }
 
-        MOLT_BDF1_combined_per_advance(phi, phi_RHS, phi[lastStepIndex], ddx_phi[lastStepIndex], ddy_phi[lastStepIndex]);
-        MOLT_BDF1_combined_per_advance(A1,  A1_RHS,  A1[lastStepIndex],  ddx_A1[lastStepIndex],  ddy_A1[lastStepIndex] );
-        MOLT_BDF1_combined_per_advance(A2,  A2_RHS,  A2[lastStepIndex],  ddx_A2[lastStepIndex],  ddy_A2[lastStepIndex] );
+        MOLT_combined_per_advance(phi, phi_RHS, phi[lastStepIndex], ddx_phi[lastStepIndex], ddy_phi[lastStepIndex]);
+        MOLT_combined_per_advance( A1,  A1_RHS,  A1[lastStepIndex],  ddx_A1[lastStepIndex],  ddy_A1[lastStepIndex]);
+        MOLT_combined_per_advance( A2,  A2_RHS,  A2[lastStepIndex],  ddx_A2[lastStepIndex],  ddy_A2[lastStepIndex]);
 
         delete[] phi_RHS;
         delete[] A1_RHS;
         delete[] A2_RHS;
     } else {
-        if (this->method == MOLTEngine::DIRK2 || this->method == MOLTEngine::DIRK3) {
+        if (this->updateMethod == MOLTEngine::DIRK2 || this->updateMethod == MOLTEngine::DIRK3) {
 
             for (int i = 0; i < Nx*Ny; i++) {
                 phi_src[i] = 1.0/sigma_1 * rho[lastStepIndex][i];
@@ -1201,42 +1247,42 @@ void MOLTEngine::updateWaves() {
                 ddt_A2_curr[i]  = ( A2[lastStepIndex-1][i] - A2[lastStepIndex-2][i] ) / dt;
             }
 
-            if (this->method == MOLTEngine::DIRK2) {
+            if (this->updateMethod == MOLTEngine::DIRK2) {
                 DIRK2_advance_per(phi[lastStepIndex-1], ddt_phi_curr, phi[lastStepIndex], ddt_phi[1], phi_src_prev, phi_src);
                 DIRK2_advance_per(A1[lastStepIndex-1], ddt_A1_curr, A1[lastStepIndex], ddt_A1[1], A1_src_prev, A1_src);
                 DIRK2_advance_per(A2[lastStepIndex-1], ddt_A2_curr, A2[lastStepIndex], ddt_A2[1], A2_src_prev, A2_src);
-            } else if (this->method == MOLTEngine::DIRK3) {
+            } else if (this->updateMethod == MOLTEngine::DIRK3) {
                 DIRK3_advance_per(phi[lastStepIndex-1], ddt_phi_curr, phi[lastStepIndex], ddt_phi[1], phi_src_prev, phi_src);
                 DIRK3_advance_per(A1[lastStepIndex-1], ddt_A1_curr, A1[lastStepIndex], ddt_A1[1], A1_src_prev, A1_src);
                 DIRK3_advance_per(A2[lastStepIndex-1], ddt_A2_curr, A2[lastStepIndex], ddt_A2[1], A2_src_prev, A2_src);
             }
 
         } else {
-            if (this->method == MOLTEngine::BDF1) {
+            if (this->updateMethod == MOLTEngine::BDF1) {
                 for (int i = 0; i < Nx*Ny; i++) {
                     phi_src[i] = 2.0*phi[lastStepIndex-1][i] - phi[lastStepIndex-2][i] + 1.0/alpha2 * 1.0/sigma_1 * rho[lastStepIndex][i];
                     A1_src[i] = 2.0*A1[lastStepIndex-1][i] - A1[lastStepIndex-2][i] + 1.0/alpha2 * sigma_2 * J1[lastStepIndex][i];
                     A2_src[i] = 2.0*A2[lastStepIndex-1][i] - A2[lastStepIndex-2][i] + 1.0/alpha2 * sigma_2 * J2[lastStepIndex][i];
                 }
-            } else if (this->method == MOLTEngine::BDF2) {
+            } else if (this->updateMethod == MOLTEngine::BDF2) {
                 for (int i = 0; i < Nx*Ny; i++) {
                     phi_src[i] = 8.0/3.0*phi[lastStepIndex-1][i] - 22.0/9.0*phi[lastStepIndex-2][i] + 8.0/9.0*phi[lastStepIndex-3][i] - 1.0/9.0*phi[lastStepIndex-4][i] + 1.0/alpha2 * 1.0/sigma_1 * rho[lastStepIndex][i];
                     A1_src[i] = 8.0/3.0*A1[lastStepIndex-1][i] - 22.0/9.0*A1[lastStepIndex-2][i] + 8.0/9.0*A1[lastStepIndex-3][i] - 1.0/9.0*A1[lastStepIndex-4][i] + 1.0/alpha2 * sigma_2 * J1[lastStepIndex][i];
                     A2_src[i] = 8.0/3.0*A2[lastStepIndex-1][i] - 22.0/9.0*A2[lastStepIndex-2][i] + 8.0/9.0*A2[lastStepIndex-3][i] - 1.0/9.0*A2[lastStepIndex-4][i] + 1.0/alpha2 * sigma_2 * J2[lastStepIndex][i];
                 }
-            } else if (this->method == MOLTEngine::CDF1) {
+            } else if (this->updateMethod == MOLTEngine::CDF2) {
                 for (int i = 0; i < Nx*Ny; i++) {
-                    phi_src[i] = 1.0/alpha2*(rho[lastStepIndex][i] + rho[lastStepIndex-2][i])/sigma_1 + 2.0*phi[lastStepIndex-1][i];
-                    A1_src[i] = sigma_2/alpha2*(J1[lastStepIndex][i] + J1[lastStepIndex-2][i]) + 2.0*A1[lastStepIndex-1][i];
-                    A2_src[i] = sigma_2/alpha2*(J2[lastStepIndex][i] + J2[lastStepIndex-2][i]) + 2.0*A2[lastStepIndex-1][i];
+                    phi_src[i] =        2.0/alpha2 * (rho[lastStepIndex][i] + rho[lastStepIndex-2][i]) / sigma_1 + 2.0*phi[lastStepIndex-1][i];
+                    A1_src[i] = 2.0*sigma_2/alpha2 * ( J1[lastStepIndex][i] + J1[lastStepIndex-2][i] )           + 2.0* A1[lastStepIndex-1][i];
+                    A2_src[i] = 2.0*sigma_2/alpha2 * ( J2[lastStepIndex][i] + J2[lastStepIndex-2][i] )           + 2.0* A2[lastStepIndex-1][i];
                 }
             }
 
-            fft_utility.solveHelmholtzEquation(phi_src, phi[lastStepIndex], alpha);
-            fft_utility.solveHelmholtzEquation(A1_src,  A1[lastStepIndex], alpha);
-            fft_utility.solveHelmholtzEquation(A2_src,  A2[lastStepIndex], alpha);
+            solveHelmholtzEquation(phi_src, phi[lastStepIndex], alpha);
+            solveHelmholtzEquation( A1_src,  A1[lastStepIndex], alpha);
+            solveHelmholtzEquation( A2_src,  A2[lastStepIndex], alpha);
 
-            if (this->method == MOLTEngine::CDF1) {
+            if (this->updateMethod == MOLTEngine::CDF2) {
                 for (int i = 0; i < Nx*Ny; i++) {
                     phi[lastStepIndex][i] -= phi[lastStepIndex-2][i];
                     A1[lastStepIndex][i]  -= A1[lastStepIndex-2][i];
@@ -1245,12 +1291,12 @@ void MOLTEngine::updateWaves() {
             }
         }
 
-        compute_ddx_FFT(phi[lastStepIndex], ddx_phi[lastStepIndex]);
-        compute_ddy_FFT(phi[lastStepIndex], ddy_phi[lastStepIndex]);
-        compute_ddx_FFT(A1[lastStepIndex],  ddx_A1[lastStepIndex]);
-        compute_ddy_FFT(A1[lastStepIndex],  ddy_A1[lastStepIndex]);
-        compute_ddx_FFT(A2[lastStepIndex],  ddx_A2[lastStepIndex]);
-        compute_ddy_FFT(A2[lastStepIndex],  ddy_A2[lastStepIndex]);
+        compute_ddx_numerical(phi[lastStepIndex], ddx_phi[lastStepIndex]);
+        compute_ddy_numerical(phi[lastStepIndex], ddy_phi[lastStepIndex]);
+        compute_ddx_numerical(A1[lastStepIndex],  ddx_A1[lastStepIndex]);
+        compute_ddy_numerical(A1[lastStepIndex],  ddy_A1[lastStepIndex]);
+        compute_ddx_numerical(A2[lastStepIndex],  ddx_A2[lastStepIndex]);
+        compute_ddy_numerical(A2[lastStepIndex],  ddy_A2[lastStepIndex]);
     }
 }
 
@@ -1269,100 +1315,41 @@ void MOLTEngine::updateWaves() {
  */
 void MOLTEngine::updateParticleVelocities() {
 
+    int numFields = 8;
+
+    std::complex<double>* ddx_phi = new std::complex<double>[Nx*Ny];
+    std::complex<double>* ddy_phi = new std::complex<double>[Nx*Ny];
+
+    if (this->updateMethod == MOLTEngine::CDF2) {
+        for (int i = 0; i < Nx*Ny; i++) {
+            ddx_phi[i] = (this->ddx_phi[lastStepIndex][i] + this->ddx_phi[lastStepIndex-1][i]) / 2.0;
+            ddy_phi[i] = (this->ddy_phi[lastStepIndex][i] + this->ddx_phi[lastStepIndex-1][i]) / 2.0;
+        }
+    } else {
+        for (int i = 0; i < Nx*Ny; i++) {
+            ddx_phi[i] = this->ddx_phi[lastStepIndex][i];
+            ddy_phi[i] = this->ddy_phi[lastStepIndex][i];
+        }
+    }
+
+    std::complex<double>* fields[numFields] = {ddx_phi, ddy_phi, A1[lastStepIndex], ddx_A1[lastStepIndex], ddy_A1[lastStepIndex], A2[lastStepIndex], ddx_A2[lastStepIndex], ddy_A2[lastStepIndex]};
+    std::vector<std::vector<std::complex<double>>> vals(8, std::vector<std::complex<double>>(numElectrons));
+
+    delete[] ddx_phi;
+    delete[] ddy_phi;
+
+    this->interpolate_utility->gatherFields(fields, (*x_elec[lastStepIndex]), (*y_elec[lastStepIndex]), numFields, numElectrons, vals);
+
     #pragma omp parallel for
     for (int i = 0; i < numElectrons; i++) {
-        double ddx_phi_p = 0;
-        double ddy_phi_p = 0;
-        double A1_p = 0;
-        double ddx_A1_p = 0;
-        double ddy_A1_p = 0;
-        double A2_p = 0;
-        double ddx_A2_p = 0;
-        double ddy_A2_p = 0;
-        const double p_x = (*x_elec[lastStepIndex])[i];
-        const double p_y = (*y_elec[lastStepIndex])[i];
-        // ------------------------------
-        // Gather Fields
-        // We convert from cartesian to logical space
-        const double x0 = this->x[0];
-        const double y0 = this->y[0];
-        const int lc_x = floor((p_x - x0)/dx);
-        const int lc_y = floor((p_y - y0)/dy);
-
-        const int lc_x_p1 = (lc_x+1) % Nx;
-        const int lc_y_p1 = (lc_y+1) % Ny;
-
-        const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-        const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-        const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-        const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-        const double xNode = this->x[lc_x];
-        const double yNode = this->y[lc_y];
-
-        // We compute the fractional distance of a particle from
-        // the nearest node.
-        // eg x=[0,.1,.2,.3], particleX = [.225]
-        // The particle's fractional is 1/4
-        const double fx = (p_x - xNode)/dx;
-        const double fy = (p_y - yNode)/dy;
-
-        const double w_ld = (1-fx)*(1-fy);
-        const double w_lu = (1-fx)*(  fy);
-        const double w_rd = (  fx)*(1-fy);
-        const double w_ru = (  fx)*(  fy);
-
-        if (this->method == MOLTEngine::CDF1) {
-            ddx_phi_p += w_ld*( ddx_phi[lastStepIndex][ld].real() + ddx_phi[lastStepIndex-1][ld].real() ) / 2;
-            ddx_phi_p += w_lu*( ddx_phi[lastStepIndex][lu].real() + ddx_phi[lastStepIndex-1][lu].real() ) / 2;
-            ddx_phi_p += w_rd*( ddx_phi[lastStepIndex][rd].real() + ddx_phi[lastStepIndex-1][rd].real() ) / 2;
-            ddx_phi_p += w_ru*( ddx_phi[lastStepIndex][ru].real() + ddx_phi[lastStepIndex-1][ru].real() ) / 2;
-
-            ddy_phi_p += w_ld*( ddy_phi[lastStepIndex][ld].real() + ddy_phi[lastStepIndex-1][ld].real() ) / 2;
-            ddy_phi_p += w_lu*( ddy_phi[lastStepIndex][lu].real() + ddy_phi[lastStepIndex-1][lu].real() ) / 2;
-            ddy_phi_p += w_rd*( ddy_phi[lastStepIndex][rd].real() + ddy_phi[lastStepIndex-1][rd].real() ) / 2;
-            ddy_phi_p += w_ru*( ddy_phi[lastStepIndex][ru].real() + ddy_phi[lastStepIndex-1][ru].real() ) / 2;
-        } else {
-            ddx_phi_p += w_ld*ddx_phi[lastStepIndex][ld].real();
-            ddx_phi_p += w_lu*ddx_phi[lastStepIndex][lu].real();
-            ddx_phi_p += w_rd*ddx_phi[lastStepIndex][rd].real();
-            ddx_phi_p += w_ru*ddx_phi[lastStepIndex][ru].real();
-
-            ddy_phi_p += w_ld*ddy_phi[lastStepIndex][ld].real();
-            ddy_phi_p += w_lu*ddy_phi[lastStepIndex][lu].real();
-            ddy_phi_p += w_rd*ddy_phi[lastStepIndex][rd].real();
-            ddy_phi_p += w_ru*ddy_phi[lastStepIndex][ru].real();
-        }
-
-        A1_p += w_ld*A1[lastStepIndex][ld].real();
-        A1_p += w_lu*A1[lastStepIndex][lu].real();
-        A1_p += w_rd*A1[lastStepIndex][rd].real();
-        A1_p += w_ru*A1[lastStepIndex][ru].real();
-
-        ddx_A1_p += w_ld*ddx_A1[lastStepIndex][ld].real();
-        ddx_A1_p += w_lu*ddx_A1[lastStepIndex][lu].real();
-        ddx_A1_p += w_rd*ddx_A1[lastStepIndex][rd].real();
-        ddx_A1_p += w_ru*ddx_A1[lastStepIndex][ru].real();
-
-        ddy_A1_p += w_ld*ddy_A1[lastStepIndex][ld].real();
-        ddy_A1_p += w_lu*ddy_A1[lastStepIndex][lu].real();
-        ddy_A1_p += w_rd*ddy_A1[lastStepIndex][rd].real();
-        ddy_A1_p += w_ru*ddy_A1[lastStepIndex][ru].real();
-
-        A2_p += w_ld*A2[lastStepIndex][ld].real();
-        A2_p += w_lu*A2[lastStepIndex][lu].real();
-        A2_p += w_rd*A2[lastStepIndex][rd].real();
-        A2_p += w_ru*A2[lastStepIndex][ru].real();
-
-        ddx_A2_p += w_ld*ddx_A2[lastStepIndex][ld].real();
-        ddx_A2_p += w_lu*ddx_A2[lastStepIndex][lu].real();
-        ddx_A2_p += w_rd*ddx_A2[lastStepIndex][rd].real();
-        ddx_A2_p += w_ru*ddx_A2[lastStepIndex][ru].real();
-
-        ddy_A2_p += w_ld*ddy_A2[lastStepIndex][ld].real();
-        ddy_A2_p += w_lu*ddy_A2[lastStepIndex][lu].real();
-        ddy_A2_p += w_rd*ddy_A2[lastStepIndex][rd].real();
-        ddy_A2_p += w_ru*ddy_A2[lastStepIndex][ru].real();
+        double ddx_phi_p = vals[0][i].real();
+        double ddy_phi_p = vals[1][i].real();
+        double A1_p = vals[2][i].real();
+        double ddx_A1_p = vals[3][i].real();
+        double ddy_A1_p = vals[4][i].real();
+        double A2_p = vals[5][i].real();
+        double ddx_A2_p = vals[6][i].real();
+        double ddy_A2_p = vals[7][i].real();
 
         double vx_star = (*vx_elec[lastStepIndex-1])[i] + ( (*vx_elec[lastStepIndex-1])[i] - (*vx_elec[lastStepIndex-2])[i] );
         double vy_star = (*vy_elec[lastStepIndex-1])[i] + ( (*vy_elec[lastStepIndex-1])[i] - (*vy_elec[lastStepIndex-2])[i] );
@@ -1476,60 +1463,6 @@ void MOLTEngine::shuffleSteps() {
 }
 
 /**
- * Name: gatherFields
- * Author: Stephen White
- * Date Created: 5/28/24
- * Date Last Modified: 5/28/24 (Stephen White)
- * Description: Eliminates redundancies in the gatherField method, instead of multiple calls to gatherField
- *              we pass in a vector of fields and compute the fractional weight for each particle, using this
- *              for each field.
- * Inputs: p_x, p_y, fields, fields_out
- * Output: technically none, but fields_out is where the results are stored.
- * Dependencies: none
- */
-void MOLTEngine::gatherFields(double p_x, double p_y, std::vector<std::vector<std::complex<double>>>& fields, std::vector<double>& fields_out) {
-    // We convert from cartesian to logical space
-    const double x0 = this->x[0];
-    const double y0 = this->y[0];
-    const int lc_x = floor((p_x - x0)/dx);
-    const int lc_y = floor((p_y - y0)/dy);
-
-    const int lc_x_p1 = (lc_x+1) % Nx;
-    const int lc_y_p1 = (lc_y+1) % Ny;
-
-    const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-    const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-    const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-    const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-    const double xNode = this->x[lc_x];
-    const double yNode = this->y[lc_y];
-
-    // We compute the fractional distance of a particle from
-    // the nearest node.
-    // eg x=[0,.1,.2,.3], particleX = [.225]
-    // The particle's fractional is 1/4
-    const double fx = (p_x - xNode)/dx;
-    const double fy = (p_y - yNode)/dy;
-
-    const int N = fields.size();
-
-    double field_00, field_01, field_10, field_11;
-
-    for (int i = 0; i < N; i++) {
-        // Now we acquire the field values at the surrounding nodes
-        field_00 = fields[i][ld].real();
-        field_01 = fields[i][lu].real();
-        field_10 = fields[i][rd].real();
-        field_11 = fields[i][ru].real();
-
-        // Returning the combined total of all the fields in proportion
-        // with the fractional distance
-        fields_out[i] = (1-fx)*(1-fy)*field_00 + (1-fx)*(fy)*field_01 + (fx)*(1-fy)*field_10 + (fx)*(fy)*field_11;
-    }
-}
-
-/**
  * Name: scatterFields
  * Author: Stephen White
  * Date Created: 5/28/24
@@ -1545,113 +1478,57 @@ void MOLTEngine::scatterFields() {
         J1[lastStepIndex][i] = 0.0;
         J2[lastStepIndex][i] = 0.0;
     }
-
-    for (int i = 0; i < numElectrons; i++) {
-        // double vx_star = 2.0*(*vx_elec[lastStepIndex-1])[i] - (*vx_elec[lastStepIndex-2])[i];
-        // double vy_star = 2.0*(*vy_elec[lastStepIndex-1])[i] - (*vy_elec[lastStepIndex-2])[i];
-
-        // double x_value = q_ele*vx_star*w_ele;
-        // double y_value = q_ele*vy_star*w_ele;
-        double x_value = q_ele*(*vx_elec[lastStepIndex-1])[i]*w_ele;
-        double y_value = q_ele*(*vy_elec[lastStepIndex-1])[i]*w_ele;
-
-        double x_p = this->method == MOLTEngine::CDF1 ? ( (*x_elec[lastStepIndex])[i] + (*x_elec[lastStepIndex-1])[i] ) / 2 : (*x_elec[lastStepIndex])[i];
-        double y_p = this->method == MOLTEngine::CDF1 ? ( (*y_elec[lastStepIndex])[i] + (*y_elec[lastStepIndex-1])[i] ) / 2 : (*y_elec[lastStepIndex])[i];
-
-        // We convert from cartesian to logical space
-        int lc_x = floor((x_p - x[0])/dx);
-        int lc_y = floor((y_p - y[0])/dy);
-
-        const int lc_x_p1 = (lc_x+1) % Nx;
-        const int lc_y_p1 = (lc_y+1) % Ny;
-
-        const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-        const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-        const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-        const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-        double xNode = this->x[lc_x];
-        double yNode = this->y[lc_y];
-
-        // We compute the fractional distance of a particle from
-        // the nearest node.
-        // eg x=[0,.1,.2,.3], particleX = [.225]
-        // The particle's fractional is 1/4
-        double fx = (x_p - xNode)/dx;
-        double fy = (y_p - yNode)/dy;
-
-        // Now we acquire the particle value and add it to the corresponding field
-        J1[lastStepIndex][ld] += (1-fx)*(1-fy)*x_value;
-        J1[lastStepIndex][lu] += (1-fx)*(  fy)*x_value;
-        J1[lastStepIndex][rd] += (  fx)*(1-fy)*x_value;
-        J1[lastStepIndex][ru] += (  fx)*(  fy)*x_value;
-
-        J2[lastStepIndex][ld] += (1-fx)*(1-fy)*y_value;
-        J2[lastStepIndex][lu] += (1-fx)*(  fy)*y_value;
-        J2[lastStepIndex][rd] += (  fx)*(1-fy)*y_value;
-        J2[lastStepIndex][ru] += (  fx)*(  fy)*y_value;
+    std::vector<std::vector<double>> weights(2,std::vector<double>(numElectrons));
+    for (int p = 0; p < numElectrons; p++) {
+        weights[0][p] = q_ele*(*vx_elec[lastStepIndex-1])[p]*w_ele/(dx*dy);
+        weights[1][p] = q_ele*(*vy_elec[lastStepIndex-1])[p]*w_ele/(dx*dy);
     }
-    double volume = 1.0/(dx*dy);
-    for (int i = 0; i < Nx*Ny; i++) {
-        J1[lastStepIndex][i] *= volume;
-        J2[lastStepIndex][i] *= volume;
-    }
+    std::complex<double>* fields[2] = {J1[lastStepIndex], J2[lastStepIndex]};
 
-    // fftw_execute_dft(forward_plan, reinterpret_cast<fftw_complex*>(J1[lastStepIndex]), reinterpret_cast<fftw_complex*>(forwardOut));
-    // fftw_execute_dft(inverse_plan, reinterpret_cast<fftw_complex*>(forwardOut), reinterpret_cast<fftw_complex*>(J1[lastStepIndex]));
-
-    // fftw_execute_dft(forward_plan, reinterpret_cast<fftw_complex*>(J2[lastStepIndex]), reinterpret_cast<fftw_complex*>(forwardOut));
-    // fftw_execute_dft(inverse_plan, reinterpret_cast<fftw_complex*>(forwardOut), reinterpret_cast<fftw_complex*>(J2[lastStepIndex]));
-
-    // Compute div J
-    if (this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
-        compute_ddx_FD6(J1[lastStepIndex], ddx_J1);
-        compute_ddy_FD6(J2[lastStepIndex], ddy_J2);
-    } else {
-        compute_ddx_FFT(J1[lastStepIndex], ddx_J1);
-        compute_ddy_FFT(J2[lastStepIndex], ddy_J2);
-    }
-
-    // double Gamma = 0;
-
-    // for (int i = 0; i < Nx*Ny; i++) {
-    //     Gamma += ddx_J1[i].real() + ddy_J2[i].real();
-    // }
-    // Gamma *= -1.0/(Nx*Ny);
-
-    // int idx;
-
-    // for (int i = 0; i < Nx; i++) {
-    //     for (int j = 0; j < Ny; j++) {
-    //         idx = computeIndex(i, j);
-    //         F1[idx] = .5*Gamma*x[i];
-    //         F2[idx] = .5*Gamma*y[j];
-    //     }
-    // }
-
-    // for (int i = 0; i < Nx*Ny; i++) {
-    //     J1[lastStepIndex][i] += F1[i];
-    //     J2[lastStepIndex][i] += F2[i];
-    // }
-
-    // // Compute div J from the Lagrange Multiplied Current
-    // compute_ddx(J1[lastStepIndex], ddx_J1);
-    // compute_ddy(J2[lastStepIndex], ddy_J2);
+    this->interpolate_utility->scatterParticles(fields, (*x_elec[lastStepIndex]), (*y_elec[lastStepIndex]), 2, numElectrons, weights);
 
     if (this->rhoUpdate == MOLTEngine::CONSERVING) {
-        if (this->method == MOLTEngine::BDF1 ||
-            this->method == MOLTEngine::MOLT_BDF1 ||
-            this->method == MOLTEngine::MOLT_BDF1_HYBRID_FFT ||
-            this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6 ||
-            this->method == MOLTEngine::CDF1) {
+
+        // Compute div J
+        compute_ddx_numerical(J1[lastStepIndex], ddx_J1);
+        compute_ddy_numerical(J2[lastStepIndex], ddy_J2);
+
+        // double Gamma = 0;
+
+        // for (int i = 0; i < Nx*Ny; i++) {
+        //     Gamma += ddx_J1[i].real() + ddy_J2[i].real();
+        // }
+        // Gamma *= -1.0/(Nx*Ny);
+
+        // int idx;
+
+        // for (int i = 0; i < Nx; i++) {
+        //     for (int j = 0; j < Ny; j++) {
+        //         idx = computeIndex(i, j);
+        //         F1[idx] = .5*Gamma*x[i];
+        //         F2[idx] = .5*Gamma*y[j];
+        //     }
+        // }
+
+        // for (int i = 0; i < Nx*Ny; i++) {
+        //     J1[lastStepIndex][i] += F1[i];
+        //     J2[lastStepIndex][i] += F2[i];
+        // }
+
+        // // Compute div J from the Lagrange Multiplied Current
+        // compute_ddx(J1[lastStepIndex], ddx_J1);
+        // compute_ddy(J2[lastStepIndex], ddy_J2);
+
+        if (this->updateMethod == MOLTEngine::BDF1 ||
+            this->updateMethod == MOLTEngine::CDF2) {
             for (int i = 0; i < Nx*Ny; i++) {
                 rho[lastStepIndex][i] = rho[lastStepIndex-1][i] - dt*(ddx_J1[i] + ddy_J2[i]);
             }
-        } else if (this->method == MOLTEngine::BDF2) {
+        } else if (this->updateMethod == MOLTEngine::BDF2) {
             for (int i = 0; i < Nx*Ny; i++) {
                 rho[lastStepIndex][i] = 4.0/3.0*rho[lastStepIndex-1][i] - 1.0/3.0*rho[lastStepIndex-2][i] - ((2.0/3.0)*dt)*(ddx_J1[i] + ddy_J2[i]);
             }
-        } else if (this->method == MOLTEngine::DIRK2 || this->method == MOLTEngine::DIRK3) {
+        } else if (this->updateMethod == MOLTEngine::DIRK2 || this->updateMethod == MOLTEngine::DIRK3) {
 
             double b1;
             double b2;
@@ -1659,14 +1536,14 @@ void MOLTEngine::scatterFields() {
             double c1;
             double c2;
 
-            if (this->method == MOLTEngine::DIRK2) {
+            if (this->updateMethod == MOLTEngine::DIRK2) {
                 // Qin and Zhang's update scheme
                 b1 = 1.0/2.0;
                 b2 = 1.0/2.0;
 
                 c1 = 1.0/4.0;
                 c2 = 3.0/4.0;
-            } else if (this->method == MOLTEngine::DIRK3) {
+            } else if (this->updateMethod == MOLTEngine::DIRK3) {
                 // Crouzeix's update scheme
                 b1 = 1.0/2.0;
                 b2 = 1.0/2.0;
@@ -1675,8 +1552,8 @@ void MOLTEngine::scatterFields() {
                 c2 = 1.0/2.0 - std::sqrt(3.0)/6.0;
             }
 
-            compute_ddx_FFT(J1[lastStepIndex-1], ddx_J1_prev);
-            compute_ddy_FFT(J2[lastStepIndex-1], ddy_J2_prev);
+            compute_ddx_numerical(J1[lastStepIndex-1], ddx_J1_prev);
+            compute_ddy_numerical(J2[lastStepIndex-1], ddy_J2_prev);
 
             for (int i = 0; i < Nx*Ny; i++) {
 
@@ -1709,11 +1586,8 @@ void MOLTEngine::scatterFields() {
         #pragma omp parallel for reduction(+:S[:Nx*Ny])
         for (int i = 0; i < numElectrons; i++) {
 
-            double x_p = this->method == MOLTEngine::CDF1 ? ( (*x_elec[lastStepIndex])[i] + (*x_elec[lastStepIndex-1])[i] ) / 2 : (*x_elec[lastStepIndex])[i];
-            double y_p = this->method == MOLTEngine::CDF1 ? ( (*y_elec[lastStepIndex])[i] + (*y_elec[lastStepIndex-1])[i] ) / 2 : (*y_elec[lastStepIndex])[i];
-
-            // scatterField(x_p, y_p, x_value, J1[lastStepIndex]);
-            // scatterField(x_p, y_p, y_value, J2[lastStepIndex]);
+            double x_p = this->updateMethod == MOLTEngine::CDF2 ? ( (*x_elec[lastStepIndex])[i] + (*x_elec[lastStepIndex-1])[i] ) / 2 : (*x_elec[lastStepIndex])[i];
+            double y_p = this->updateMethod == MOLTEngine::CDF2 ? ( (*y_elec[lastStepIndex])[i] + (*y_elec[lastStepIndex-1])[i] ) / 2 : (*y_elec[lastStepIndex])[i];
 
             // We convert from cartesian to logical space
             int lc_x = floor((x_p - x[0])/dx);
@@ -1737,15 +1611,6 @@ void MOLTEngine::scatterFields() {
             double fx = (x_p - xNode)/dx;
             double fy = (y_p - yNode)/dy;
 
-            // Now we acquire the particle value and add it to the corresponding field
-            // rho[lastStepIndex][ld] += (1-fx)*(1-fy)*charge_value;
-            // rho[lastStepIndex][lu] += (1-fx)*(  fy)*charge_value;
-            // rho[lastStepIndex][rd] += (  fx)*(1-fy)*charge_value;
-            // rho[lastStepIndex][ru] += (  fx)*(  fy)*charge_value;
-            // rho_eles[ld] += (1-fx)*(1-fy)*charge_value;
-            // rho_eles[lu] += (1-fx)*(  fy)*charge_value;
-            // rho_eles[rd] += (  fx)*(1-fy)*charge_value;
-            // rho_eles[ru] += (  fx)*(  fy)*charge_value;
             S[ld] += (1-fx)*(1-fy)*charge_value;
             S[lu] += (1-fx)*(  fy)*charge_value;
             S[rd] += (  fx)*(1-fy)*charge_value;
@@ -1881,18 +1746,83 @@ void MOLTEngine::MOLT_BDF1_combined_per_advance(std::vector<std::complex<double>
 
     MOLT_BDF1_advance_per(u, RHS, u_out);
 
-    if (this->method == MOLTEngine::MOLT_BDF1) {
+    if (this->derivative_utility == nullptr) {
         MOLT_BDF1_ddx_advance_per(u, RHS, dudx_out);
         MOLT_BDF1_ddy_advance_per(u, RHS, dudy_out);
-    } else if (this->method == MOLTEngine::MOLT_BDF1_HYBRID_FFT) {
-        compute_ddx_FFT(u[lastStepIndex], dudx_out);
-        compute_ddy_FFT(u[lastStepIndex], dudy_out);
-    } else if (this->method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
-        compute_ddx_FD6(u[lastStepIndex], dudx_out);
-        compute_ddy_FD6(u[lastStepIndex], dudy_out);
     } else {
-        throw -1;
+        compute_ddx_numerical(u[lastStepIndex], dudx_out);
+        compute_ddy_numerical(u[lastStepIndex], dudy_out);
     }
+}
+
+void MOLTEngine::MOLT_combined_per_advance(std::vector<std::complex<double>*> u, std::complex<double>* RHS,
+                                           std::complex<double>* u_out, std::complex<double>* dudx_out, std::complex<double>* dudy_out) {
+    
+    const double alpha = beta/(kappa*dt);
+    const double alpha2 = alpha*alpha;
+
+    std::complex<double>* src = new std::complex<double>[Nx*Ny];
+
+    if (this->updateMethod == MOLTEngine::BDF1) {
+        for (int i = 0; i < Nx*Ny; i++) {
+            src[i] = 2.0*u[lastStepIndex-1][i] - u[lastStepIndex-2][i] + 1.0/alpha2*RHS[i];
+        }
+    } else if (this->updateMethod == MOLTEngine::BDF2) {
+        for (int i = 0; i < Nx*Ny; i++) {
+            src[i] = 8.0/3.0*u[lastStepIndex-1][i] - 22.0/9.0*u[lastStepIndex-2][i] + 8.0/9.0*u[lastStepIndex-3][i] - 1.0/9.0*u[lastStepIndex-4][i] + 1.0/alpha2*RHS[i];
+        }        
+    } else if (this->updateMethod == MOLTEngine::CDF2) {
+        for (int i = 0; i < Nx*Ny; i++) {
+            src[i] = 2.0*u[lastStepIndex-1][i] + 1.0/alpha2*RHS[i];
+        }
+    }
+    MOLT_advance_per(src, u_out);
+
+    if (this->derivative_utility == nullptr) {
+        MOLT_ddx_advance_per(src, dudx_out);
+        MOLT_ddy_advance_per(src, dudy_out);
+    } else {
+        compute_ddx_numerical(u[lastStepIndex], dudx_out);
+        compute_ddy_numerical(u[lastStepIndex], dudy_out);
+    }
+
+    if (this->updateMethod == MOLTEngine::CDF2) {
+        for (int i = 0; i < Nx*Ny; i++) {
+            u_out[i]    -= u[lastStepIndex-2][i];
+            dudx_out[i] -= u[lastStepIndex-2][i];
+            dudy_out[i] -= u[lastStepIndex-2][i];
+        }
+    }
+}
+
+void MOLTEngine::MOLT_advance_per(std::complex<double>* RHS, std::complex<double>* output) {
+
+    std::complex<double>* tmp = new std::complex<double>[Nx*Ny];
+
+    get_L_y_inverse_per(RHS, tmp);
+    get_L_x_inverse_per(tmp, output);
+
+    delete[] tmp;
+}
+
+void MOLTEngine::MOLT_ddx_advance_per(std::complex<double>* RHS, std::complex<double>* output) {
+
+    std::complex<double>* tmp = new std::complex<double>[Nx*Ny];
+
+    get_L_y_inverse_per(RHS, tmp);
+    get_ddx_L_x_inverse_per(tmp, output);
+
+    delete[] tmp;
+}
+
+void MOLTEngine::MOLT_ddy_advance_per(std::complex<double>* RHS, std::complex<double>* output) {
+
+    std::complex<double>* tmp = new std::complex<double>[Nx*Ny];
+
+    get_ddy_L_y_inverse_per(RHS, tmp);
+    get_L_x_inverse_per(tmp, output);
+
+    delete[] tmp;
 }
 
 void MOLTEngine::MOLT_BDF1_advance_per(std::vector<std::complex<double>*> input_field_hist, std::complex<double>* RHS, std::complex<double>* output) {
@@ -2355,42 +2285,3 @@ void MOLTEngine::apply_A_and_B(std::vector<std::complex<double>> &I_, double* x,
     I_[I_len-1] += A*std::exp(-alpha*( xMax - x[0] ));
     I_[I_len-1] += B*std::exp(-alpha*( xMax - xMax ));
 }
-
-void MOLTEngine::computeFirstDerivative_FD6(std::complex<double>* inputField, 
-                                            std::complex<double>* derivativeField,
-                                            bool isDerivativeInX) {
-
-    double h = isDerivativeInX ? dx : dy;
-    double w1 = 3.0/4.0;
-    double w2 = 3.0/20.0;
-    double w3 = 1.0/60.0;
-    // Apply the derivative operator
-    for (int i = 0; i < Nx; i++) {
-        for (int j = 0; j < Ny; j++) {
-            int i_m3 = isDerivativeInX ? (i-3+Nx) % Nx : i;
-            int i_m2 = isDerivativeInX ? (i-2+Nx) % Nx : i;
-            int i_m1 = isDerivativeInX ? (i-1+Nx) % Nx : i;
-            int i_p1 = isDerivativeInX ? (i+1   ) % Nx : i;
-            int i_p2 = isDerivativeInX ? (i+2   ) % Nx : i;
-            int i_p3 = isDerivativeInX ? (i+3   ) % Nx : i;
-
-            int j_m3 = isDerivativeInX ? j : (j-3+Ny) % Ny;
-            int j_m2 = isDerivativeInX ? j : (j-2+Ny) % Ny;
-            int j_m1 = isDerivativeInX ? j : (j-1+Ny) % Ny;
-            int j_p1 = isDerivativeInX ? j : (j+1   ) % Ny;
-            int j_p2 = isDerivativeInX ? j : (j+2   ) % Ny;
-            int j_p3 = isDerivativeInX ? j : (j+3   ) % Ny;
-
-            int idx_m3 = computeIndex(i_m3, j_m3); // i_m3 * Ny + j_m3;
-            int idx_m2 = computeIndex(i_m2, j_m2); // i_m2 * Ny + j_m2;
-            int idx_m1 = computeIndex(i_m1, j_m1); // i_m1 * Ny + j_m1;
-            int idx    = computeIndex(i   , j   ); // i    * Ny + j;
-            int idx_p1 = computeIndex(i_p1, j_p1); // i_p1 * Ny + j_p1;
-            int idx_p2 = computeIndex(i_p2, j_p2); // i_p2 * Ny + j_p2;
-            int idx_p3 = computeIndex(i_p3, j_p3); // i_p3 * Ny + j_p3;
-
-            derivativeField[idx] = (-w3*inputField[idx_m3] + w2*inputField[idx_m2] - w1*inputField[idx_m1] + w1*inputField[idx_p1] - w2*inputField[idx_p2] + w3*inputField[idx_p3]) / h;
-        }
-    }
-}
-
