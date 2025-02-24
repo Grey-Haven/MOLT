@@ -64,10 +64,8 @@ while(steps < N_steps)
     % 1. Advance electron positions by dt using v^{n}
     %---------------------------------------------------------------------
 
-    v1_star = 2*v1_elec_old - v1_elec_nm1;
-    v2_star = 2*v2_elec_old - v2_elec_nm1;
     [x1_elec_new, x2_elec_new] = advance_particle_positions_2D(x1_elec_old, x2_elec_old, ...
-                                                               v1_star, v2_star, dt);
+                                                               v1_elec_old, v2_elec_old, dt);
 
     % Apply the particle boundary conditions
     % Need to include the shift function here
@@ -84,11 +82,11 @@ while(steps < N_steps)
         J_rho_update_vanilla;
     elseif J_rho_update_method == J_rho_update_method_staggered_vanilla
         J_rho_update_vanilla_staggered;
-    elseif ismember(J_rho_update_method, J_rho_BDF_FFT_Family)
+    elseif ismember(J_rho_update_method, J_rho_FFT_Family)
         J_rho_update_fft;
-    elseif ismember(J_rho_update_method, J_rho_BDF_FD6_Family)
+    elseif ismember(J_rho_update_method, J_rho_FD6_Family)
         J_rho_update_FD6;
-    elseif ismember(J_rho_update_method, J_rho_BDF_FD8_Family)
+    elseif ismember(J_rho_update_method, J_rho_FD8_Family)
         J_rho_update_FD8;
     elseif J_rho_update_method == J_rho_update_method_DIRK2
         J_rho_update_DIRK2;
@@ -124,20 +122,26 @@ while(steps < N_steps)
         A1_src  =   sigma_2 *  J1_mesh(:,:,end);
         A2_src  =   sigma_2 *  J2_mesh(:,:,end);
         update_waves_CDF2;
-    elseif ismember(waves_update_method, waves_BDF_FFT_Family)
+    elseif ismember(waves_update_method, waves_FFT_Family)
         update_waves_pure_FFT_second_order;
-    elseif ismember(waves_update_method, waves_BDF_FD6_Family)
+    elseif ismember(waves_update_method, waves_FD6_Family)
         update_waves_pure_FD6;
-    elseif ismember(waves_update_method, waves_BDF_FD8_Family)
+    elseif ismember(waves_update_method, waves_FD8_Family)
         update_waves_pure_FD8;
+    elseif waves_update_method == waves_update_method_BDF1_MOLT_FD6_Hybrid
+        BDF1_update_waves_hybrid_FD6;
+    elseif waves_update_method == waves_update_method_BDF2_MOLT_FD6_Hybrid
+        BDF2_update_waves_hybrid_FD6;
+    elseif waves_update_method == waves_update_method_BDF1_MOLT_FFT_Hybrid
+        BDF1_update_waves_hybrid_FFT;
+    elseif waves_update_method == waves_update_method_BDF2_MOLT_FFT_Hybrid
+        BDF2_update_waves_hybrid_FFT;
     elseif waves_update_method == waves_update_method_DIRK2
         update_waves_hybrid_DIRK2;
     elseif waves_update_method == waves_update_method_poisson_phi
         update_waves_poisson_phi_second_order;
-    elseif waves_update_method == waves_update_method_pure_FFT
-        update_waves_pure_FFT_second_order;
     else
-        ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
+        ME = MException('WaveException','Wave Method ' + waves_update_method + " not an option");
         throw(ME);
     end
 
@@ -164,54 +168,61 @@ while(steps < N_steps)
     %
     % This will give us new momenta and velocities for the next step
     if waves_update_method == waves_update_method_CDF2_FFT || waves_update_method == run_type_MOLT_Pure_CDF2_implicit_ng
-        % A1_ave = (A1(:,:,end) + A1(:,:,end-1))/2;
-        % ddx_A1_ave = (ddx_A1(:,:,end) + ddx_A1(:,:,end-1))/2;
-        % ddy_A1_ave = (ddy_A1(:,:,end) + ddy_A1(:,:,end-1))/2;
-        % A2_ave = (A1(:,:,end) + A2(:,:,end-1))/2;
-        % ddx_A2_ave = (ddx_A2(:,:,end) + ddx_A2(:,:,end-1))/2;
-        % ddy_A2_ave = (ddy_A2(:,:,end) + ddy_A2(:,:,end-1))/2;
+
         ddx_psi_ave = (ddx_psi(:,:,end) + ddx_psi(:,:,end-1))/2;
         ddy_psi_ave = (ddy_psi(:,:,end) + ddy_psi(:,:,end-1))/2;
         [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
-        improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
-                                                        P1_elec_old, P2_elec_old, ...
-                                                        v1_elec_old, v2_elec_old, ...
-                                                        v1_elec_nm1, v2_elec_nm1, ...
-                                                        ddx_psi_ave, ddy_psi_ave, ...
-                                                        A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
-                                                        A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
-                                                        x, y, dx, dy, q_elec, r_elec, ...
-                                                        kappa, dt);
+        improved_asym_euler_momentum_push_2D2P(x1_elec_new, x2_elec_new, ...
+                                               P1_elec_old, P2_elec_old, ...
+                                               v1_elec_old, v2_elec_old, ...
+                                               v1_elec_nm1, v2_elec_nm1, ...
+                                               ddx_psi_ave, ddy_psi_ave, ...
+                                               A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
+                                               A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
+                                               x, y, dx, dy, q_elec, r_elec, ...
+                                               kappa, dt);
     else
         [v1_elec_new, v2_elec_new, P1_elec_new, P2_elec_new] = ...
-        improved_asym_euler_momentum_push_2D2P_implicit(x1_elec_new, x2_elec_new, ...
-                                                        P1_elec_old, P2_elec_old, ...
-                                                        v1_elec_old, v2_elec_old, ...
-                                                        v1_elec_nm1, v2_elec_nm1, ...
-                                                        ddx_psi(:,:,end), ddy_psi(:,:,end), ...
-                                                        A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
-                                                        A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
-                                                        x, y, dx, dy, q_elec, r_elec, ...
-                                                        kappa, dt);
+        improved_asym_euler_momentum_push_2D2P(x1_elec_new, x2_elec_new, ...
+                                               P1_elec_old, P2_elec_old, ...
+                                               v1_elec_old, v2_elec_old, ...
+                                               v1_elec_nm1, v2_elec_nm1, ...
+                                               ddx_psi(:,:,end), ddy_psi(:,:,end), ...
+                                               A1(:,:,end), ddx_A1(:,:,end), ddy_A1(:,:,end), ...
+                                               A2(:,:,end), ddx_A2(:,:,end), ddy_A2(:,:,end), ...
+                                               x, y, dx, dy, q_elec, r_elec, ...
+                                               kappa, dt);
     end
 
     %---------------------------------------------------------------------
     % 5. Compute the errors in the Lorenz gauge and Gauss' law
     %---------------------------------------------------------------------
 
-    if ismember(waves_update_method, waves_BDF_FFT_Family) || ismember(waves_update_method, waves_BDF_FD6_Family) || ismember(waves_update_method, waves_BDF_FD8_Family)
+    if ismember(waves_update_method, waves_FFT_Family) ...
+    || ismember(waves_update_method, waves_FD6_Family) ...
+    || ismember(waves_update_method, waves_FD8_Family) ...
+    || ismember(waves_update_method, waves_BDF_Hybrid_Family)
         if waves_update_method == waves_update_method_BDF1_FFT ...
         || waves_update_method == waves_update_method_BDF1_FD6 ...
-        || waves_update_method == waves_update_method_BDF1_FD8
+        || waves_update_method == waves_update_method_BDF1_FD8 ...
+        || waves_update_method == waves_update_method_BDF1_MOLT_FD6_Hybrid ...
+        || waves_update_method == waves_update_method_BDF1_MOLT_FFT_Hybrid ...
+        || waves_update_method == waves_update_method_CDF2_FFT ...
+        || waves_update_method == waves_update_method_CDF2_FD6
             ddt_psi(:,:) = BDF1_d(psi,dt);
         elseif waves_update_method == waves_update_method_BDF2_FFT ...
             || waves_update_method == waves_update_method_BDF2_FD6 ...
-            || waves_update_method == waves_update_method_BDF2_FD8
+            || waves_update_method == waves_update_method_BDF2_FD6 ...
+            || waves_update_method == waves_update_method_BDF2_MOLT_FD6_Hybrid ...
+            || waves_update_method == waves_update_method_BDF2_MOLT_FFT_Hybrid
             ddt_psi(:,:) = BDF2_d(psi,dt);
         elseif waves_update_method == waves_update_method_BDF3_FFT
             ddt_psi(:,:) = BDF3_d(psi,dt);
         elseif waves_update_method == waves_update_method_BDF4_FFT
             ddt_psi(:,:) = BDF4_d(psi,dt);
+        else
+            ME = MException('SourceException','Wave Method ' + waves_update_method + " not an option");
+            throw(ME);
         end
         div_A = ddx_A1(:,:,end) + ddy_A2(:,:,end);
     elseif waves_update_method == waves_update_method_DIRK2
@@ -389,17 +400,18 @@ subtitle(update_method_title + " " + tag,'FontSize',24);
 
 saveas(gcf,figPath + tag + "_gauge_residuals.jpg");
 
+ts_20 = 0:dt:20;
+
 figure;
+x0=200 + width;
+y0=100;
+set(gcf,'position',[x0,y0,width,height]);
 semilogy(ts, Bz_magnitude_hist(1:steps), 'LineWidth', 2)
 hold on
-semilogy(ts, 1e-1*exp(.319734*ts), 'k', 'linestyle', '--', 'LineWidth',2)
+semilogy(ts_20, 1e-1*exp(.319734*ts_20), 'k', 'linestyle', '--', 'LineWidth',2)
 xlabel("Angular Plasma Periods", "FontSize", 32)
-ylabel("$||B_z||_2$", "FontSize", 32, "Interpreter", "Latex")
+ylabel("$||B_z||_2$", "FontSize", 32, "Interpreter", "Latex");
+title("Magnetic Magnitude", "FontSize", 32);
 subtitle(update_method_title + " " + tag,'FontSize',24);
 
-% quarter_len = floor(length(ts) / 4);
-% 
-% axes('Position',[.7 .6 .2 .2]);
-% plot(ts(quarter_len:end),gauge_error_L2(quarter_len:end));
-
-% sgtitle(update_method_title + " " + tag,'FontSize',48);
+saveas(gcf,figPath + tag + "_Bz_magnitude.jpg");

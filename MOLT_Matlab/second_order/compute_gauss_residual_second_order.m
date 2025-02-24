@@ -53,20 +53,20 @@ if waves_update_method == waves_update_method_BDF1_MOLT_Pure ...
 || waves_update_method == waves_update_method_CDF2_semi_implicit_MOLT_Pure
     ddx_E1 = compute_ddx_FD(E1, dx);
     ddy_E2 = compute_ddy_FD(E2, dy);
-elseif ismember(waves_update_method, [waves_BDF_FFT_Family, waves_update_method_FFT, waves_update_method_DIRK2])
+elseif ismember(waves_update_method, [waves_FFT_Family, waves_update_method_FFT, waves_update_method_DIRK2])
     ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
     ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
-elseif ismember(waves_update_method, waves_BDF_FD6_Family)
+elseif ismember(waves_update_method, waves_FD6_Family) || waves_update_method == waves_update_method_BDF2_MOLT_FD6_Hybrid || waves_update_method == waves_update_method_BDF1_MOLT_FD6_Hybrid
     ddx_E1 = compute_ddx_FD6_per(E1, dx);
     ddy_E2 = compute_ddy_FD6_per(E2, dy);
-elseif ismember(waves_update_method, waves_BDF_FD8_Family)
+elseif ismember(waves_update_method, waves_FD8_Family)
     ddx_E1 = compute_ddx_FD8_per(E1, dx);
     ddy_E2 = compute_ddy_FD8_per(E2, dy);
-elseif ismember(waves_update_method, [waves_update_method_poisson_phi, waves_update_method_pure_FFT])
+elseif ismember(waves_update_method, [waves_update_method_poisson_phi, waves_update_method_pure_FFT, waves_update_method_BDF1_MOLT_FFT_Hybrid, waves_update_method_BDF2_MOLT_FFT_Hybrid])
     ddx_E1 = compute_ddx_FFT(E1, kx_deriv_1);
     ddy_E2 = compute_ddy_FFT(E2, ky_deriv_1);
 else
-    ME = MException('WaveException','Wave Method ' + wave_update_method + " not an option");
+    ME = MException('WaveException','Wave Method ' + waves_update_method + " not an option");
     throw(ME);
 end
 
@@ -140,17 +140,21 @@ else
     || waves_update_method == waves_update_method_BDF1_FD6 ...
     || waves_update_method == waves_update_method_BDF1_FD8 ...
     || waves_update_method == waves_update_method_pure_FFT ...
-    || waves_update_method == waves_update_method_BDF1_MOLT_Pure
+    || waves_update_method == waves_update_method_BDF1_MOLT_Pure ...
+    || waves_update_method == waves_update_method_BDF1_MOLT_FD6_Hybrid ...
+    || waves_update_method == waves_update_method_BDF1_MOLT_FFT_Hybrid
         ddt2_phi = BDF1_d2(psi, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT ...
         || waves_update_method == waves_update_method_BDF2_FD6 ...
         || waves_update_method == waves_update_method_BDF2_FD8 ...
-        || waves_update_method == waves_update_method_BDF2_MOLT_Pure
+        || waves_update_method == waves_update_method_BDF2_MOLT_Pure ...
+        || waves_update_method == waves_update_method_BDF2_MOLT_FFT_Hybrid ...
+        || waves_update_method == waves_update_method_BDF2_MOLT_FD6_Hybrid
         ddt2_phi = BDF2_d2(psi, dt);
     elseif ismember(waves_update_method, waves_CDF_Hybrid_Family)
         ddt2_phi = BDF1_d2(psi, dt);
     else
-        ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
+        ME = MException('WaveException','BDF Wave Method ' + waves_update_method + " not an option");
         throw(ME);
     end
     
@@ -162,35 +166,45 @@ else
 %         div_A_ave_prev = (div_A_hist(:,:,end-1) + div_A_hist(:,:,end-2)) / 2;
 %         ddt_div_A = (div_A_ave_curr - div_A_ave_prev) / dt;
         ddt_div_A = BDF1_d(div_A_hist, dt); % Double check, but this should line up with theory
-    elseif waves_update_method == waves_update_method_BDF1_FFT ...
+    elseif waves_update_method == waves_update_method_BDF1_MOLT_Pure ...
+        || waves_update_method == waves_update_method_BDF1_FFT ...
         || waves_update_method == waves_update_method_BDF1_FD6 ...
         || waves_update_method == waves_update_method_BDF1_FD8 ...
-        || waves_update_method == waves_update_method_pure_FFT
+        || waves_update_method == waves_update_method_pure_FFT ...
+        || waves_update_method == waves_update_method_BDF1_MOLT_FFT_Hybrid ...
+        || waves_update_method == waves_update_method_BDF1_MOLT_FD6_Hybrid
         ddt_div_A = BDF1_d(div_A_hist, dt);
     elseif waves_update_method == waves_update_method_BDF2_FFT ...
         || waves_update_method == waves_update_method_BDF2_FD6 ...
         || waves_update_method == waves_update_method_BDF2_FD8 ...
-        || waves_update_method == waves_update_method_BDF2_MOLT_Pure
+        || waves_update_method == waves_update_method_BDF2_MOLT_Pure ...
+        || waves_update_method == waves_update_method_BDF2_MOLT_FFT_Hybrid ...
+        || waves_update_method == waves_update_method_BDF2_MOLT_FD6_Hybrid
         ddt_div_A = BDF2_d(div_A_hist, dt);
     else
-        ME = MException('WaveException','BDF Wave Method ' + wave_update_method + " not an option");
+        ME = MException('WaveException','BDF Wave Method ' + waves_update_method + " not an option");
         throw(ME);
     end
 
+    laplacian_phi = zeros(N_y,N_x);
+
     if ismember(waves_update_method, waves_CDF_Hybrid_Family)
         RHS = (rho_mesh(:,:,end) + rho_mesh(:,:,end-2)) / (2*sigma_1);
-        laplacian_phi_FFT = compute_Laplacian_FFT((psi(:,:,end) + psi(:,:,end-2))/2,kx_deriv_2,ky_deriv_2);
-        % phi_ave_curr = (psi(:,:,end) + psi(:,:,end-1)) / 2;
-        % phi_nm1_curr = (psi(:,:,end-2) + psi(:,:,end-3)) / 2;
-        % laplacian_phi_FFT = compute_Laplacian_FFT((phi_ave_curr + phi_nm1_curr)/2,kx_deriv_2,ky_deriv_2);
+        % RHS = rho_mesh(:,:,end-1) / (sigma_1);
+        laplacian_phi = compute_Laplacian_FFT((psi(:,:,end) + psi(:,:,end-2))/2,kx_deriv_2,ky_deriv_2);
     else
         RHS = rho_mesh(:,:,end) / sigma_1;
-        laplacian_phi_FFT = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
+        if (ismember(waves_update_method, waves_FD6_Family) || waves_update_method == waves_update_method_BDF2_MOLT_FD6_Hybrid)
+            laplacian_phi(1:end-1,1:end-1) = compute_Laplacian_FD6(psi(1:end-1,1:end-1,end),dx,dy);
+            laplacian_phi = copy_periodic_boundaries(laplacian_phi);
+        else
+            laplacian_phi = compute_Laplacian_FFT(psi(:,:,end),kx_deriv_2,ky_deriv_2);
+        end
     end
 
-    LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi_FFT;
+    LHS_potential = (1/(kappa^2))*ddt2_phi - laplacian_phi;
 
-    LHS_gauge = -ddt_div_A - laplacian_phi_FFT;
+    LHS_gauge = -ddt_div_A - laplacian_phi;
 
     % Compute all residuals
     gauss_law_potential_res = LHS_potential - RHS;

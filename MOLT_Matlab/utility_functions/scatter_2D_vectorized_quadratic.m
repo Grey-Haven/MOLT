@@ -5,7 +5,7 @@ function F_mesh = scatter_2D_vectorized_quadratic(Nx, Ny, x1_p, x2_p, x, y, dx, 
     %
     % This function uses quadratic splines to map particle data onto a mesh.
     %
-    % Unlike the linear method, this assumes a grid of 
+    % This assumes a grid of 
     % [a_x, b_x) x [a_y, b_y), that is, it does not include the right and
     % top boundaries.
     %%%%%%%%
@@ -29,6 +29,12 @@ function F_mesh = scatter_2D_vectorized_quadratic(Nx, Ny, x1_p, x2_p, x, y, dx, 
     fxs = (x1_p - x(x_idx))/dx;
     fys = (x2_p - y(y_idx))/dy;
 
+    fxs_p1 = (x(x_idx) + dx - x1_p)/dx;
+    fxs_m1 = (x(x_idx) - dx - x1_p)/dx;
+
+    fys_p1 = (y(y_idx) + dy - x2_p)/dy;
+    fys_m1 = (y(y_idx) - dy - x2_p)/dy;
+
     x_idx_m1 = mod(x_idx_m1 - 1, Nx) + 1;
     x_idx    = mod(x_idx    - 1, Nx) + 1;
     x_idx_p1 = mod(x_idx_p1 - 1, Nx) + 1;
@@ -44,6 +50,22 @@ function F_mesh = scatter_2D_vectorized_quadratic(Nx, Ny, x1_p, x2_p, x, y, dx, 
     wys_m1 = 1/2*(1/2 - fys).^2;
     wys    = 3/4 - fys.^2;
     wys_p1 = 1/2*(1/2 + fys).^2;
+
+    wxs_p1_alt = 1/8*(3 - 2*abs(fxs_p1)).^2;
+    wxs_alt = 3/4 - fxs.^2;
+    wxs_m1_alt = 1/8*(3 - 2*abs(fxs_m1)).^2;
+
+    wys_p1_alt = 1/8*(3 - 2*abs(fys_p1)).^2;
+    wys_alt = 3/4 - fys.^2;
+    wys_m1_alt = 1/8*(3 - 2*abs(fys_m1)).^2;
+
+    % assert(all(wxs_p1_alt == wxs_p1));
+    % assert(all(wxs_alt == wxs));
+    % assert(all(wxs_m1_alt == wxs_m1));
+    % 
+    % assert(all(wys_p1_alt == wys_p1));
+    % assert(all(wys_alt == wys));
+    % assert(all(wys_m1_alt == wys_m1));
 
     sz = [Ny,Nx];
 

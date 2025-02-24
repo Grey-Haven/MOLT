@@ -1,20 +1,6 @@
 % Compute the next step of rho using the continuity equation.
 % The FFT will be used to compute div(J).
-if J_rho_update_method == J_rho_update_method_CDF1_FFT
-    x1_elec_ave = (x1_elec_new + x1_elec_old)/2;
-    x2_elec_ave = (x2_elec_new + x2_elec_old)/2;
-
-    J_mesh = map_J_to_mesh_2D2V(x, y, dx, dy, ...
-                                x1_elec_ave, x2_elec_ave, ...
-                                v1_star, v2_star, ...
-                                q_elec, cell_volumes, w_elec);
-
-    % Need to enforce periodicity for the current on the mesh
-    J1_mesh(:,:,end) = enforce_periodicity(J_mesh(:,:,1));
-    J2_mesh(:,:,end) = enforce_periodicity(J_mesh(:,:,2));
-else
-    J_compute_vanilla;
-end
+J_compute_vanilla;
 
 J1_clean = ifft(fft(ifft(fft(J1_mesh(1:end-1,1:end-1,end),N_x-1,2),N_x-1,2),N_y-1,1),N_y-1,1);
 J2_clean = ifft(fft(ifft(fft(J2_mesh(1:end-1,1:end-1,end),N_x-1,2),N_x-1,2),N_y-1,1),N_y-1,1);
@@ -39,9 +25,6 @@ J2_star_FFTy = fft(J2_star,N_y-1,1);
 J1_star_deriv = ifft(sqrt(-1)*kx_deriv_1 .*J1_star_FFTx,N_x-1,2);
 J2_star_deriv = ifft(sqrt(-1)*ky_deriv_1'.*J2_star_FFTy,N_y-1,1);
 
-% J1_deriv_clean(1:end-1,1:end-1) = J1_star_deriv;
-% J2_deriv_clean(1:end-1,1:end-1) = J2_star_deriv;
-
 if J_rho_update_method == J_rho_update_method_BDF1_FFT
     rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end-1) - dt*(J1_star_deriv + J2_star_deriv);
 elseif J_rho_update_method == J_rho_update_method_BDF2_FFT
@@ -50,20 +33,7 @@ elseif J_rho_update_method == J_rho_update_method_BDF3_FFT
     rho_mesh(1:end-1,1:end-1,end) = 18/11*rho_mesh(1:end-1,1:end-1,end-1) - 9/11*rho_mesh(1:end-1,1:end-1,end-2) + 2/11*rho_mesh(1:end-1,1:end-1,end-3) - ((6/11)*dt)*(J1_star_deriv + J2_star_deriv);
 elseif J_rho_update_method == J_rho_update_method_BDF4_FFT
     rho_mesh(1:end-1,1:end-1,end) = 48/25*rho_mesh(1:end-1,1:end-1,end-1) - 36/25*rho_mesh(1:end-1,1:end-1,end-2) + 16/25*rho_mesh(1:end-1,1:end-1,end-3) - 3/25*rho_mesh(1:end-1,1:end-1,end-4) - ((12/25)*dt)*(J1_star_deriv + J2_star_deriv);
-elseif J_rho_update_method == J_rho_update_method_CDF1_FFT
-
-%     J1_prev = J1_mesh(1:end-1,1:end-1,end-2);
-%     J2_prev = J2_mesh(1:end-1,1:end-1,end-2);
-% 
-%     J1_prev_deriv = ifft(sqrt(-1)*kx_deriv_1 .*fft(J1_prev,N_x-1,2),N_x-1,2);
-%     J2_prev_deriv = ifft(sqrt(-1)*ky_deriv_1'.*fft(J2_prev,N_y-1,1),N_y-1,1);
-% 
-%     div_J_prev = J1_prev_deriv + J2_prev_deriv;
-%     div_J_curr = J1_star_deriv + J2_star_deriv;
-% 
-%     div_J_ave = (div_J_prev + div_J_curr) / 2;
-
-%     rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end-1) - dt*div_J_ave;
+elseif J_rho_update_method == J_rho_update_method_CDF2_FFT
     rho_mesh(1:end-1,1:end-1,end) = rho_mesh(1:end-1,1:end-1,end-1) - dt*(J1_star_deriv + J2_star_deriv);
 else
     ME = MException('SourceException','Source Method ' + J_rho_update_method + " not an option");

@@ -20,6 +20,9 @@ M_ion = ion_electron_mass_ratio*M_electron;
 Q_electron = electron_charge_mass_ratio*M_electron;
 Q_ion = ion_charge_mass_ratio*M_ion;
 
+% Debye length [m]
+% lam_D = 1.19917e4;
+
 % Scale for mass [kg]
 M = M_electron;
 
@@ -27,16 +30,17 @@ M = M_electron;
 Q = 1.602e-19;
 
 % Compute the average macroscopic number density for the plasma [m^{-3}]
-n_bar = 10^13; % number density in [m^-3]
+% n_bar = (M*epsilon_0*c**2)/(kappa*Q*lam_D)**2
+n_bar = 7.856060e1;
 
 % Compute the average macroscopic temperature [K] using lam_D and n_bar
-T_bar = 10000; % temperature in Kelvin [K]
+T_bar = 2.371698e6;
+
+lam_D = sqrt((epsilon_0*k_B*T_bar)/(n_bar * Q^2));
 
 % Angular oscillation frequency [rad/s]
-w_p = sqrt( ( n_bar*(Q^2) )/( M*epsilon_0 ) );
-
-% Debye length [m]
-lam_D = sqrt((epsilon_0 * k_B * T_bar)/(n_bar*Q^2));
+w_p_inv = 2e-3;
+w_p = 1.0 / w_p_inv;
 
 % Define the length and time scales from the plasma parameters
 L = lam_D; % L has units of [m]
@@ -66,8 +70,4 @@ B_0 = A_0/L;
 sigma_1 = (M*epsilon_0)/(n_bar*(Q*T)^2);
 sigma_2 = (n_bar*mu_0*(Q*L)^2)/M;
 
-% MOLT stability parameter
-% Set for the first-order method
 beta_BDF1 = 1.0;
-
-T_final = 100;

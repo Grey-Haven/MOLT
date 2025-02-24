@@ -15,32 +15,18 @@ function [v1_s_new, v2_s_new, P1_s_new, P2_s_new] = ...
     % to be done before the momentum push.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%     ddx_psi_p = gather_2D_vectorized(ddx_psi_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-%     ddy_psi_p = gather_2D_vectorized(ddy_psi_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-
-    % Vector potential data
-    
-    % A1
-%     A1_p = gather_2D_vectorized(A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-%     ddx_A1_p = gather_2D_vectorized(ddx_A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-%     ddy_A1_p = gather_2D_vectorized(ddy_A1_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-    
-    % A2
-%     A2_p = gather_2D_vectorized(A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-%     ddx_A2_p = gather_2D_vectorized(ddx_A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-%     ddy_A2_p = gather_2D_vectorized(ddy_A2_mesh, x1_s_new, x2_s_new, x, y, dx, dy);
-
-    meshes = zeros([size(A1_mesh),8]);
-    meshes(:,:,1) = ddx_psi_mesh;
-    meshes(:,:,2) = ddy_psi_mesh; 
-    meshes(:,:,3) = A1_mesh;
-    meshes(:,:,4) = ddx_A1_mesh;
-    meshes(:,:,5) = ddy_A1_mesh;
-    meshes(:,:,6) = A2_mesh;
-    meshes(:,:,7) = ddx_A2_mesh;
-    meshes(:,:,8) = ddy_A2_mesh;
-    X = ...
-        gather_2D_vectorized_multiple(meshes, x1_s_new, x2_s_new, x, y, dx, dy);
+    meshes = zeros([size(A1_mesh)-1,8]);
+    meshes(:,:,1) = ddx_psi_mesh(1:end-1,1:end-1);
+    meshes(:,:,2) = ddy_psi_mesh(1:end-1,1:end-1); 
+    meshes(:,:,3) = A1_mesh(1:end-1,1:end-1);
+    meshes(:,:,4) = ddx_A1_mesh(1:end-1,1:end-1);
+    meshes(:,:,5) = ddy_A1_mesh(1:end-1,1:end-1);
+    meshes(:,:,6) = A2_mesh(1:end-1,1:end-1);
+    meshes(:,:,7) = ddx_A2_mesh(1:end-1,1:end-1);
+    meshes(:,:,8) = ddy_A2_mesh(1:end-1,1:end-1);
+    X = gather_2D_vectorized_multiple_linear(meshes, x1_s_new, x2_s_new, x', y', dx, dy);
+    % X = gather_2D_vectorized_multiple_quadratic(meshes, x1_s_new, x2_s_new, x', y', dx, dy);
+    % X = gather_2D_vectorized_multiple_cubic(meshes, x1_s_new, x2_s_new, x', y', dx, dy);
     ddx_psi_p = X(:,1);
     ddy_psi_p = X(:,2);
     A1_p = X(:,3);
