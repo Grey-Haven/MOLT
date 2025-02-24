@@ -6,15 +6,24 @@
 
 class Interpolate {
     public:
-        enum InterpolateMethod { Linear, Quadratic };
+        enum InterpolateMethod { Linear, Quadratic, Cubic, Quartic };
 
         Interpolate(int Nx, int Ny, double* x, double* y) {
             this->Nx = Nx;
             this->Ny = Ny;
-            this->x = x;
-            this->y = y;
+            this->x = new double[Nx + 1];
+            this->y = new double[Ny + 1];
             this->dx = x[1]-x[0];
             this->dy = y[1]-y[0];
+
+            for (int i = 0; i < Nx; i++) {
+                this->x[i] = x[i];
+            }
+            for (int j = 0; j < Ny; j++) {
+                this->y[j] = y[j];
+            }
+            this->x[Nx] = x[Nx-1] + dx;
+            this->y[Ny] = y[Ny-1] + dy;
         }
 
         virtual ~Interpolate() = default;

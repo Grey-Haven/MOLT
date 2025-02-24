@@ -367,11 +367,6 @@ void MOLTEngine::computeForce() {
             double F1 = -q_ele*ddx_phi_p + numerator_1 / denom;
             double F2 = -q_ele*ddy_phi_p + numerator_2 / denom;
 
-            // std::cout << "P1_p: " << P1_p << std::endl;
-            // std::cout << "P2_p: " << P2_p << std::endl;
-            // std::cout << "A1_p: " << A1_p << std::endl;
-            // std::cout << "A2_p: " << A2_p << std::endl;
-
             F += std::sqrt(F1*F1 + F2*F2);
         }
         this->eleForce = F;
@@ -752,12 +747,28 @@ void MOLTEngine::computeGaussL2() {
         }
     } else {
 
-        for (int i = 0; i < Nx*Ny; i++) {
-            gauss_RHS[i] = rho[lastStepIndex][i].real() / sigma_1;
+        if (this->updateMethod == MOLTEngine::CDF2) {
+            for (int i = 0; i < Nx*Ny; i++) {
+                gauss_RHS[i] = (rho[lastStepIndex][i].real() + rho[lastStepIndex-2][i].real()) / (2.0*sigma_1);
+            }
+        } else {
+            for (int i = 0; i < Nx*Ny; i++) {
+                gauss_RHS[i] = rho[lastStepIndex][i].real() / sigma_1;
+            }
         }
 
-        for (int i = 0; i < Nx*Ny; i++) {
-            laplacian_phi[i] = d2dx_phi_curr[i] + d2dy_phi_curr[i];
+        if (this->updateMethod == MOLTEngine::CDF2) {
+
+            compute_d2dx_numerical(phi[lastStepIndex-2], d2dx_phi_prev);
+            compute_d2dy_numerical(phi[lastStepIndex-2], d2dy_phi_prev);
+
+            for (int i = 0; i < Nx*Ny; i++) {
+                laplacian_phi[i] = (d2dx_phi_curr[i] + d2dx_phi_prev[i] + d2dy_phi_curr[i] + d2dy_phi_prev[i]) / 2.0;
+            }
+        } else {
+            for (int i = 0; i < Nx*Ny; i++) {
+                laplacian_phi[i] = d2dx_phi_curr[i] + d2dy_phi_curr[i];
+            }
         }
 
         for (int i = 0; i < Nx*Ny; i++) {
@@ -775,7 +786,16 @@ void MOLTEngine::computeGaussL2() {
         for (int i = 0; i < Nx*Ny; i++) {
             double div_A_curr = ddx_A1[lastStepIndex  ][i].real() + ddy_A2[lastStepIndex  ][i].real();
             double div_A_prev = ddx_A1[lastStepIndex-1][i].real() + ddy_A2[lastStepIndex-1][i].real();
-            ddt_divA_curr[i] = (div_A_curr - div_A_prev) / dt;
+            double div_A_nm1  = ddx_A1[lastStepIndex-2][i].real() + ddy_A2[lastStepIndex-2][i].real();
+            if (this->updateMethod == MOLTEngine::BDF1 ||
+                this->updateMethod == MOLTEngine::DIRK2 ||
+                this->updateMethod == MOLTEngine::CDF2) {
+                    ddt_divA_curr[i] = (div_A_curr - div_A_prev) / dt;
+                } else if (this->updateMethod == MOLTEngine::BDF2) {
+                    ddt_divA_curr[i] = ( div_A_curr - 4.0/3.0*div_A_prev + 1.0/3.0*div_A_nm1 ) / ((2.0/3.0)*dt);
+                } else {
+                    throw -1;
+                }
         }
     }
 
@@ -787,33 +807,52 @@ void MOLTEngine::computeGaussL2() {
     gaussL2_divE = std::sqrt(dx*dy*l2);
 
     l2 = 0;
+    // res = -d/dt[div(A)] - laplacian_phi - rho/sigma_1 (sigma_1 nondimensionalized eps_0)
+    for (int i = 0; i < Nx*Ny; i++) {
+        l2 += std::pow(-ddt_divA_curr[i].real() - laplacian_phi[i].real() - gauss_RHS[i], 2);
+    }
+    gaussL2_divA = std::sqrt(dx*dy*l2);
+
+    l2 = 0;
     // res = d^2phi/dt^2 - laplacian_phi - rho/sigma_1 (sigma_1 nondimensionalized eps_0)
     for (int i = 0; i < Nx*Ny; i++) {
         l2 += std::pow(1.0/(kappa*kappa) * d2dt_phi[i].real() - laplacian_phi[i].real() - gauss_RHS[i], 2);
     }
     gaussL2_wave = std::sqrt(dx*dy*l2);
 
-    l2 = 0;
-    // res = -d/dt[div(A)] - laplacian_phi - rho/sigma_1 (sigma_1 nondimensionalized eps_0)
-    for (int i = 0; i < Nx*Ny; i++) {
-        l2 += std::pow(-ddt_divA_curr[i].real() - laplacian_phi[i].real() - gauss_RHS[i], 2);
-    }
-    gaussL2_divA = std::sqrt(dx*dy*l2);
 }
 
 /**
- * Name: print
+ * Name: printFieldData
  * Author: Stephen White
  * Date Created: 5/28/24
- * Date Last Modified: 5/28/24 (Stephen White)
+ * Date Last Modified: 10/17/24 (Stephen White)
+ * Description: This prints both field and particle data
+ * Output: none
+ * Dependencies: none
+ */
+void MOLTEngine::printAllData() {
+    struct timeval printBegin, printEnd;
+    gettimeofday( &printBegin, NULL );
+
+    printFieldData();
+    printParticleData();
+
+    gettimeofday( &printEnd, NULL );
+    timeComponent7 += 1.0 * ( printEnd.tv_sec - printBegin.tv_sec ) + 1.0e-6 * ( printEnd.tv_usec - printBegin.tv_usec );
+}
+
+/**
+ * Name: printFieldData
+ * Author: Stephen White
+ * Date Created: 10/17/24
+ * Date Last Modified: 10/17/24 (Stephen White)
  * Description: This prints the potentials and particle information to their own files grouped by mesh refinement, labeled by field and timestep
  * Inputs: none (relies on the field and particle arrays)
  * Output: none
  * Dependencies: none
  */
-void MOLTEngine::print() {
-    struct timeval printBegin, printEnd;
-    gettimeofday( &printBegin, NULL );
+void MOLTEngine::printFieldData() {
 
     std::ofstream phiFile, A1File, A2File;
     std::ofstream ddx_phiFile, ddx_A1File, ddx_A2File;
@@ -951,9 +990,36 @@ void MOLTEngine::print() {
     J1File.close();
     J2File.close();
     ddt_phiFile.close();
+}
 
-    gettimeofday( &printEnd, NULL );
-    timeComponent7 += 1.0 * ( printEnd.tv_sec - printBegin.tv_sec ) + 1.0e-6 * ( printEnd.tv_usec - printBegin.tv_usec );
+void MOLTEngine::printParticleData() {
+    
+
+    std::ofstream particleFile;
+
+    std::string nstr = std::to_string(n);
+    int numlen = 5;
+
+    std::ostringstream padder;
+    padder << std::internal << std::setfill('0') << std::setw(numlen) << n;
+    std::string paddedNum = padder.str();
+
+    std::string particleFileName = snapshotPath + "/particle_data/particle_" + paddedNum + ".csv";
+
+    std::cout << particleFileName << std::endl;
+
+    particleFile.open(particleFileName);
+
+    particleFile << std::setprecision(16);
+    for (int i = 0; i < numElectrons-1; i++) {
+        particleFile << (*x_elec[lastStepIndex-1])[i] << "," << (*y_elec[lastStepIndex-1])[i] << ","
+                     << (*vx_elec[lastStepIndex-1])[i] << "," << (*vy_elec[lastStepIndex-1])[i] << "\n";
+    }
+    particleFile << (*x_elec[lastStepIndex-1])[numElectrons-1] << "," << (*y_elec[lastStepIndex-1])[numElectrons-1] << ","
+                 << (*vx_elec[lastStepIndex-1])[numElectrons-1] << "," << (*vy_elec[lastStepIndex-1])[numElectrons-1];
+
+    particleFile.close();
+
 }
 
 
@@ -1272,10 +1338,12 @@ void MOLTEngine::updateWaves() {
                 }
             } else if (this->updateMethod == MOLTEngine::CDF2) {
                 for (int i = 0; i < Nx*Ny; i++) {
-                    phi_src[i] =        2.0/alpha2 * (rho[lastStepIndex][i] + rho[lastStepIndex-2][i]) / sigma_1 + 2.0*phi[lastStepIndex-1][i];
-                    A1_src[i] = 2.0*sigma_2/alpha2 * ( J1[lastStepIndex][i] + J1[lastStepIndex-2][i] )           + 2.0* A1[lastStepIndex-1][i];
-                    A2_src[i] = 2.0*sigma_2/alpha2 * ( J2[lastStepIndex][i] + J2[lastStepIndex-2][i] )           + 2.0* A2[lastStepIndex-1][i];
+                    phi_src[i] = 1.0/alpha2 * (rho[lastStepIndex][i] + rho[lastStepIndex-2][i]) / (sigma_1) + 2.0*phi[lastStepIndex-1][i];
+                    A1_src[i]  = sigma_2/alpha2 * ( J1[lastStepIndex][i] + J1[lastStepIndex-2][i] )       + 2.0* A1[lastStepIndex-1][i];
+                    A2_src[i]  = sigma_2/alpha2 * ( J2[lastStepIndex][i] + J2[lastStepIndex-2][i] )       + 2.0* A2[lastStepIndex-1][i];
                 }
+            } else {
+                throw -1;
             }
 
             solveHelmholtzEquation(phi_src, phi[lastStepIndex], alpha);
@@ -1317,28 +1385,28 @@ void MOLTEngine::updateParticleVelocities() {
 
     int numFields = 8;
 
-    std::complex<double>* ddx_phi = new std::complex<double>[Nx*Ny];
-    std::complex<double>* ddy_phi = new std::complex<double>[Nx*Ny];
+    std::complex<double>* ddx_phi_ave = new std::complex<double>[Nx*Ny];
+    std::complex<double>* ddy_phi_ave = new std::complex<double>[Nx*Ny];
 
     if (this->updateMethod == MOLTEngine::CDF2) {
         for (int i = 0; i < Nx*Ny; i++) {
-            ddx_phi[i] = (this->ddx_phi[lastStepIndex][i] + this->ddx_phi[lastStepIndex-1][i]) / 2.0;
-            ddy_phi[i] = (this->ddy_phi[lastStepIndex][i] + this->ddx_phi[lastStepIndex-1][i]) / 2.0;
+            ddx_phi_ave[i] = (this->ddx_phi[lastStepIndex][i] + this->ddx_phi[lastStepIndex-1][i]) / 2.0;
+            ddy_phi_ave[i] = (this->ddy_phi[lastStepIndex][i] + this->ddy_phi[lastStepIndex-1][i]) / 2.0;
         }
     } else {
         for (int i = 0; i < Nx*Ny; i++) {
-            ddx_phi[i] = this->ddx_phi[lastStepIndex][i];
-            ddy_phi[i] = this->ddy_phi[lastStepIndex][i];
+            ddx_phi_ave[i] = this->ddx_phi[lastStepIndex][i];
+            ddy_phi_ave[i] = this->ddy_phi[lastStepIndex][i];
         }
     }
 
-    std::complex<double>* fields[numFields] = {ddx_phi, ddy_phi, A1[lastStepIndex], ddx_A1[lastStepIndex], ddy_A1[lastStepIndex], A2[lastStepIndex], ddx_A2[lastStepIndex], ddy_A2[lastStepIndex]};
-    std::vector<std::vector<std::complex<double>>> vals(8, std::vector<std::complex<double>>(numElectrons));
-
-    delete[] ddx_phi;
-    delete[] ddy_phi;
+    std::complex<double>* fields[numFields] = {ddx_phi_ave, ddy_phi_ave, A1[lastStepIndex], ddx_A1[lastStepIndex], ddy_A1[lastStepIndex], A2[lastStepIndex], ddx_A2[lastStepIndex], ddy_A2[lastStepIndex]};
+    std::vector<std::vector<std::complex<double>>> vals(numFields, std::vector<std::complex<double>>(numElectrons));
 
     this->interpolate_utility->gatherFields(fields, (*x_elec[lastStepIndex]), (*y_elec[lastStepIndex]), numFields, numElectrons, vals);
+
+    delete[] ddx_phi_ave;
+    delete[] ddy_phi_ave;
 
     #pragma omp parallel for
     for (int i = 0; i < numElectrons; i++) {
@@ -1586,8 +1654,8 @@ void MOLTEngine::scatterFields() {
         #pragma omp parallel for reduction(+:S[:Nx*Ny])
         for (int i = 0; i < numElectrons; i++) {
 
-            double x_p = this->updateMethod == MOLTEngine::CDF2 ? ( (*x_elec[lastStepIndex])[i] + (*x_elec[lastStepIndex-1])[i] ) / 2 : (*x_elec[lastStepIndex])[i];
-            double y_p = this->updateMethod == MOLTEngine::CDF2 ? ( (*y_elec[lastStepIndex])[i] + (*y_elec[lastStepIndex-1])[i] ) / 2 : (*y_elec[lastStepIndex])[i];
+            double x_p = (*x_elec[lastStepIndex])[i];
+            double y_p = (*y_elec[lastStepIndex])[i];
 
             // We convert from cartesian to logical space
             int lc_x = floor((x_p - x[0])/dx);
@@ -1640,105 +1708,6 @@ void MOLTEngine::scatterFields() {
         rhoIonsTotal += rho_ions[i].real();
     }
     rhoTotal = rhoElecTotal + rhoIonsTotal;
-}
-
-/**
- * Name: gatherField
- * Author: Stephen White
- * Date Created: 5/28/24
- * Date Last Modified: 5/28/24 (Stephen White)
- * Description: Takes a particle location in cartesian space, converts it to logical space, and using bilinear interpolation gathers
- *              the value of the field in question, returning this value.
- * Inputs: p_x, p_y, field
- * Output: value
- * Dependencies: none
- */
-double MOLTEngine::gatherField(double p_x, double p_y, std::complex<double>* field) {
-    // We convert from cartesian to logical space
-    double x0 = this->x[0];
-    double y0 = this->y[0];
-    int lc_x = floor((p_x - x0)/dx);
-    int lc_y = floor((p_y - y0)/dy);
-
-    const int lc_x_p1 = (lc_x+1) % Nx;
-    const int lc_y_p1 = (lc_y+1) % Ny;
-
-    const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-    const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-    const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-    const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-    double xNode = this->x[lc_x];
-    double yNode = this->y[lc_y];
-
-    // We compute the fractional distance of a particle from
-    // the nearest node.
-    // eg x=[0,.1,.2,.3], particleX = [.225]
-    // The particle's fractional is 1/4
-    double fx = (p_x - xNode)/dx;
-    double fy = (p_y - yNode)/dy;
-
-    // Now we acquire the field values at the surrounding nodes
-    const double field_00 = field[ld].real();
-    const double field_01 = field[lu].real();
-    const double field_10 = field[rd].real();
-    const double field_11 = field[ru].real();
-
-    // Returning the combined total of all the fields in proportion
-    // with the fractional distance
-    return (1-fx)*(1-fy)*field_00 + (1-fx)*(fy)*field_01 + (fx)*(1-fy)*field_10 + (fx)*(fy)*field_11;
-}
-
-/**
- * Name: scatterField
- * Author: Stephen White
- * Date Created: 5/28/24
- * Date Last Modified: 5/28/24 (Stephen White)
- * Description: Takes a particle location in cartesian space, converts it to logical space, and using bilinear interpolation partitions
- *              the value of the particle and adds it to the field.
- * Inputs: p_x, p_y, value, field
- * Output: technically none, but field is the 2D mesh (vector of vectors) in which the results are stored.
- * Dependencies: none
- */
-void MOLTEngine::scatterField(double p_x, double p_y, double value, std::complex<double>* field) {
-
-    // We convert from cartesian to logical space
-    double x0 = this->x[0];
-    double y0 = this->y[0];
-
-    int lc_x = floor((p_x - x0)/dx);
-    int lc_y = floor((p_y - y0)/dy);
-
-    const int lc_x_p1 = (lc_x+1) % Nx;
-    const int lc_y_p1 = (lc_y+1) % Ny;
-
-    const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-    const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-    const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-    const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
-
-    if (lc_x >= Nx || lc_x < 0 || lc_y >= Ny || lc_y < 0) {
-        std::cerr << "OUT OF BOUNDS FOR DOMAIN: " << "[" << x[0] << ", " << x[Nx-1] << "] X [" << y[0] << ", " << y[Ny-1] << "]" << std::endl;
-        std::cerr << "x_p" << ", " << "y_p" << "    " << "lc_x" << ", " << "lc_y" << std::endl;
-        std::cerr << p_x << ", " << p_y << "    " << lc_x << ", " << lc_y << std::endl;
-        throw -1;
-    }
-
-    double xNode = this->x[lc_x];
-    double yNode = this->y[lc_y];
-
-    // We compute the fractional distance of a particle from
-    // the nearest node.
-    // eg x=[0,.1,.2,.3], particleX = [.225]
-    // The particle's fractional is 1/4
-    double fx = (p_x - xNode)/dx;
-    double fy = (p_y - yNode)/dy;
-
-    // Now we acquire the particle value and add it to the corresponding field
-    field[ld] += (1-fx)*(1-fy)*value;
-    field[lu] += (1-fx)*(  fy)*value;
-    field[rd] += (  fx)*(1-fy)*value;
-    field[ru] += (  fx)*(  fy)*value;
 }
 
 void MOLTEngine::MOLT_BDF1_combined_per_advance(std::vector<std::complex<double>*> u, std::complex<double>* RHS,

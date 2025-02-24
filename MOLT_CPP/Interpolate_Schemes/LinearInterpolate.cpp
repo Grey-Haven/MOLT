@@ -19,7 +19,7 @@ void LinearInterpolate::gatherFields(std::complex<double>** fields,
                                      std::vector<double> px, std::vector<double> py,
                                      int N_fields, int N_particles,
                                      std::vector<std::vector<std::complex<double>>>& vals) {
-    // #pragma omp parallel for
+    #pragma omp parallel for
     for (int p = 0; p < N_particles; p++) {
 
         double x_p = px[p];
@@ -71,40 +71,48 @@ void LinearInterpolate::scatterParticles(std::complex<double>** fields,
                                          std::vector<double> px, std::vector<double> py,
                                          int N_fields, int N_particles,
                                          std::vector<std::vector<double>> weights) {
+    double S [Nx*Ny] = {0};
+    for (int f = 0; f < N_fields; f++) {
+        // Presumably there are fewer fields than there are particles.
+        // This ordering allows us to parallelize at the relatively low
+        // cost of extra computation of indices etc.
+        #pragma omp parallel for reduction(+:S[:Nx*Ny])
+        for (int p = 0; p < N_particles; p++) {
 
-    for (int p = 0; p < N_particles; p++) {
+            double x_p = px[p];
+            double y_p = py[p];
 
-        double x_p = px[p];
-        double y_p = py[p];
+            // We convert from cartesian to logical space
+            int lc_x = floor((x_p - x[0])/dx);
+            int lc_y = floor((y_p - y[0])/dy);
 
-        // We convert from cartesian to logical space
-        int lc_x = floor((x_p - x[0])/dx);
-        int lc_y = floor((y_p - y[0])/dy);
+            const int lc_x_p1 = (lc_x+1) % Nx;
+            const int lc_y_p1 = (lc_y+1) % Ny;
 
-        const int lc_x_p1 = (lc_x+1) % Nx;
-        const int lc_y_p1 = (lc_y+1) % Ny;
+            const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
+            const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
+            const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
+            const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
 
-        const int ld = computeIndex(lc_x   , lc_y   ); // (left, down)  lc_x,   lc_y
-        const int lu = computeIndex(lc_x   , lc_y_p1); // (left, up)    lc_x,   lc_y+1
-        const int rd = computeIndex(lc_x_p1, lc_y   ); // (rite, down)  lc_x+1, lc_y
-        const int ru = computeIndex(lc_x_p1, lc_y_p1); // (rite, up)    lc_x+1, lc_y+1
+            double xNode = this->x[lc_x];
+            double yNode = this->y[lc_y];
 
-        double xNode = this->x[lc_x];
-        double yNode = this->y[lc_y];
-
-        // We compute the fractional distance of a particle from
-        // the nearest node.
-        // eg x=[0,.1,.2,.3], particleX = [.225]
-        // The particle's fractional is 1/4
-        double fx = (x_p - xNode)/dx;
-        double fy = (y_p - yNode)/dy;
-
-        for (int f = 0; f < N_fields; f++) {
+            // We compute the fractional distance of a particle from
+            // the nearest node.
+            // eg x=[0,.1,.2,.3], particleX = [.225]
+            // The particle's fractional is 1/4
+            double fx = (x_p - xNode)/dx;
+            double fy = (y_p - yNode)/dy;
+            
             double w = weights[f][p];
-            fields[f][ld] += (1-fx)*(1-fy)*w;
-            fields[f][lu] += (1-fx)*(  fy)*w;
-            fields[f][rd] += (  fx)*(1-fy)*w;
-            fields[f][ru] += (  fx)*(  fy)*w;
+            S[ld] += (1-fx)*(1-fy)*w;
+            S[lu] += (1-fx)*(  fy)*w;
+            S[rd] += (  fx)*(1-fy)*w;
+            S[ru] += (  fx)*(  fy)*w;
+        }
+        for (int i = 0; i < Nx*Ny; i++) {
+            fields[f][i] = S[i];
+            S[i] = 0;
         }
     }
 }

@@ -10,9 +10,10 @@
 #include <sys/time.h>
 
 #include "Derivative.h"
-#include "Interpolate.h"
-#include "LinearInterpolate.h"
-#include "QuadraticInterpolate.h"
+#include "./Interpolate_Schemes/Interpolate.h"
+#include "./Interpolate_Schemes/LinearInterpolate.h"
+#include "./Interpolate_Schemes/QuadraticInterpolate.h"
+#include "./Interpolate_Schemes/CubicInterpolate.h"
 #include "FFT.h"
 #include "FD6.h"
 
@@ -91,6 +92,8 @@ class MOLTEngine {
                 interpolate_utility = new LinearInterpolate(Nx, Ny, x, y);
             } else if (interpolateMethod == Interpolate::Quadratic) {
                 interpolate_utility = new QuadraticInterpolate(Nx, Ny, x, y);
+            } else if (interpolateMethod == Interpolate::Cubic) {
+                interpolate_utility = new CubicInterpolate(Nx, Ny, x, y);
             } else {
                 std::cout << "NO SUCH INTERPOLATE METHOD" << std::endl;
                 throw -1;
@@ -107,7 +110,7 @@ class MOLTEngine {
             } else if (updateMethod == MOLTEngine::DIRK3) {
 
             } else if (updateMethod == MOLTEngine::CDF2) {
-                beta = std::sqrt(2);
+                beta = std::sqrt(2.0);
             } else {
                 throw -1;
             }
@@ -272,16 +275,11 @@ class MOLTEngine {
                 rho_eles[i] = 0.0;
             }
 
-            std::cout << "w_ele*q_ele/(dx*dy): " << w_ele*q_ele/(dx*dy) << std::endl;
-            std::cout << "w_ion*q_ion/(dx*dy): " << w_ele*q_ele/(dx*dy) << std::endl;
-
             std::vector<std::vector<double>> electron_weights(1, std::vector<double>(numElectrons, w_ele*q_ele/(dx*dy)));
             std::vector<std::vector<double>> ion_weights(1, std::vector<double>(numElectrons, w_ion*q_ion/(dx*dy)));
 
-            std::cout << "Scattering Particles" << std::endl;
-            interpolate_utility->scatterParticles(&rho_eles, *x_elec[lastStepIndex], *y_elec[lastStepIndex], 1, numElectrons, electron_weights);
             interpolate_utility->scatterParticles(&rho_ions, *x_elec[lastStepIndex], *y_elec[lastStepIndex], 1, numElectrons, ion_weights);
-            std::cout << "Scattered Particles" << std::endl;
+            interpolate_utility->scatterParticles(&rho_eles, *x_elec[lastStepIndex], *y_elec[lastStepIndex], 1, numElectrons, electron_weights);
 
             for (int i = 0; i < Nx*Ny; i++) {
                 for (int h = 0; h <= lastStepIndex; h++) {
@@ -353,6 +351,7 @@ class MOLTEngine {
             this->timeComponent4 = 0;
             this->timeComponent5 = 0;
             this->timeComponent6 = 0;
+            this->timeComponent7 = 0;
 
             this->updateMethod = updateMethod;
             this->rhoUpdate = rhoUpdate;
@@ -420,7 +419,9 @@ class MOLTEngine {
             computePhysicalDiagnostics();
         }
         void step();
-        void print();
+        void printAllData();
+        void printFieldData();
+        void printParticleData();
         double getTime();
         int getStep();
         double getGaugeL2();

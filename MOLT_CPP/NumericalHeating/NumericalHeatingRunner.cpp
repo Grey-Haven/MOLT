@@ -9,6 +9,7 @@
 #include <cmath>
 #include <random>
 #include "../MOLTEngine.h"
+#include "../Derivative.h"
 
 #include <stdio.h>
 #include <omp.h>
@@ -83,7 +84,6 @@ int main(int argc, char *argv[])
     // Set up nondimensional grid
     int N;
     sscanf (argv[1],"%d",&N);
-    // const int N = int(argv[1]);
     const int Nx = N;
     const int Ny = N;
     const double dx = (b_x-a_x)/(Nx);
@@ -91,6 +91,8 @@ int main(int argc, char *argv[])
 
     double x[Nx]; // [a_x,b_x)
     double y[Ny]; // [a_x,b_x)
+
+    std::string nxn = std::to_string(Nx) + "x" + std::to_string(Ny);
 
     for (int i = 0; i < Nx; i++) {
         x[i] = a_x + i*dx;
@@ -249,7 +251,7 @@ int main(int argc, char *argv[])
     // int N_steps = int(T_final / dt);
     const int N_steps = 1e6;
     const double dt = double(T_final) / double(N_steps);
-    const double MAX_DT = (L_x/double(N))/60.0;
+    const double MAX_DT = (L_x/double(N))/60.0; // for first paper CFL = 1, 2, 4, 8. Fixed mesh of 64x64. Do same with sheath.
 
     std::cout << dt << " < " << MAX_DT << std::endl;
     if (dt >= MAX_DT) {
@@ -308,99 +310,130 @@ int main(int argc, char *argv[])
     std::cout << "sigma_2 : " << sig_2 << std::endl;
     std::cout << "kappa: " << kappa << std::endl;
 
-    // std::cout << std::setprecision(15) << "dx = " << dx << " kappa = " << kappa << std::endl;
-    // std::cout << std::setprecision(15) << "sqrt(2)*kappa = " << sqrt(2)*kappa << std::endl;
-    // std::cout << std::setprecision(15) << "dt = " << dt << std::endl;
-
-    // int N_steps = floor(T_final / dt);
-   
-    std::string nxn = std::to_string(Nx) + "x" + std::to_string(Ny);
-
-    // std::cout << "MOLTing" << std::endl;
     MOLTEngine::RhoUpdate rhoUpdate;
-    MOLTEngine::NumericalMethod method;
+    Derivative::DerivativeMethod derivativeMethod;
+    Interpolate::InterpolateMethod interpolateMethod;
+    MOLTEngine::NumericalMethod numericalMethod;
+    MOLTEngine::MOLTMethod moltMethod;
 
-    if (strcmp(argv[2], "CONSERVING") == 0) {
+    if (strcmp(argv[2], "INTEGRAL") == 0) {
+        moltMethod = MOLTEngine::Integral;
+    } else if (strcmp(argv[2], "HELMHOLTZ") == 0) {
+        moltMethod = MOLTEngine::Helmholtz;
+    } else {
+        throw -1;
+    }
+
+    if (strcmp(argv[3], "CONSERVING") == 0) {
         rhoUpdate = MOLTEngine::CONSERVING;
-    } else if (strcmp(argv[2], "NAIVE") == 0) {
+    } else if (strcmp(argv[3], "NAIVE") == 0) {
         rhoUpdate = MOLTEngine::NAIVE;
     } else {
         throw -1;
     }
 
-    if (strcmp(argv[3], "BDF1") == 0) {
-        method = MOLTEngine::BDF1;
-    } else if (strcmp(argv[3], "BDF2") == 0) {
-        method = MOLTEngine::BDF2;
-    } else if (strcmp(argv[3], "CDF1") == 0) {
-        method = MOLTEngine::CDF1;
-    } else if (strcmp(argv[3], "DIRK2") == 0) {
-        method = MOLTEngine::DIRK2;
-    } else if (strcmp(argv[3], "DIRK3") == 0) {
-        method = MOLTEngine::DIRK3;
-    } else if (strcmp(argv[3], "MOLT_BDF1") == 0) {
-        method = MOLTEngine::MOLT_BDF1;
-    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FFT") == 0) {
-        method = MOLTEngine::MOLT_BDF1_HYBRID_FFT;
-    } else if (strcmp(argv[3], "MOLT_BDF1_HYBRID_FD6") == 0) {
-        method = MOLTEngine::MOLT_BDF1_HYBRID_FD6;
+    if (strcmp(argv[4], "BDF1") == 0) {
+        numericalMethod = MOLTEngine::BDF1;
+    } else if (strcmp(argv[4], "BDF2") == 0) {
+        numericalMethod = MOLTEngine::BDF2;
+    } else if (strcmp(argv[4], "CDF2") == 0) {
+        numericalMethod = MOLTEngine::CDF2;
+    } else if (strcmp(argv[4], "DIRK2") == 0) {
+        numericalMethod = MOLTEngine::DIRK2;
+    } else if (strcmp(argv[4], "DIRK3") == 0) {
+        numericalMethod = MOLTEngine::DIRK3;
     } else {
         throw -1;
     }
+
+    if (strcmp(argv[5], "MOLT") == 0) {
+        derivativeMethod = Derivative::MOLT;
+    } else if (strcmp(argv[5], "FFT") == 0) {
+        derivativeMethod = Derivative::FFT;
+    } else if (strcmp(argv[5], "FD6") == 0) {
+        derivativeMethod = Derivative::FD6;
+    } else {
+        throw -1;
+    }
+
+    bool correctGauge = false;
+
+    if (strcmp(argv[6], "CORRECT_GAUGE") == 0) {
+        correctGauge = true;
+    } else {
+        correctGauge = false;
+    }
+
+    // if (strcmp(argv[7], "QUADRATIC") == 0) {
+    interpolateMethod = Interpolate::Quadratic;
+    // } else {
+    //     throw -1;
+    // }
+
     std::string subpath = "";
 
+    if (moltMethod == MOLTEngine::Integral) {
+        subpath += "Integral";
+    } else if (moltMethod == MOLTEngine::Helmholtz) {
+        subpath += "Helmholtz";
+    }
+
     if (rhoUpdate == MOLTEngine::CONSERVING) {
-        subpath += "conserving";
+        subpath += "/conserving";
     } else if (rhoUpdate == MOLTEngine::NAIVE) {
-        subpath += "naive";
+        subpath += "/naive";
     }
 
-    if (method == MOLTEngine::BDF1) {
+    if (numericalMethod == MOLTEngine::BDF1) {
         subpath += "/BDF1";
-    } else if (method == MOLTEngine::BDF2) {
+    } else if (numericalMethod == MOLTEngine::BDF2) {
         subpath += "/BDF2";
-    } else if (method == MOLTEngine::DIRK2) {
+    } else if (numericalMethod == MOLTEngine::DIRK2) {
         subpath += "/DIRK2";
-    } else if (method == MOLTEngine::DIRK3) {
+    } else if (numericalMethod == MOLTEngine::DIRK3) {
         subpath += "/DIRK3";
-    } else if (method == MOLTEngine::CDF1) {
-        subpath += "/CDF1";
-    } else if (method == MOLTEngine::MOLT_BDF1) {
-        subpath += "/MOLT_BDF1";
-    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FFT) {
-        subpath += "/MOLT_BDF1_HYBRID_FFT";
-    } else if (method == MOLTEngine::MOLT_BDF1_HYBRID_FD6) {
-        subpath += "/MOLT_BDF1_HYBRID_FD6";
+    } else if (numericalMethod == MOLTEngine::CDF2) {
+        subpath += "/CDF2";
     }
 
-    uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    if (derivativeMethod == Derivative::DerivativeMethod::MOLT) {
+        subpath += "/MOLT_deriv";
+    } else if (derivativeMethod == Derivative::DerivativeMethod::FFT) {
+        subpath += "/FFT_deriv";
+    } else if (derivativeMethod == Derivative::DerivativeMethod::FD6) {
+        subpath += "/FD6_deriv";
+    }
 
-    std::string path = "./results/" + subpath + "/" + nxn + "/" + "run_" + std::to_string(timestamp);
-    std::cout << path << std::endl;
+    if (interpolateMethod == Interpolate::Linear) {
+        subpath += "/linear_interpolate";
+    } else if (interpolateMethod == Interpolate::Quadratic) {
+        subpath += "/quadratic_interpolate";
+    }
+
+    std::cout << "Arguments:" << std::endl;
+
+    std::cout << argv[1] << std::endl;
+    std::cout << argv[2] << std::endl;
+    std::cout << argv[3] << std::endl;
+    std::cout << argv[4] << std::endl;
+    std::cout << argv[5] << std::endl;
+    std::cout << argv[6] << std::endl;
+
+    // uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+    std::string savePath = "./results/" + subpath + "/" + nxn + "/" + "run" + (correctGauge ? "_correct_gauge" : "");
+    std::string debugPath = "./debug/" + subpath + "/" + nxn;
+    std::cout << savePath << std::endl;
 
     // Create results folder
-    std::filesystem::create_directories(path);
-    // std::filesystem::create_directories(path + "/particles");
-    // std::filesystem::create_directories(path + "/phi");
-    // std::filesystem::create_directories(path + "/A1");
-    // std::filesystem::create_directories(path + "/A2");
-    // std::filesystem::create_directories(path + "/ddx_phi");
-    // std::filesystem::create_directories(path + "/ddx_A1");
-    // std::filesystem::create_directories(path + "/ddx_A2");
-    // std::filesystem::create_directories(path + "/ddy_phi");
-    // std::filesystem::create_directories(path + "/ddy_A1");
-    // std::filesystem::create_directories(path + "/ddy_A2");
-    // std::filesystem::create_directories(path + "/rho");
-    // std::filesystem::create_directories(path + "/J1");
-    // std::filesystem::create_directories(path + "/J2");
-    // std::filesystem::create_directories(path + "/ddt_phi");
+    std::filesystem::create_directories(savePath);
 
     MOLTEngine molt(Nx, Ny, numParticles, numHalfParticles, N_h, x, y,
                     x1_elec_hist, x2_elec_hist, v1_elec_hist, v2_elec_hist,
                     x1_ion, x2_ion, v1_ion, v2_ion,
                     dx, dy, dt, sig_1, sig_2, kappa, q_elec, m_elec, q_ions, m_ions,
-                    macroparticleWeight_elec, macroparticleWeight_ion, method, rhoUpdate, path);
-
+                    macroparticleWeight, macroparticleWeight,
+                    numericalMethod, moltMethod, rhoUpdate, derivativeMethod, interpolateMethod, correctGauge, savePath, debugPath, false);
 
     struct timeval begin, end;
     gettimeofday( &begin, NULL );
@@ -412,9 +445,14 @@ int main(int argc, char *argv[])
     std::vector<double> gauss_L2_divA(N_steps+1);
     std::vector<double> gauss_L2_wave(N_steps+1);
     std::vector<double> rho_total(N_steps+1);
+    std::vector<double> rho_elec(N_steps+1);
+    std::vector<double> rho_ions(N_steps+1);
     std::vector<double> mass_total(N_steps+1);
+    std::vector<double> kinetic_energy(N_steps+1);
+    std::vector<double> potential_energy(N_steps+1);
     std::vector<double> energy_total(N_steps+1);
     std::vector<double> temperature(N_steps+1);
+    std::vector<double> totalMomentum(N_steps+1);
     
     molt.computePhysicalDiagnostics();
 
@@ -422,66 +460,82 @@ int main(int argc, char *argv[])
     gauss_L2_divA[0] = molt.getGaussL2_divA();
     gauss_L2_wave[0] = molt.getGaussL2_wave();
     gauge_L2[0] = molt.getGaugeL2();
+    rho_elec[0] = molt.getElecCharge();
+    rho_ions[0] = molt.getIonsCharge();
     rho_total[0] = molt.getTotalCharge();
+    kinetic_energy[0] = molt.getKineticEnergy();
+    potential_energy[0] = molt.getPotentialEnergy();
     energy_total[0] = molt.getTotalEnergy();
     mass_total[0] = molt.getTotalMass();
     temperature[0] = molt.getTemperature();
+    totalMomentum[0] = molt.getTotalMomentum();
 
     std::ofstream gaugeFile;
     std::ofstream gaussFile;
-    std::ofstream rhoFile;
+    std::ofstream chargeFile;
     std::ofstream energyFile;
     std::ofstream massFile;
     std::ofstream tempFile;
-
-    molt.step();
-    // return 0;
+    std::ofstream momFile;
 
     for (int n = 0; n < N_steps; n++) {
+        // if (n % 500 == 0) {
+        //     molt.print();
+        // }
         if (n % 1000 == 0) {
             std::cout << "Step: " << n << "/" << N_steps << " = " << 100*(double(n)/double(N_steps)) << "\% complete" << std::endl;
         }
         if (n % (N_steps / 100) == 0) {
-            gaugeFile.open(path + "/gauge_" + nxn + "_unfinished_recent" + ".csv");
+            gaugeFile.open(savePath + "/gauge_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 gaugeFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauge_L2[n_sub] << std::endl;
             }
             gaugeFile.close();
-            gaussFile.open(path + "/gauss_" + nxn + "_unfinished_recent" + ".csv");
+            gaussFile.open(savePath + "/gauss_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 gaussFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << gauss_L2_divE[n_sub] << "," << gauss_L2_divA[n_sub] << "," << gauss_L2_wave[n_sub] << std::endl;
             }
             gaussFile.close();
-            rhoFile.open(path + "/rho_total_" + nxn + "_unfinished_recent" + ".csv");
+            chargeFile.open(savePath + "/charge_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
-                rhoFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_total[n_sub] << std::endl;
+                chargeFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << rho_elec[n_sub] << "," << rho_ions[n_sub] << "," << rho_total[n_sub] << std::endl;
             }
-            rhoFile.close();
-            energyFile.open(path + "/energy_" + nxn + "_unfinished_recent" + ".csv");
+            chargeFile.close();
+            energyFile.open(savePath + "/energy_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
-                energyFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << energy_total[n_sub] << std::endl;
+                energyFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << kinetic_energy[n_sub] << "," << potential_energy[n_sub] << "," << energy_total[n_sub] << std::endl;
             }
             energyFile.close();
-            massFile.open(path + "/mass_" + nxn + "_unfinished_recent" + ".csv");
+            massFile.open(savePath + "/mass_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 massFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << mass_total[n_sub] << std::endl;
             }
             massFile.close();
-            tempFile.open(path + "/temperature_" + nxn + "_unfinished_recent" + ".csv");
+            tempFile.open(savePath + "/temperature_" + nxn + ".csv");
             for (int n_sub = 0; n_sub < n; n_sub++) {
                 tempFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << temperature[n_sub] << std::endl;
             }
             tempFile.close();
+            momFile.open(savePath + "/total_momentum_" + nxn + ".csv");
+            for (int n_sub = 0; n_sub < n; n_sub++) {
+                momFile << std::setprecision(16) << std::to_string(dt*n_sub) << "," << totalMomentum[n_sub] << std::endl;
+            }
+            momFile.close();
         }
         molt.step();
         gauge_L2[n+1] = molt.getGaugeL2();
         gauss_L2_divE[n+1] = molt.getGaussL2_divE();
         gauss_L2_divA[n+1] = molt.getGaussL2_divA();
         gauss_L2_wave[n+1] = molt.getGaussL2_wave();
+        rho_elec[n+1] = molt.getElecCharge();
+        rho_ions[n+1] = molt.getIonsCharge();
         rho_total[n+1] = molt.getTotalCharge();
         mass_total[n+1] = molt.getTotalMass();
+        kinetic_energy[n+1] = molt.getKineticEnergy();
+        potential_energy[n+1] = molt.getPotentialEnergy();
         energy_total[n+1] = molt.getTotalEnergy();
         temperature[n+1] = molt.getTemperature();
+        totalMomentum[n+1] = molt.getTotalMomentum();
 
     }
     std::cout << "Done running!" << std::endl;
@@ -493,36 +547,41 @@ int main(int argc, char *argv[])
     // }
     molt.printTimeDiagnostics();
 
-    gaugeFile.open(path + "/gauge_" + nxn + ".csv");
+    gaugeFile.open(savePath + "/gauge_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         gaugeFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauge_L2[n] << std::endl;
     }
     gaugeFile.close();
-    gaussFile.open(path + "/gauss_" + nxn + ".csv");
+    gaussFile.open(savePath + "/gauss_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         gaussFile << std::setprecision(16) << std::to_string(dt*n) << "," << gauss_L2_divE[n] << "," << gauss_L2_divA[n] << "," << gauss_L2_wave[n] << std::endl;
     }
     gaussFile.close();
-    rhoFile.open(path + "/rho_total_" + nxn + ".csv");
+    chargeFile.open(savePath + "/charge_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
-        rhoFile << std::setprecision(16) << std::to_string(dt*n) << "," << rho_total[n] << std::endl;
+        chargeFile << std::setprecision(16) << std::to_string(dt*n) << ","  << rho_elec[n] << "," << rho_ions[n] << "," << rho_total[n] << std::endl;
     }
-    rhoFile.close();
-    energyFile.open(path + "/energy_" + nxn + ".csv");
+    chargeFile.close();
+    energyFile.open(savePath + "/energy_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
-        energyFile << std::setprecision(16) << std::to_string(dt*n) << "," << energy_total[n] << std::endl;
+        energyFile << std::setprecision(16) << std::to_string(dt*n) << "," << kinetic_energy[n] << "," << potential_energy[n] << "," << energy_total[n] << std::endl;
     }
     energyFile.close();
-    massFile.open(path + "/mass_" + nxn + ".csv");
+    massFile.open(savePath + "/mass_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
         massFile << std::setprecision(16) << std::to_string(dt*n) << "," << mass_total[n] << std::endl;
     }
     massFile.close();
-    tempFile.open(path + "/temperature_" + nxn + ".csv");
+    tempFile.open(savePath + "/temperature_" + nxn + ".csv");
     for (int n = 0; n < N_steps+1; n++) {
-        massFile << std::setprecision(16) << std::to_string(dt*n) << "," << temperature[n] << std::endl;
+        tempFile << std::setprecision(16) << std::to_string(dt*n) << "," << temperature[n] << std::endl;
     }
     tempFile.close();
+    momFile.open(savePath + "/total_momentum_" + nxn + ".csv");
+    for (int n = 0; n < N_steps+1; n++) {
+        momFile << std::setprecision(16) << std::to_string(dt*n) << "," << totalMomentum[n] << std::endl;
+    }
+    momFile.close();
 
     return 0;
 }
