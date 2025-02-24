@@ -7,10 +7,15 @@ CC = gcc
 # Compiler flags
 CFLAGS = -Wall -g -lfftw3 -lm -lstdc++ -fopenmp
 
-OBJS = QuadraticInterpolate.o LinearInterpolate.o Derivative.o FD6.o FFT.o MOLTEngine.o
+INTERP_LIBS = ./Interpolate_Schemes/QuarticInterpolate.o ./Interpolate_Schemes/CubicInterpolate.o ./Interpolate_Schemes/QuadraticInterpolate.o ./Interpolate_Schemes/LinearInterpolate.o
+
+OBJS =  ./Derivative.o ./FFT.o ./FD6.o ./MOLTEngine.o
 
 # Target for building the executable
-all: $(OBJS)
+all: $(INTERP_LIBS)
+
+$(INTERP_LIBS): $(OBJS)
+	$(MAKE) -C ./Interpolate_Schemes/
 
 Derivative.o: Derivative.cpp Derivative.h
 	$(CC) $(CFLAGS) -c Derivative.cpp
@@ -21,18 +26,12 @@ FFT.o: FFT.cpp FFT.h Derivative.h
 FD6.o: FD6.cpp FD6.h Derivative.h
 	$(CC) $(CFLAGS) -c FD6.cpp
 
-LinearInterpolate.o: LinearInterpolate.cpp LinearInterpolate.h Interpolate.h
-	$(CC) $(CFLAGS) -c LinearInterpolate.cpp
-
-QuadraticInterpolate.o: QuadraticInterpolate.cpp QuadraticInterpolate.h Interpolate.h
-	$(CC) $(CFLAGS) -c QuadraticInterpolate.cpp
-
-MOLTEngine.o: MOLTEngine.cpp MOLTEngine.h Derivative.h FD6.h FFT.h Interpolate.h
+MOLTEngine.o: MOLTEngine.cpp MOLTEngine.h Derivative.h FD6.h FFT.h ./Interpolate_Schemes/Interpolate.h
 	$(CC) $(CFLAGS) -c MOLTEngine.cpp
-
 
 # Clean target to remove object files and executable
 clean:
+	$(MAKE) -C ./Interpolate_Schemes/ clean
 	rm -f *.o
 
 iter:
